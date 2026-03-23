@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+
+  web-frontend:
+    build: 
+      context: ./Client_service
+      dockerfile: Dockerfile
+    container_name: client_app
+    ports:
+      - "8501:8501" 
+    volumes:
+      - ./Client_service:/app      
+    depends_on:
+      - server_service             
+
+  
+  server_service:
+    build: 
+      context: ./Server_service    
+      dockerfile: Dockerfile
+    container_name: server_app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=mysql+pymysql://precisioncast:precisioncast123@mariadb:3306/precisioncast
+    volumes:
+      - ./Server_service:/app      
+    depends_on:
+      mariadb:
+        condition: service_healthy 
+
+ 
+  mariadb:
+    image: mariadb:10.11
+    container_name: precisioncast-mariadb
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=precisioncast
+      - MYSQL_USER=precisioncast
+      - MYSQL_PASSWORD=precisioncast123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# Khai báo volume dùng chung
+volumes:
+  mariadb_data:
