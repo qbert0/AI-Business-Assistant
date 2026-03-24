@@ -1,24 +1,34 @@
-# Sử dụng image Python nhẹ nhàng
-FROM python:3.11-slim
+# Build Stage 1
 
-# Thiết lập thư mục làm việc trong container
+FROM node:22-alpine AS build
 WORKDIR /app
 
-# Cập nhật hệ thống cơ bản
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN corepack enable
 
-# Copy file requirements và cài đặt
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy package.json and your lockfile, here we add pnpm-lock.yaml for illustration
+COPY package.json pnpm-lock.yaml .npmrc ./
 
-# Copy toàn bộ code vào container
-COPY . .
+# Install dependencies
+RUN pnpm i
 
-# Mở cổng mặc định của Streamlit
-EXPOSE 8501
+# Copy the entire project
+COPY . ./
 
-# Lệnh khởi chạy ứng dụng khi container bắt đầu
-CMD ["streamlit", "run", "app.main.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Build the project
+RUN pnpm run build
+
+# Build Stage 2
+
+FROM node:22-alpine
+WORKDIR /app
+
+# Only `.output` folder is needed from the build stage
+COPY --from=build /app/.output/ ./
+
+# Change the port and host
+ENV PORT=80
+ENV HOST=0.0.0.0
+
+EXPOSE 80
+
+CMD ["node", "/app/server/index.mjs"]
