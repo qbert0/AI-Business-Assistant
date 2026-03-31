@@ -1,21 +1,15 @@
-# Sử dụng Python image nhẹ
+# Sử dụng Python 3.10 (hoặc bản bạn đang dùng)
 FROM python:3.10-slim
 
 # Thiết lập thư mục làm việc trong container
 WORKDIR /app
 
-# Copy file requirements trước để tận dụng cache của Docker khi build
+# Copy và cài đặt thư viện trước (giúp build nhanh hơn ở các lần sau)
 COPY requirements.txt .
-
-# Cài đặt các thư viện
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy toàn bộ code vào thư mục /app trong container
+# Copy toàn bộ code vào container
 COPY . .
 
-# Mở cổng 8000
-EXPOSE 8000
-
-# Lệnh khởi chạy server (uvicorn)
-# Chú ý: trỏ vào app.main:app vì code nằm trong thư mục app/
+# Chạy server FastAPI (Lưu ý: do code của bạn nằm trong thư mục 'app', nên gọi là app.main:app)
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

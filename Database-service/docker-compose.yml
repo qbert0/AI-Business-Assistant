@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  mariadb:
+    image: mariadb:11.2  # Sử dụng bản 11.2 (hoặc mới nhất) để hỗ trợ tốt nhất kiểu UUID
+    container_name: mariadb_app
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpassword     # Mật khẩu root (bạn có thể đổi)
+      MARIADB_DATABASE: my_database           # Tên DB sẽ được tạo tự động
+      MARIADB_USER: app_user                  # Tên user
+      MARIADB_PASSWORD: app_password          # Mật khẩu cho user
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql           # Mount volume để không mất dữ liệu khi tắt container
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # Map file SQL vào thư mục khởi tạo tự động
+
+volumes:
+  mariadb_data:

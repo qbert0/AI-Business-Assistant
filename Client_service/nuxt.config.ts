@@ -2,15 +2,22 @@
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
+  modules: [
+    '@nuxtjs/tailwindcss',
+    'shadcn-nuxt',
+    '@nuxt/icon',
+    '@nuxt/image',
+    '@nuxtjs/google-fonts'
+  ], 
   devtools: { enabled: true },
-  modules: ['@nuxtjs/tailwindcss', 'shadcn-nuxt'], 
+  css: ['./app/assets/css/main.css'],
   vite: {
     optimizeDeps: {
       include: [
         '@vue/devtools-core',
         '@vue/devtools-kit',
       ]
-    }
+    },
   },
   shadcn: {
     /**
@@ -22,5 +29,10 @@ export default defineNuxtConfig({
      * @default "./components/ui"
      */
     componentDir: './components/ui'
+  },
+  googleFonts: {
+    families: {
+      Montserrat: true,
+    }
   }
 })
