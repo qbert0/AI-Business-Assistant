@@ -1,18 +1,38 @@
+import type { LoginInput } from '@/schemas/auth'
+import { APP_ROUTES } from '@/constants/navigation'
+import { AUTH_REDIRECT_QUERY, getAuthRedirectTarget } from '@/utils/auth-redirect'
+
 export const useAuth = () => {
-  // Sử dụng cookie để lưu token đăng nhập (tên cookie là 'auth_token')
-  const token = useCookie('auth_token')
+  const auth = useAuthStore()
+  const route = useRoute()
 
-  // Hàm xử lý đăng nhập (giả lập)
-  const login = () => {
-    token.value = 'my-secret-token-123' // Gán token khi đăng nhập thành công
-    navigateTo('/dashboard')            // Chuyển hướng vào app
+  const login = async (payload: LoginInput = { email: 'chau@example.com', password: 'demo123456' }) => {
+    const ok = await auth.login(payload)
+    if (ok) {
+      return navigateTo(getAuthRedirectTarget(route.query[AUTH_REDIRECT_QUERY]))
+    }
+    return false
   }
 
-  // Hàm xử lý đăng xuất
-  const logout = () => {
-    token.value = null                  // Xóa token
-    navigateTo('/login')                // Đuổi ra ngoài trang đăng nhập
+  const logout = async () => {
+    await auth.logout()
+    return navigateTo(APP_ROUTES.authLogin)
   }
 
-  return { token, login, logout }
+  return {
+    user: computed(() => auth.user ?? {
+      id: '',
+      name: '',
+      email: '',
+      title: '',
+      role: 'user' as const
+    }),
+    isAuthenticated: computed(() => auth.isAuthenticated),
+    isReady: computed(() => auth.isReady),
+    isLoading: computed(() => auth.isLoading),
+    error: computed(() => auth.error),
+    hydrate: auth.hydrate,
+    login,
+    logout
+  }
 }

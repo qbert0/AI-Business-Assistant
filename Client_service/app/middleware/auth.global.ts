@@ -1,23 +1,26 @@
-export default defineNuxtRouteMiddleware((to, from) => {
-  // Lấy token từ cookie
-  const token = useCookie('auth_token')
+import { APP_ROUTES } from '@/constants/navigation'
+import { AUTH_REDIRECT_QUERY, getAuthRedirectTarget } from '@/utils/auth-redirect'
 
-  // Khai báo những trang ai cũng vào được (Public routes)
-  const publicRoutes = ['/login', '/register']
+export default defineNuxtRouteMiddleware(async (to) => {
+  const auth = useAuthStore()
+  const publicRoutes = [APP_ROUTES.home, APP_ROUTES.authLogin, APP_ROUTES.authRegister]
+  const isOrganizationPublicRoute = /^\/org\/[^/]+\/public\/?$/.test(to.path)
+  const isPublicRoute = publicRoutes.includes(to.path) || isOrganizationPublicRoute
 
-  // TRƯỜNG HỢP 1: Chưa đăng nhập (không có token)
-  if (!token.value) {
-    // Nếu cố tình vào các trang KHÔNG nằm trong publicRoutes
-    if (!publicRoutes.includes(to.path)) {
-      return navigateTo('/login') // Bắt quay xe về trang đăng nhập
-    }
+  if (!auth.isReady) {
+    await auth.hydrate()
   }
 
-  // TRƯỜNG HỢP 2: Đã đăng nhập (có token)
-  if (token.value) {
-    // Nếu lại cố tình truy cập vào trang login hoặc register
-    if (publicRoutes.includes(to.path)) {
-      return navigateTo('/dashboard') // Đẩy thẳng vào dashboard, không cho log in lại
-    }
+  if (!auth.isAuthenticated && !isPublicRoute) {
+    return navigateTo({
+      path: APP_ROUTES.authLogin,
+      query: {
+        [AUTH_REDIRECT_QUERY]: to.fullPath
+      }
+    })
+  }
+
+  if (auth.isAuthenticated && [APP_ROUTES.authLogin, APP_ROUTES.authRegister].includes(to.path)) {
+    return navigateTo(getAuthRedirectTarget(to.query[AUTH_REDIRECT_QUERY]))
   }
 })

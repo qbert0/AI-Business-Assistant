@@ -4,35 +4,30 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   modules: [
     '@nuxtjs/tailwindcss',
-    'shadcn-nuxt',
     '@nuxt/icon',
     '@nuxt/image',
-    '@nuxtjs/google-fonts'
-  ], 
+    '@nuxtjs/google-fonts',
+    '@pinia/nuxt'
+  ],
   devtools: { enabled: true },
-  css: ['./app/assets/css/main.css'],
+  tailwindcss: {
+    cssPath: '~/assets/css/tailwind-core.css',
+    configPath: 'tailwind.config.ts'
+  },
   vite: {
     optimizeDeps: {
       include: [
         '@vue/devtools-core',
-        '@vue/devtools-kit',
+        '@vue/devtools-kit'
       ]
-    },
-  },
-  shadcn: {
-    /**
-     * Prefix for all the imported component
-     */
-    prefix: '',
-    /**
-     * Directory that the component lives in.
-     * @default "./components/ui"
-     */
-    componentDir: './components/ui'
+    }
   },
   googleFonts: {
     families: {
-      Montserrat: true,
-    }
+      Inter: [400, 500, 600, 700],
+      'Noto Sans': [400, 500, 600, 700]
+    },
+    subsets: ['latin', 'vietnamese'],
+    display: 'swap'
   }
 })

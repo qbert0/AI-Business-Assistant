@@ -1,50 +1,33 @@
-export default defineEventHandler(async (event) => {
-  // 1. Lấy mã 'code' từ URL do Google trả về
+import { createJwt } from '../../../utils/jwt'
+import { findUserByEmail, stripPassword } from '../../../utils/mockData'
+
+const AUTH_REDIRECT_QUERY = 'redirect'
+const DEFAULT_AUTH_REDIRECT = '/dashboard'
+
+export default defineEventHandler((event) => {
+  const user = findUserByEmail('chau@example.com')
   const query = getQuery(event)
-  const code = query.code
+  const redirectQuery = query[AUTH_REDIRECT_QUERY]
+  const redirect = Array.isArray(redirectQuery) ? redirectQuery[0] : redirectQuery
 
-  if (!code) {
-    throw createError({ statusCode: 400, statusMessage: 'Thiếu mã xác thực từ Google' })
+  if (!user) {
+    throw createError({ statusCode: 500, statusMessage: 'Demo user not found' })
   }
 
-  try {
-    // 2. Gọi API của Google để đổi 'code' lấy 'access_token'
-    const tokenResponse = await $fetch<any>('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      body: {
-        client_id: process.env.GOOGLE_CLIENT_ID,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET,
-        redirect_uri: process.env.GOOGLE_REDIRECT_URI,
-        grant_type: 'authorization_code',
-        code: code
-      }
-    })
+  const token = createJwt({ sub: user.id, email: user.email, role: user.role })
 
-    const accessToken = tokenResponse.access_token
+  setCookie(event, 'auth_token', token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 7
+  })
 
-    // 3. Dùng access_token để lấy thông tin cá nhân (email, tên, avatar)
-    const userInfo = await $fetch<any>('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    })
+  const redirectTarget =
+    typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.startsWith('/\\')
+      ? redirect
+      : DEFAULT_AUTH_REDIRECT
 
-    // --- Ở BƯỚC NÀY ---
-    // Trong thực tế: Bạn sẽ lưu userInfo.email vào Database của bạn, tạo một user mới nếu chưa có.
-    console.log('Thông tin người dùng:', userInfo)
-
-    // 4. Tạo phiên đăng nhập cho ứng dụng của bạn (Set Cookie)
-    // Giống như file composables/useAuth.ts chúng ta làm trước đó
-    setCookie(event, 'auth_token', 'my-secret-token-' + userInfo.id, {
-      httpOnly: false,
-      maxAge: 60 * 60 * 24 * 7 // Sống trong 7 ngày
-    })
-
-    // 5. Đăng nhập thành công, đá người dùng về trang Dashboard
-    return sendRedirect(event, '/dashboard')
-
-  } catch (error) {
-    console.error('Lỗi xác thực Google:', error)
-    return sendRedirect(event, '/login?error=auth_failed')
-  }
+  return sendRedirect(event, redirectTarget)
 })
