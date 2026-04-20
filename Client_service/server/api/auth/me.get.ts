@@ -1,15 +1,9 @@
-import { requireAuthPayload } from '../../utils/jwt'
-import { findUserById, stripPassword } from '../../utils/mockData'
+import { getBackendUser, mapUser } from '../../utils/backend'
 
-export default defineEventHandler((event) => {
-  const payload = requireAuthPayload(event)
-  const user = findUserById(payload.sub)
-
-  if (!user) {
-    throw createError({ statusCode: 401, statusMessage: 'User not found' })
-  }
+export default defineEventHandler(async (event) => {
+  const user = await getBackendUser(event)
 
   return {
-    user: stripPassword(user)
+    user: mapUser(user)
   }
 })

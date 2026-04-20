@@ -1,22 +1,30 @@
 import { z } from 'zod'
 import { AUTH_CLIENT_TOKEN_COOKIE, AUTH_TOKEN_COOKIE, AUTH_TOKEN_MAX_AGE } from '../../../app/constants/auth'
-import { createJwt } from '../../utils/jwt'
-import { findUserByEmail, stripPassword } from '../../utils/mockData'
+import { backendFetch, mapUser } from '../../utils/backend'
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8)
 })
 
+interface BackendLoginResponse {
+  access_token: string
+  token_type: string
+  user: {
+    id: string
+    email: string
+    full_name: string
+    public_profile?: string | null
+  }
+}
+
 export default defineEventHandler(async (event) => {
   const body = loginSchema.parse(await readBody(event))
-  const user = findUserByEmail(body.email)
-
-  if (!user || user.password !== body.password) {
-    throw createError({ statusCode: 401, statusMessage: 'Invalid email or password' })
-  }
-
-  const token = createJwt({ sub: user.id, email: user.email, role: user.role })
+  const response = await backendFetch<BackendLoginResponse>(event, '/auth/login', {
+    method: 'POST',
+    body
+  })
+  const token = response.access_token
 
   setCookie(event, AUTH_TOKEN_COOKIE, token, {
     httpOnly: true,
@@ -36,7 +44,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     token,
-    tokenType: 'Bearer',
-    user: stripPassword(user)
+    tokenType: response.token_type || 'Bearer',
+    user: mapUser(response.user)
   }
 })

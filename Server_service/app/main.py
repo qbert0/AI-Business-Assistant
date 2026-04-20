@@ -6,14 +6,22 @@ import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Iterable
+from urllib.parse import quote
 
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import Base, engine, get_db
+
+try:
+    import boto3
+    from botocore.exceptions import BotoCoreError, ClientError
+except ImportError:  # pragma: no cover - allows running without optional MinIO deps in limited dev setups
+    boto3 = None
+    BotoCoreError = ClientError = Exception
 from app import models, schemas
 
 
@@ -21,6 +29,11 @@ DEFAULT_USER_PERMISSIONS = ["chat_advisory", "read_documents"]
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-this-secret-in-production")
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+MINIO_BUCKET = os.getenv("MINIO_BUCKET", "business-documents")
+MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
 bearer_scheme = HTTPBearer()
 ADMIN_PERMISSIONS = [
     "access_org_settings",
@@ -56,7 +69,7 @@ tags_metadata = [
     {"name": "Billing", "description": "Goi thanh toan, checkout mock va cap nhat trang thai thanh toan."},
     {"name": "Notifications", "description": "Thong bao co link hanh dong cho user va to chuc."},
 ]
-
+models.Base.metadata.create_all(bind=engine)
 app = FastAPI(
     title="AI Business Assistant API",
     description=(
@@ -81,6 +94,46 @@ app.add_middleware(
 @app.on_event("startup")
 def startup() -> None:
     Base.metadata.create_all(bind=engine)
+
+
+
+def get_minio_client():
+    if not MINIO_ENDPOINT:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="MinIO endpoint chua duoc cau hinh.")
+    if boto3 is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Thu vien boto3 chua duoc cai dat.")
+    return boto3.client(
+        "s3",
+        endpoint_url=MINIO_ENDPOINT,
+        aws_access_key_id=MINIO_ACCESS_KEY,
+        aws_secret_access_key=MINIO_SECRET_KEY,
+        use_ssl=MINIO_SECURE,
+    )
+
+
+def ensure_minio_bucket(client) -> None:
+    try:
+        client.head_bucket(Bucket=MINIO_BUCKET)
+    except ClientError:
+        client.create_bucket(Bucket=MINIO_BUCKET)
+
+
+def upload_file_to_minio(org_id: str, file: UploadFile) -> str:
+    client = get_minio_client()
+    ensure_minio_bucket(client)
+    safe_name = quote(file.filename or "document", safe="._-")
+    object_key = f"organizations/{org_id}/{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{safe_name}"
+    try:
+        file.file.seek(0)
+        client.upload_fileobj(
+            file.file,
+            MINIO_BUCKET,
+            object_key,
+            ExtraArgs={"ContentType": file.content_type or "application/octet-stream"},
+        )
+    except (BotoCoreError, ClientError) as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Khong upload duoc file len MinIO: {exc}")
+    return f"s3://{MINIO_BUCKET}/{object_key}"
 
 
 def parse_json_list(raw: str | None) -> list:
@@ -673,6 +726,56 @@ def create_document(org_id: str, payload: schemas.DocumentCreate, db: Session = 
     db.refresh(document)
     return serialize_document(document)
 
+
+
+
+@app.post(
+    "/organizations/{org_id}/documents/upload",
+    response_model=schemas.DocumentRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Documents"],
+    summary="Upload file len MinIO va dang ky metadata tai lieu",
+)
+def upload_document_file(
+    org_id: str,
+    acting_user_id: str = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> schemas.DocumentRead:
+    get_org_or_404(db, org_id)
+    uploader = get_user_or_404(db, acting_user_id)
+    require_permission(db, org_id, acting_user_id, "upload_documents")
+    source_url = upload_file_to_minio(org_id, file)
+    document = models.Document(
+        organization_id=org_id,
+        uploaded_by_user_id=acting_user_id,
+        file_name=file.filename or "document",
+        source_url=source_url,
+        vector_index=f"org-{org_id}-documents",
+        metadata_json=json.dumps(
+            {
+                "uploaded_by_email": uploader.email,
+                "content_type": file.content_type,
+                "storage_provider": "minio",
+                "bucket": MINIO_BUCKET,
+            }
+        ),
+    )
+    db.add(document)
+    db.flush()
+    db.add(
+        models.PipelineEvent(
+            organization_id=org_id,
+            document_id=document.id,
+            actor_user_id=acting_user_id,
+            stage="upload",
+            status="processing",
+            message="File da duoc luu trong MinIO va metadata da duoc ghi vao database.",
+        )
+    )
+    db.commit()
+    db.refresh(document)
+    return serialize_document(document)
 
 @app.get("/organizations/{org_id}/documents", response_model=list[schemas.DocumentRead], tags=["Documents"], summary="Lay danh sach tai lieu cua to chuc")
 def list_documents(

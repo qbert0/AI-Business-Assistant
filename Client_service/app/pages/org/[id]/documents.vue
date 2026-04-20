@@ -138,9 +138,9 @@
         </label>
 
         <div v-if="pendingUploads.length" class="upload-file-list">
-          <div v-for="fileName in pendingUploads" :key="fileName" class="upload-file-row">
-            <Icon :name="getDocumentIcon(fileName)" />
-            <span>{{ fileName }}</span>
+          <div v-for="file in pendingUploads" :key="`${file.name}-${file.size}`" class="upload-file-row">
+            <Icon :name="getDocumentIcon(file.name)" />
+            <span>{{ file.name }}</span>
           </div>
         </div>
 
@@ -185,7 +185,7 @@ const openDocumentIds = ref<string[]>([])
 const selectedDocumentId = ref<string | null>(null)
 const isUploadOpen = ref(false)
 const isDragging = ref(false)
-const pendingUploads = ref<string[]>([])
+const pendingUploads = ref<File[]>([])
 
 const folderDefinitions = computed(() => [
   { id: DOCUMENT_FOLDER_IDS.people, name: text.documents.peopleFolder },
@@ -289,8 +289,14 @@ const getDocumentIcon = (title: string) => {
 }
 
 const syncPendingFiles = (files: FileList | File[]) => {
-  const fileNames = Array.from(files).map((file) => file.name)
-  pendingUploads.value = [...new Set([...pendingUploads.value, ...fileNames])]
+  const nextFiles = Array.from(files)
+  const byKey = new Map(pendingUploads.value.map((file) => [`${file.name}-${file.size}`, file]))
+
+  for (const file of nextFiles) {
+    byKey.set(`${file.name}-${file.size}`, file)
+  }
+
+  pendingUploads.value = [...byKey.values()]
 }
 
 const handleDrop = (event: DragEvent) => {
@@ -318,8 +324,8 @@ const clearUploadModal = () => {
 }
 
 const handleUpload = async () => {
-  for (const fileName of pendingUploads.value) {
-    await uploadDocument(slug.value, fileName)
+  for (const file of pendingUploads.value) {
+    await uploadDocument(slug.value, file)
   }
 
   clearUploadModal()

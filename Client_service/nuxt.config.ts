@@ -10,6 +10,9 @@ export default defineNuxtConfig({
     '@pinia/nuxt'
   ],
   devtools: { enabled: true },
+  runtimeConfig: {
+    backendApiBaseUrl: process.env.NUXT_BACKEND_API_BASE_URL || 'http://localhost:8000'
+  },
   tailwindcss: {
     cssPath: '~/assets/css/tailwind-core.css',
     configPath: 'tailwind.config.ts'

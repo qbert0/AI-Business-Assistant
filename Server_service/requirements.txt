@@ -4,3 +4,5 @@ sqlalchemy
 pymysql
 pydantic
 email-validator
+boto3
+python-multipart

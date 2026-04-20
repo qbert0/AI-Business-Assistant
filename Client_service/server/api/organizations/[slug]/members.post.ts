@@ -1,27 +1,55 @@
 import { z } from 'zod'
-import { requireAuthPayload } from '../../../utils/jwt'
-import { mockMembersByOrg } from '../../../utils/mockData'
+import { backendFetch, getBackendUser, mapMember } from '../../../utils/backend'
 
 const memberSchema = z.object({
-  name: z.string().min(2),
   email: z.string().email(),
-  department: z.string().min(2),
-  title: z.string().min(2),
-  role: z.string().min(2),
+  role: z.enum(['admin', 'user']).default('user'),
   permissions: z.array(z.string()).default([])
 })
 
+interface BackendUser {
+  id: string
+}
+
+interface BackendMember {
+  id: string
+  user_id: string
+  organization_id: string
+  role: 'admin' | 'user'
+  permissions: any[]
+  status: 'active' | 'invited' | 'disabled'
+  user: {
+    id: string
+    email: string
+    full_name: string
+    public_profile?: string | null
+  }
+}
+
 export default defineEventHandler(async (event) => {
-  requireAuthPayload(event)
-  const slug = getRouterParam(event, 'slug') || ''
+  const actingUser = await getBackendUser(event)
+  const orgId = getRouterParam(event, 'slug') || ''
   const body = memberSchema.parse(await readBody(event))
-  const member = {
-    ...body,
-    id: `m-${Date.now()}`,
-    status: 'invited' as const
+  const users = await backendFetch<BackendUser[]>(event, `/users?search=${encodeURIComponent(body.email)}&limit=10`)
+  const targetUser = users.find((user: any) => user.email === body.email)
+
+  if (!targetUser) {
+    throw createError({ statusCode: 404, statusMessage: 'Registered user not found' })
   }
 
-  mockMembersByOrg[slug] = [member, ...(mockMembersByOrg[slug] ?? [])]
+  const member = await backendFetch<BackendMember>(
+    event,
+    `/organizations/${orgId}/members?acting_user_id=${encodeURIComponent(actingUser.id)}`,
+    {
+      method: 'POST',
+      body: {
+        user_id: targetUser.id,
+        role: body.role,
+        permissions: body.permissions,
+        status: 'active'
+      }
+    }
+  )
 
-  return { member }
+  return { member: mapMember(member) }
 })

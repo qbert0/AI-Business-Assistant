@@ -1,14 +1,19 @@
-import { requireAuthPayload } from '../../../utils/jwt'
-import { mockOrganizations } from '../../../utils/mockData'
+import { backendFetch, mapOrganization } from '../../../utils/backend'
 
-export default defineEventHandler((event) => {
-  requireAuthPayload(event)
-  const slug = getRouterParam(event, 'slug')
-  const organization = mockOrganizations.find((item) => item.slug === slug)
+interface BackendOrganization {
+  id: string
+  name: string
+  industry?: string | null
+  description?: string | null
+  billing_status?: string | null
+}
 
-  if (!organization) {
-    throw createError({ statusCode: 404, statusMessage: 'Organization not found' })
+export default defineEventHandler(async (event) => {
+  const orgId = getRouterParam(event, 'slug')
+  if (!orgId) {
+    throw createError({ statusCode: 400, statusMessage: 'Organization id is required' })
   }
 
-  return { organization }
+  const organization = await backendFetch<BackendOrganization>(event, `/organizations/${orgId}`)
+  return { organization: mapOrganization(organization) }
 })

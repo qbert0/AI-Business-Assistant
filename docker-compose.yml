@@ -1,15 +1,16 @@
 services:
-  # web-frontend:
-  #   build:
-  #     context: ./Client_service
-  #     dockerfile: Dockerfile
-  #   container_name: client_app
-  #   ports:
-  #     - "8501:8501"
-  #   volumes:
-  #     - ./Client_service:/app
-  #   depends_on:
-  #     - server_service
+  web-frontend:
+    build:
+      context: ./Client_service
+      dockerfile: Dockerfile
+    container_name: client_app
+    ports:
+      - "8501:80"
+    environment:
+      - NUXT_BACKEND_API_BASE_URL=http://server_service:8000
+    depends_on:
+      - server_service
+    restart: unless-stopped
 
   mariadb:
     image: mariadb:10.11
@@ -31,6 +32,25 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio:latest
+    container_name: precisioncast-minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   server_service:
     build:
       context: ./Server_service
@@ -42,11 +62,20 @@ services:
       - DATABASE_URL=mysql+pymysql://precisioncast:precisioncast123@mariadb:3306/precisioncast
       - JWT_SECRET_KEY=change-this-local-dev-secret
       - ACCESS_TOKEN_EXPIRE_MINUTES=1440
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_BUCKET=business-documents
+      - MINIO_SECURE=false
     volumes:
       - ./Server_service:/app
     depends_on:
       mariadb:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   mariadb_data:
+  minio_data:
