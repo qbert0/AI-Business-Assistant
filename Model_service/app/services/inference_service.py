@@ -168,6 +168,67 @@ class InferenceService:
 
         raise ProviderRequestError("; ".join(errors) if errors else "No candidate model was available.")
 
+    def _build_stored_context_payload(
+        self,
+        context: ContextBuildResponse,
+        response_text: str | None = None,
+        error_message: str | None = None,
+    ) -> dict:
+        input_messages = [message.dict() for message in context.messages]
+        conversation_messages = [message.dict() for message in context.messages]
+        latest_user_message = context.messages[-1].content if context.messages else None
+        if response_text:
+            conversation_messages.append({"role": "assistant", "content": response_text})
+
+        return {
+            **context.dict(),
+            "input_messages": input_messages,
+            "conversation_messages": conversation_messages,
+            "latest_user_message": latest_user_message,
+            "latest_assistant_message": response_text,
+            "error_message": error_message,
+        }
+
+    def _build_snapshot_items(
+        self,
+        context: ContextBuildResponse,
+        response_text: str | None = None,
+        error_message: str | None = None,
+    ) -> list[dict]:
+        items = [item.dict() for item in context.context_items]
+
+        for index, message in enumerate(context.messages, start=1):
+            items.append(
+                {
+                    "title": f"Message {index}",
+                    "content": message.content,
+                    "source": f"message:{message.role}",
+                    "metadata": {"role": message.role, "kind": "message"},
+                }
+            )
+
+        if response_text:
+            items.append(
+                {
+                    "title": "Assistant response",
+                    "content": response_text,
+                    "source": "message:assistant",
+                    "metadata": {"role": "assistant", "kind": "response"},
+                }
+            )
+
+        if error_message:
+            items.append(
+                {
+                    "title": "Inference error",
+                    "content": error_message,
+                    "source": "system:error",
+                    "metadata": {"kind": "error"},
+                }
+            )
+
+        return items
+
     def create_inference(self, payload: InferenceCreate) -> InferenceResult:
         model, policy = self.registry_service.resolve_model(payload.model_id, payload.organization_id, payload.use_case)
         resolved_temperature = payload.temperature if payload.temperature is not None else (policy.temperature if policy else 0.2)
@@ -194,23 +255,10 @@ class InferenceService:
             policy_id=policy.id if policy else None,
             question=payload.question,
             request_payload_json=dump_json(payload.dict()),
-            assembled_context_json=dump_json(context.dict()),
+            assembled_context_json=dump_json(self._build_stored_context_payload(context)),
             status="running",
         )
         self.db.add(request_record)
-        self.db.flush()
-
-        snapshot = db_models.ContextSnapshot(
-            conversation_id=payload.conversation_id,
-            organization_id=payload.organization_id,
-            user_id=payload.user_id,
-            request_id=request_record.id,
-            query_text=payload.question,
-            items_json=dump_json([item.dict() for item in context.context_items]),
-            token_estimate=context.token_estimate,
-            source="assembled",
-        )
-        self.db.add(snapshot)
         self.db.flush()
 
         started_at = datetime.now(timezone.utc)
@@ -232,6 +280,9 @@ class InferenceService:
             request_record.finished_at = finished_at
             request_record.latency_ms = latency_ms
             request_record.error_message = None
+            request_record.assembled_context_json = dump_json(
+                self._build_stored_context_payload(context, response_text=output.response_text)
+            )
 
             response_record = db_models.InferenceResponse(
                 request_id=request_record.id,
@@ -244,6 +295,17 @@ class InferenceService:
                 estimated_cost=estimated_cost,
             )
             self.db.add(response_record)
+            snapshot = db_models.ContextSnapshot(
+                conversation_id=payload.conversation_id,
+                organization_id=payload.organization_id,
+                user_id=payload.user_id,
+                request_id=request_record.id,
+                query_text=payload.question,
+                items_json=dump_json(self._build_snapshot_items(context, response_text=output.response_text)),
+                token_estimate=context.token_estimate + max(1, len(output.response_text) // 4),
+                source="assembled_conversation",
+            )
+            self.db.add(snapshot)
             self.metrics_service.record_inference(
                 model_id=used_model.id,
                 finished_at=finished_at,
@@ -269,6 +331,20 @@ class InferenceService:
             request_record.finished_at = finished_at
             request_record.latency_ms = latency_ms
             request_record.error_message = str(exc)
+            request_record.assembled_context_json = dump_json(
+                self._build_stored_context_payload(context, error_message=str(exc))
+            )
+            snapshot = db_models.ContextSnapshot(
+                conversation_id=payload.conversation_id,
+                organization_id=payload.organization_id,
+                user_id=payload.user_id,
+                request_id=request_record.id,
+                query_text=payload.question,
+                items_json=dump_json(self._build_snapshot_items(context, error_message=str(exc))),
+                token_estimate=context.token_estimate,
+                source="assembled_conversation",
+            )
+            self.db.add(snapshot)
             self.metrics_service.record_inference(
                 model_id=model.id,
                 finished_at=finished_at,

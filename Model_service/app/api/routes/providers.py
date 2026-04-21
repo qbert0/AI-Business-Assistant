@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_settings
@@ -10,8 +10,11 @@ router = APIRouter(prefix="/providers", tags=["Providers"])
 
 
 @router.get("", response_model=list[ProviderRead], summary="Lay danh sach provider")
-def list_providers(db: Session = Depends(get_db)) -> list[ProviderRead]:
-    return RegistryService(db, get_settings()).list_providers()
+def list_providers(
+    name: str | None = Query(None, description="Tim provider theo ten"),
+    db: Session = Depends(get_db),
+) -> list[ProviderRead]:
+    return RegistryService(db, get_settings()).list_providers(name=name)
 
 
 @router.post("", response_model=ProviderRead, status_code=status.HTTP_201_CREATED, summary="Tao provider moi")

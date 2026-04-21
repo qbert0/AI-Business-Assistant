@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import Settings
@@ -73,8 +74,12 @@ class RegistryService:
             updated_at=policy.updated_at,
         )
 
-    def list_providers(self) -> list[ProviderRead]:
-        providers = self.db.query(db_models.Provider).order_by(db_models.Provider.name.asc()).all()
+    def list_providers(self, name: str | None = None) -> list[ProviderRead]:
+        query = self.db.query(db_models.Provider)
+        if name:
+            pattern = f"%{name.strip()}%"
+            query = query.filter(db_models.Provider.name.ilike(pattern))
+        providers = query.order_by(db_models.Provider.name.asc()).all()
         return [self._serialize_provider(provider) for provider in providers]
 
     def get_provider(self, provider_id: str) -> ProviderRead:
@@ -143,8 +148,17 @@ class RegistryService:
             query = query.filter(db_models.RegisteredModel.id != model_id)
         query.update({db_models.RegisteredModel.is_default: False}, synchronize_session=False)
 
-    def list_models(self, provider_id: str | None = None, is_active: bool | None = None) -> list[ModelRead]:
-        query = self.db.query(db_models.RegisteredModel).order_by(
+    def list_models(
+        self,
+        provider_id: str | None = None,
+        is_active: bool | None = None,
+        provider_name: str | None = None,
+        model_name: str | None = None,
+    ) -> list[ModelRead]:
+        query = self.db.query(db_models.RegisteredModel)
+        if provider_name:
+            query = query.join(db_models.RegisteredModel.provider)
+        query = query.order_by(
             db_models.RegisteredModel.is_default.desc(),
             db_models.RegisteredModel.priority.asc(),
             db_models.RegisteredModel.display_name.asc(),
@@ -153,6 +167,17 @@ class RegistryService:
             query = query.filter(db_models.RegisteredModel.provider_id == provider_id)
         if is_active is not None:
             query = query.filter(db_models.RegisteredModel.is_active == is_active)
+        if provider_name:
+            provider_pattern = f"%{provider_name.strip()}%"
+            query = query.filter(db_models.Provider.name.ilike(provider_pattern))
+        if model_name:
+            model_pattern = f"%{model_name.strip()}%"
+            query = query.filter(
+                or_(
+                    db_models.RegisteredModel.model_name.ilike(model_pattern),
+                    db_models.RegisteredModel.display_name.ilike(model_pattern),
+                )
+            )
         return [self._serialize_model(item) for item in query.all()]
 
     def get_model(self, model_id: str) -> ModelRead:

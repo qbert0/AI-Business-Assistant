@@ -61,7 +61,7 @@ services:
       - DATABASE_URL=mysql+pymysql://precisioncast:precisioncast123@mariadb:3306/precisioncast
       - JWT_SECRET_KEY=change-this-local-dev-secret
       - ACCESS_TOKEN_EXPIRE_MINUTES=1440
-      - MODEL_SERVICE_URL=http://model_service:8100
+      - MODEL_SERVICE_URL=http://model_service:8888
     volumes:
       - ./Server_service:/app
     depends_on:
@@ -76,7 +76,7 @@ services:
       dockerfile: Dockerfile
     container_name: model_service_app
     ports:
-      - "8100:8100"
+      - "8888:8888"
     environment:
       - DATABASE_URL=mysql+pymysql://model_service:model_service123@model_mariadb:3306/model_service
       - MODEL_SERVICE_SECRET_KEY=change-this-model-service-secret

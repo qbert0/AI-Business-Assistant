@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -34,3 +35,39 @@ class ContextBuildResponse(BaseModel):
     messages: list[ConversationMessage]
     context_items: list[ContextItem]
     token_estimate: int
+
+
+class StoredContextPayload(ContextBuildResponse):
+    input_messages: list[ConversationMessage] = Field(default_factory=list)
+    conversation_messages: list[ConversationMessage] = Field(default_factory=list)
+    latest_user_message: str | None = None
+    latest_assistant_message: str | None = None
+    error_message: str | None = None
+
+
+class StoredContextRead(BaseModel):
+    request_id: str
+    conversation_id: str | None
+    organization_id: str | None
+    user_id: str | None
+    query: str
+    context: StoredContextPayload
+    created_at: datetime
+
+
+class ContextSnapshotRead(BaseModel):
+    id: str
+    request_id: str | None
+    conversation_id: str | None
+    organization_id: str | None
+    user_id: str | None
+    query_text: str
+    context_items: list[ContextItem]
+    token_estimate: int
+    source: str
+    created_at: datetime
+
+
+class StoredContextDetail(BaseModel):
+    stored_context: StoredContextRead
+    snapshots: list[ContextSnapshotRead]

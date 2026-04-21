@@ -20,10 +20,17 @@ router = APIRouter(tags=["Registry"])
 @router.get("/models", response_model=list[ModelRead], summary="Lay danh sach model da dang ky")
 def list_models(
     provider_id: str | None = Query(None),
+    provider_name: str | None = Query(None, description="Tim theo ten provider"),
+    model_name: str | None = Query(None, description="Tim theo model_name hoac display_name"),
     is_active: bool | None = Query(None),
     db: Session = Depends(get_db),
 ) -> list[ModelRead]:
-    return RegistryService(db, get_settings()).list_models(provider_id=provider_id, is_active=is_active)
+    return RegistryService(db, get_settings()).list_models(
+        provider_id=provider_id,
+        provider_name=provider_name,
+        model_name=model_name,
+        is_active=is_active,
+    )
 
 
 @router.post("/models", response_model=ModelRead, status_code=status.HTTP_201_CREATED, summary="Dang ky model moi")
