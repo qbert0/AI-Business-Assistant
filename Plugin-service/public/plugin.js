@@ -1,73 +1,81 @@
-(function() {
-    window.AIChat = {
-        config: {},
-        isOpen: false,
+(function () {
+  const config = window.AI_CHAT_CONFIG || {};
+  if (!config.apiKey) {
+    console.error("AI Chat: Missing config file!");
+    return;
+  }
 
-        init: function(config) {
-            this.config = config;
-            // Thay bằng domain CDN thật khi deploy
-            this.baseUrl = 'http://localhost:8000'; 
-            this.createChatButton();
-            this.createIframe();
-            this.setupListeners();
-        },
+  const baseUrl = config.serverUrl;
 
-        createChatButton: function() {
-            const btn = document.createElement('div');
-            btn.id = 'ai-chat-trigger';
-            btn.innerHTML = '💬';
-            btn.style.cssText = `
-                position: fixed; bottom: 20px; right: 20px;
-                width: 60px; height: 60px; border-radius: 50%;
-                background: #0084ff; color: white;
-                display: flex; align-items: center; justify-content: center;
-                font-size: 30px; cursor: pointer;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                z-index: 9999; transition: transform 0.2s;
-            `;
-            btn.onmouseover = () => btn.style.transform = 'scale(1.05)';
-            btn.onmouseout = () => btn.style.transform = 'scale(1)';
-            btn.onclick = () => this.toggleChat();
-            document.body.appendChild(btn);
-        },
+  function createButton() {
+    const btn = document.createElement('div');
+    btn.innerHTML = config.buttonIcon || '💬';
 
-        createIframe: function() {
-            const iframe = document.createElement('iframe');
-            iframe.id = 'ai-chat-iframe';
-            // Truyền key qua URL params để iframe biết đang phục vụ ai
-            iframe.src = `${this.baseUrl}/chat.html?key=${this.config.apiKey}`;
-            iframe.style.cssText = `
-                position: fixed; bottom: 90px; right: 20px;
-                width: 380px; height: 600px; max-height: 80vh;
-                border: none; border-radius: 12px;
-                box-shadow: 0 5px 25px rgba(0,0,0,0.2);
-                z-index: 9999; background: transparent;
-                display: none; opacity: 0; transition: opacity 0.3s ease;
-            `;
-            document.body.appendChild(iframe);
-        },
+    btn.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      ${config.position === 'bottom-left' ? 'left: 20px;' : 'right: 20px;'}
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: ${config.primaryColor};
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      cursor: pointer;
+      z-index: 9999;
+    `;
 
-        toggleChat: function() {
-            const iframe = document.getElementById('ai-chat-iframe');
-            this.isOpen = !this.isOpen;
-            if (this.isOpen) {
-                iframe.style.display = 'block';
-                // Trigger reflow for transition
-                setTimeout(() => iframe.style.opacity = '1', 10);
-            } else {
-                iframe.style.opacity = '0';
-                setTimeout(() => iframe.style.display = 'none', 300);
-            }
-        },
+    btn.onclick = toggleChat;
+    document.body.appendChild(btn);
+  }
 
-        setupListeners: function() {
-            // Lắng nghe message từ bên trong iframe gửi ra
-            window.addEventListener('message', (event) => {
-                if (event.origin !== this.baseUrl) return; // Bảo mật
-                if (event.data === 'close-chat') {
-                    this.toggleChat();
-                }
-            });
-        }
-    };
+  function createIframe() {
+    const iframe = document.createElement('iframe');
+    iframe.id = 'ai-chat-frame';
+
+    const params = new URLSearchParams({
+      key: config.apiKey,
+      serverUrl: config.serverUrl,
+      apiPath: config.apiPath,
+      title: config.title,
+      subtitle: config.subtitle,
+      welcome: config.welcomeMessage,
+      color: config.primaryColor
+    });
+
+    iframe.src = `${baseUrl}/chat.html?${params.toString()}`;
+
+    iframe.style.cssText = `
+      position: fixed;
+      bottom: 90px;
+      ${config.position === 'bottom-left' ? 'left: 20px;' : 'right: 20px;'}
+      width: ${config.width}px;
+      height: ${config.height}px;
+      border: none;
+      border-radius: 12px;
+      display: none;
+      z-index: 9999;
+    `;
+
+    document.body.appendChild(iframe);
+  }
+
+  function toggleChat() {
+    const iframe = document.getElementById('ai-chat-frame');
+    iframe.style.display =
+      iframe.style.display === 'none' ? 'block' : 'none';
+  }
+
+  window.addEventListener('message', (event) => {
+    if (event.data === 'close-chat') {
+      toggleChat();
+    }
+  });
+
+  // AUTO INIT
+  createButton();
+  createIframe();
 })();
