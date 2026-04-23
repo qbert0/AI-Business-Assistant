@@ -4,3 +4,24 @@ include:
   - ./Server_service/docker-compose.yml
   - ./Client_service/docker-compose.yml
   - ./Plugin-service/docker-compose.yml
+
+services:
+
+  model_service:
+    build:
+      context: ./Model_service
+      dockerfile: Dockerfile
+    container_name: model_service_app
+    ports:
+      - "8888:8888"
+    environment:
+      - DATABASE_URL=mysql+pymysql://model_service:model_service123@model_mariadb:3306/model_service
+      - MODEL_SERVICE_SECRET_KEY=change-this-model-service-secret
+      - MODEL_SERVICE_CORS_ORIGINS=*
+      - DEFAULT_INFERENCE_TIMEOUT_SECONDS=60
+      - DEFAULT_PROVIDER_TIMEOUT_SECONDS=45
+    volumes:
+      - ./Model_service:/app
+    depends_on:
+      model_mariadb:
+        condition: service_healthy
