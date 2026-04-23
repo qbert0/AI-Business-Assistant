@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mariadb:
     image: mariadb:11.2  # Sử dụng bản 11.2 (hoặc mới nhất) để hỗ trợ tốt nhất kiểu UUID
@@ -15,6 +13,31 @@ services:
     volumes:
       - mariadb_data:/var/lib/mysql           # Mount volume để không mất dữ liệu khi tắt container
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql # Map file SQL vào thư mục khởi tạo tự động
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: precisioncast-minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   mariadb_data:
+  minio_data:

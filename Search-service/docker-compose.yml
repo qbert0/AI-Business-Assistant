@@ -1,0 +1,78 @@
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION:-9.3.3}
+    container_name: ${ELASTICSEARCH_CONTAINER_NAME:-elasticsearch_app}
+    restart: unless-stopped
+    environment:
+      node.name: ${ELASTICSEARCH_NODE_NAME:-es01}
+      cluster.name: ${ELASTICSEARCH_CLUSTER_NAME:-ai-business-assistant-search}
+      discovery.type: ${ELASTICSEARCH_DISCOVERY_TYPE:-single-node}
+      bootstrap.memory_lock: ${ELASTICSEARCH_MEMORY_LOCK:-true}
+      xpack.security.enabled: ${ELASTICSEARCH_SECURITY_ENABLED:-false}
+      xpack.security.enrollment.enabled: ${ELASTICSEARCH_ENROLLMENT_ENABLED:-false}
+      ES_JAVA_OPTS: "${ELASTICSEARCH_JAVA_OPTS:--Xms1g -Xmx1g}"
+    expose:
+      - "9200"
+      - "9300"
+    volumes:
+      - ${DOCKER_VOLUME_DIRECTORY:-./docker_volumes}/elasticsearch_data:/usr/share/elasticsearch/data
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    networks:
+      - search_backend
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=5s >/dev/null || exit 1",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  search-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${SEARCH_SERVICE_CONTAINER_NAME:-search_service_app}
+    restart: unless-stopped
+    environment:
+      SEARCH_ENGINE_BACKEND: ${SEARCH_ENGINE_BACKEND:-elasticsearch}
+      ELASTICSEARCH_URL: ${SEARCH_SERVICE_ELASTICSEARCH_URL:-http://elasticsearch:9200}
+      ELASTICSEARCH_USERNAME: ${ELASTICSEARCH_USERNAME:-}
+      ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:-}
+      ELASTICSEARCH_VERIFY_CERTS: ${ELASTICSEARCH_VERIFY_CERTS:-false}
+      ELASTICSEARCH_REQUEST_TIMEOUT: ${ELASTICSEARCH_REQUEST_TIMEOUT:-30}
+    ports:
+      - "${SEARCH_SERVICE_PORT:-8001}:8000"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - default
+      - search_backend
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).read()",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  elasticsearch_data:
+
+networks:
+  search_backend:
+    internal: true
