@@ -22,6 +22,14 @@ class SearchDeleteResult:
     result: str | None = None
 
 
+@dataclass(slots=True)
+class SearchQueryHit:
+    index_name: str
+    document_id: str
+    score: float | None = None
+    document: dict[str, Any] = field(default_factory=dict)
+
+
 class AbstractSearchEngine(ABC):
     @property
     @abstractmethod
@@ -66,4 +74,15 @@ class AbstractSearchEngine(ABC):
         *,
         refresh: bool = True,
     ) -> SearchDeleteResult:
+        raise NotImplementedError
+
+    @abstractmethod
+    def query_documents(
+        self,
+        index_name: str,
+        query: str,
+        *,
+        size: int = 10,
+        fields: list[str] | None = None,
+    ) -> list[SearchQueryHit]:
         raise NotImplementedError

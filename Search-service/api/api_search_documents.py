@@ -6,6 +6,8 @@ from api.response_schema import DataResponse
 from api.search_document_schema import (
     SearchDocumentCreateRequest,
     SearchDocumentDeleteRead,
+    SearchDocumentQueryHitRead,
+    SearchDocumentQueryRequest,
     SearchDocumentRead,
     SearchDocumentUpdateRequest,
 )
@@ -80,6 +82,35 @@ def create_document(
             backend=search_engine.backend_name,
             document=document,
         )
+    )
+
+
+@router.post(
+    "/query",
+    response_model=DataResponse[list[SearchDocumentQueryHitRead]],
+)
+def query_documents(
+    payload: SearchDocumentQueryRequest,
+    search_engine: AbstractSearchEngine = Depends(_get_search_engine_dependency),
+):
+    try:
+        hits = search_engine.query_documents(
+            index_name=payload.index_name,
+            query=payload.query,
+            size=payload.size,
+            fields=payload.fields,
+        )
+    except SearchEngineError as exc:
+        _raise_operation_http_exception(exc)
+
+    return DataResponse[list[SearchDocumentQueryHitRead]].success_response(
+        [
+            SearchDocumentQueryHitRead.from_domain(
+                backend=search_engine.backend_name,
+                hit=hit,
+            )
+            for hit in hits
+        ]
     )
 
 

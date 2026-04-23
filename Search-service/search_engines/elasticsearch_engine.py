@@ -7,6 +7,7 @@ from search_engines.base import (
     AbstractSearchEngine,
     SearchDeleteResult,
     SearchDocument,
+    SearchQueryHit,
 )
 from search_engines.exceptions import (
     SearchDocumentAlreadyExistsError,
@@ -197,6 +198,49 @@ class ElasticsearchSearchEngine(AbstractSearchEngine):
         except Exception as exc:
             raise SearchEngineConnectionError(
                 "Unexpected error while deleting document from Elasticsearch."
+            ) from exc
+
+    def query_documents(
+        self,
+        index_name: str,
+        query: str,
+        *,
+        size: int = 10,
+        fields: list[str] | None = None,
+    ) -> list[SearchQueryHit]:
+        try:
+            search_fields = fields or ["file_name^3", "content", "text", "metadata.*"]
+            response = self._client.search(
+                index=index_name,
+                size=size,
+                query={
+                    "multi_match": {
+                        "query": query,
+                        "fields": search_fields,
+                        "type": "best_fields",
+                        "fuzziness": "AUTO",
+                    }
+                },
+            )
+            hits = response.get("hits", {}).get("hits", [])
+            return [
+                SearchQueryHit(
+                    index_name=hit.get("_index", index_name),
+                    document_id=hit.get("_id", ""),
+                    score=hit.get("_score"),
+                    document=dict(hit.get("_source") or {}),
+                )
+                for hit in hits
+            ]
+        except self._not_found_error:
+            return []
+        except self._api_error as exc:
+            raise SearchEngineError(
+                f"Elasticsearch query operation failed for index '{index_name}'."
+            ) from exc
+        except Exception as exc:
+            raise SearchEngineConnectionError(
+                "Unexpected error while querying Elasticsearch."
             ) from exc
 
     @staticmethod

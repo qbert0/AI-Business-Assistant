@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from search_engines.base import SearchDeleteResult, SearchDocument
+from search_engines.base import SearchDeleteResult, SearchDocument, SearchQueryHit
 
 
 class SearchDocumentCreateRequest(BaseModel):
@@ -59,4 +59,29 @@ class SearchDocumentDeleteRead(BaseModel):
             document_id=result.document_id,
             deleted=result.deleted,
             result=result.result,
+        )
+
+
+class SearchDocumentQueryRequest(BaseModel):
+    index_name: str = Field(..., min_length=1)
+    query: str = Field(..., min_length=1)
+    size: int = Field(10, ge=1, le=50)
+    fields: list[str] | None = None
+
+
+class SearchDocumentQueryHitRead(BaseModel):
+    backend: str
+    index_name: str
+    document_id: str
+    score: float | None = None
+    document: dict[str, Any] = Field(default_factory=dict)
+
+    @classmethod
+    def from_domain(cls, *, backend: str, hit: SearchQueryHit) -> "SearchDocumentQueryHitRead":
+        return cls(
+            backend=backend,
+            index_name=hit.index_name,
+            document_id=hit.document_id,
+            score=hit.score,
+            document=hit.document,
         )

@@ -138,6 +138,47 @@ def test_delete_document(client: TestClient) -> None:
     }
 
 
+def test_query_documents(client: TestClient) -> None:
+    client.post(
+        "/search/documents",
+        json={
+            "index_name": "products",
+            "document_id": "p-004-query",
+            "document": {
+                "name": "AI Business Handbook",
+                "source_url": "s3://bucket/handbook.pdf",
+            },
+        },
+    )
+
+    response = client.post(
+        "/search/documents/query",
+        json={
+            "index_name": "products",
+            "query": "handbook",
+            "size": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "code": "000",
+        "message": "Success",
+        "data": [
+            {
+                "backend": "fake-elasticsearch",
+                "index_name": "products",
+                "document_id": "p-004-query",
+                "score": 1.0,
+                "document": {
+                    "name": "AI Business Handbook",
+                    "source_url": "s3://bucket/handbook.pdf",
+                },
+            }
+        ],
+    }
+
+
 def test_create_document_returns_conflict_when_document_exists(
     client: TestClient,
 ) -> None:
