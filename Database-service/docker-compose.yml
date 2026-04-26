@@ -1,18 +1,43 @@
 services:
   mariadb:
-    image: mariadb:11.2  # Sử dụng bản 11.2 (hoặc mới nhất) để hỗ trợ tốt nhất kiểu UUID
-    container_name: mariadb_app
+    image: mariadb:${MARIADB_VERSION:-11.2}
+    container_name: ${MARIADB_CONTAINER_NAME:-mariadb_app}
     restart: always
     environment:
-      MARIADB_ROOT_PASSWORD: rootpassword     # Mật khẩu root (bạn có thể đổi)
-      MARIADB_DATABASE: my_database           # Tên DB sẽ được tạo tự động
-      MARIADB_USER: app_user                  # Tên user
-      MARIADB_PASSWORD: app_password          # Mật khẩu cho user
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-rootpassword}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-precisioncast}
+      MARIADB_USER: ${MARIADB_USER:-precisioncast}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-precisioncast123}
     ports:
-      - "3306:3306"
+      - "${MARIADB_PORT:-3306}:3306"
     volumes:
-      - mariadb_data:/var/lib/mysql           # Mount volume để không mất dữ liệu khi tắt container
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # Map file SQL vào thư mục khởi tạo tự động
+      - mariadb_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:${MINIO_VERSION:-latest}
+    container_name: ${MINIO_CONTAINER_NAME:-precisioncast-minio}
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin123}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   mariadb_data:
+  minio_data:

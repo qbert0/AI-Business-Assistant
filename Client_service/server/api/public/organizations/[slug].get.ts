@@ -1,15 +1,15 @@
-import { mockOrganizations } from '../../../utils/mockData'
+import { backendFetch, mapOrganization } from '../../../utils/backend'
 
-export default defineEventHandler((event) => {
-  const slug = getRouterParam(event, 'slug')
-  const organization = mockOrganizations.find((item) => item.slug === slug)
-
-  if (!organization) {
-    throw createError({ statusCode: 404, statusMessage: 'Organization not found' })
+export default defineEventHandler(async (event) => {
+  const orgId = getRouterParam(event, 'slug')
+  if (!orgId) {
+    throw createError({ statusCode: 400, statusMessage: 'Organization id is required' })
   }
 
+  const organization = await backendFetch<any>(event, `/organizations/${orgId}`)
+
   return {
-    organization,
-    allowJoinRequests: true
+    organization: mapOrganization(organization),
+    allowJoinRequests: false
   }
 })

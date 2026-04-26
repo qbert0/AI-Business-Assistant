@@ -36,9 +36,9 @@ export const useDocumentStore = defineStore('documents', () => {
     }
   }
 
-  const uploadDocument = async (slug: string, title: string) => {
+  const uploadDocument = async (slug: string, file: string | File) => {
     const api = useApiDocuments()
-    const response = await api.upload(slug, title)
+    const response = await api.upload(slug, file)
     documentsByOrg.value = {
       ...documentsByOrg.value,
       [slug]: [response.document, ...getDocuments(slug)]

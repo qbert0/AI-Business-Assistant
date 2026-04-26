@@ -1,0 +1,33 @@
+services:
+  server_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${SERVER_SERVICE_CONTAINER_NAME:-server_app}
+    ports:
+      - "${SERVER_SERVICE_PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-mysql+pymysql://precisioncast:precisioncast123@mariadb:3306/precisioncast}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-local-dev-secret}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
+      MINIO_BUCKET: ${MINIO_BUCKET:-business-documents}
+      MINIO_SECURE: ${MINIO_SECURE:-false}
+      SEARCH_SERVICE_URL: ${SEARCH_SERVICE_URL:-http://search-service:8000}
+      SEARCH_SERVICE_TIMEOUT: ${SEARCH_SERVICE_TIMEOUT:-10}
+      MODEL_SERVICE_URL: ${MODEL_SERVICE_URL:-http://model_service:8888}
+      MODEL_SERVICE_TIMEOUT: ${MODEL_SERVICE_TIMEOUT:-90}
+    volumes:
+      - .:/app
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      search-service:
+        condition: service_healthy
+      model_service:
+        condition: service_started
+    restart: unless-stopped

@@ -1,4 +1,4 @@
-import type { LoginInput } from '@/schemas/auth'
+import type { LoginInput, RegisterInput } from '@/schemas/auth'
 import { APP_ROUTES } from '@/constants/navigation'
 import { AUTH_REDIRECT_QUERY, getAuthRedirectTarget } from '@/utils/auth-redirect'
 
@@ -8,6 +8,14 @@ export const useAuth = () => {
 
   const login = async (payload: LoginInput = { email: 'chau@example.com', password: 'demo123456' }) => {
     const ok = await auth.login(payload)
+    if (ok) {
+      return navigateTo(getAuthRedirectTarget(route.query[AUTH_REDIRECT_QUERY]))
+    }
+    return false
+  }
+
+  const register = async (payload: RegisterInput) => {
+    const ok = await auth.register(payload)
     if (ok) {
       return navigateTo(getAuthRedirectTarget(route.query[AUTH_REDIRECT_QUERY]))
     }
@@ -33,6 +41,7 @@ export const useAuth = () => {
     error: computed(() => auth.error),
     hydrate: auth.hydrate,
     login,
+    register,
     logout
   }
 }

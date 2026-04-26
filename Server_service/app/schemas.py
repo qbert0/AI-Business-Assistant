@@ -160,6 +160,28 @@ class DocumentPipeline(BaseModel):
     events: list[PipelineEventRead]
 
 
+class DocumentPreviewRead(BaseModel):
+    document_id: str
+    file_name: str
+    kind: Literal["text", "image", "pdf", "download"]
+    content: str | None = None
+    message: str | None = None
+
+
+class DocumentSearchRequest(BaseModel):
+    user_id: str = Field(..., description="User thuc hien tim kiem, can quyen read_documents.")
+    query: str = Field(..., min_length=1)
+    size: int = Field(10, ge=1, le=50)
+
+
+class DocumentSearchHit(BaseModel):
+    document_id: str
+    file_name: str
+    source_url: str
+    score: float | None = None
+    document: dict[str, Any] = Field(default_factory=dict)
+
+
 class ChatSessionCreate(BaseModel):
     user_id: str
     title: str = Field("New conversation", max_length=255)
@@ -207,6 +229,7 @@ class ChatAnswer(BaseModel):
     assistant_message: ChatMessageRead
     answer: str
     citations: list[Citation]
+    search_hits: list[DocumentSearchHit] = Field(default_factory=list)
 
 
 class FeedbackCreate(BaseModel):

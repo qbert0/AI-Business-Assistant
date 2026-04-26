@@ -1,19 +1,26 @@
-import { requireAuthPayload } from '../../../utils/jwt'
-import { mockMessagesBySession, mockSessionsByOrg } from '../../../utils/mockData'
+import { backendFetch, getBackendUser, mapChatMessage } from '../../../utils/backend'
 
-export default defineEventHandler((event) => {
-  requireAuthPayload(event)
-  const slug = getRouterParam(event, 'slug') || 'personal'
+export default defineEventHandler(async (event) => {
+  const user = await getBackendUser(event)
   const query = getQuery(event)
-  const sessionId = String(query.sessionId || mockSessionsByOrg[slug]?.[0]?.id || '')
+  const sessionId = String(query.sessionId || '')
   const cursor = Number(query.cursor ?? 0)
   const limit = Number(query.limit ?? 20)
-  const messages = sessionId ? mockMessagesBySession[sessionId] ?? [] : []
-  const start = Math.max(0, messages.length - cursor - limit)
-  const end = messages.length - cursor
+
+  if (!sessionId) {
+    return { messages: [], nextCursor: null }
+  }
+
+  const messages = await backendFetch<any[]>(
+    event,
+    `/chat/sessions/${sessionId}/messages?acting_user_id=${encodeURIComponent(user.id)}`
+  )
+  const mapped = messages.map(mapChatMessage)
+  const start = Math.max(0, mapped.length - cursor - limit)
+  const end = mapped.length - cursor
 
   return {
-    messages: messages.slice(start, end),
-    nextCursor: start > 0 ? messages.length - start : null
+    messages: mapped.slice(start, end),
+    nextCursor: start > 0 ? mapped.length - start : null
   }
 })

@@ -17,6 +17,7 @@ from search_engines.base import (  # noqa: E402
     AbstractSearchEngine,
     SearchDeleteResult,
     SearchDocument,
+    SearchQueryHit,
 )
 from search_engines.exceptions import (  # noqa: E402
     SearchDocumentAlreadyExistsError,
@@ -121,6 +122,31 @@ class FakeSearchEngine(AbstractSearchEngine):
             deleted=True,
             result="deleted",
         )
+
+    def query_documents(
+        self,
+        index_name: str,
+        query: str,
+        *,
+        size: int = 10,
+        fields: list[str] | None = None,
+    ) -> list[SearchQueryHit]:
+        normalized_query = query.lower()
+        hits = []
+        for (current_index, document_id), document in self._documents.items():
+            if current_index != index_name:
+                continue
+            if normalized_query not in str(document).lower():
+                continue
+            hits.append(
+                SearchQueryHit(
+                    index_name=current_index,
+                    document_id=document_id,
+                    score=1.0,
+                    document=dict(document),
+                )
+            )
+        return hits[:size]
 
 
 @pytest.fixture

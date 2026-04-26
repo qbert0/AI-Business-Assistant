@@ -1,0 +1,15 @@
+services:
+  web-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${CLIENT_SERVICE_CONTAINER_NAME:-client_app}
+    ports:
+      - "${CLIENT_SERVICE_PORT:-8501}:80"
+    environment:
+      NUXT_BACKEND_API_BASE_URL: ${NUXT_BACKEND_API_BASE_URL:-http://server_service:8000}
+      NUXT_PUBLIC_BACKEND_API_BASE_URL: ${NUXT_PUBLIC_BACKEND_API_BASE_URL:-http://localhost:8000}
+      JWT_SECRET: ${CLIENT_JWT_SECRET:-local-dev-secret-change-me}
+    depends_on:
+      - server_service
+    restart: unless-stopped

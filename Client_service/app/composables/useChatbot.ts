@@ -10,6 +10,8 @@ export const useChatbot = () => {
     getPopularQuestions: store.getPopularQuestions,
     getMessages: store.getMessages,
     getSessions: store.getSessions,
+    getStreamingStatus: store.getStreamingStatus,
+    getIsStreaming: store.getIsStreaming,
     askQuestion: store.askQuestion,
     renameSession: store.renameSession,
     togglePinSession: store.togglePinSession,

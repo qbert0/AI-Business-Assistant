@@ -93,7 +93,21 @@
 
         <article class="document-preview">
           <p>{{ text.documents.previewLead }}</p>
-          <p>{{ getDocumentPreview(selectedDocument) }}</p>
+          <iframe
+            v-if="isPdfDocument(selectedDocument)"
+            :src="getDocumentContentUrl(selectedDocument)"
+            class="document-preview-frame"
+            :title="selectedDocument.title"
+          />
+          <img
+            v-else-if="isImageDocument(selectedDocument)"
+            :src="getDocumentContentUrl(selectedDocument)"
+            :alt="selectedDocument.title"
+            class="document-preview-image"
+          />
+          <pre v-else-if="selectedDocumentPreview?.kind === 'text'" class="document-preview-text">{{ selectedDocumentPreview.content }}</pre>
+          <p v-else-if="selectedDocumentPreview?.message">{{ selectedDocumentPreview.message }}</p>
+          <p v-else>{{ getDocumentPreview(selectedDocument) }}</p>
         </article>
       </div>
 
@@ -138,9 +152,9 @@
         </label>
 
         <div v-if="pendingUploads.length" class="upload-file-list">
-          <div v-for="fileName in pendingUploads" :key="fileName" class="upload-file-row">
-            <Icon :name="getDocumentIcon(fileName)" />
-            <span>{{ fileName }}</span>
+          <div v-for="file in pendingUploads" :key="`${file.name}-${file.size}`" class="upload-file-row">
+            <Icon :name="getDocumentIcon(file.name)" />
+            <span>{{ file.name }}</span>
           </div>
         </div>
 
@@ -185,7 +199,8 @@ const openDocumentIds = ref<string[]>([])
 const selectedDocumentId = ref<string | null>(null)
 const isUploadOpen = ref(false)
 const isDragging = ref(false)
-const pendingUploads = ref<string[]>([])
+const pendingUploads = ref<File[]>([])
+const previewsByDocumentId = ref<Record<string, { kind: string, content?: string | null, message?: string | null }>>({})
 
 const folderDefinitions = computed(() => [
   { id: DOCUMENT_FOLDER_IDS.people, name: text.documents.peopleFolder },
@@ -237,6 +252,12 @@ const openDocuments = computed(() =>
 )
 
 const selectedDocument = computed(() => documents.value.find((document) => document.id === selectedDocumentId.value) ?? null)
+const selectedDocumentPreview = computed(() => {
+  if (!selectedDocument.value) {
+    return null
+  }
+  return previewsByDocumentId.value[selectedDocument.value.id] ?? null
+})
 
 const toggleFolder = (folderId: string) => {
   const next = new Set(expandedFolders.value)
@@ -289,8 +310,14 @@ const getDocumentIcon = (title: string) => {
 }
 
 const syncPendingFiles = (files: FileList | File[]) => {
-  const fileNames = Array.from(files).map((file) => file.name)
-  pendingUploads.value = [...new Set([...pendingUploads.value, ...fileNames])]
+  const nextFiles = Array.from(files)
+  const byKey = new Map(pendingUploads.value.map((file) => [`${file.name}-${file.size}`, file]))
+
+  for (const file of nextFiles) {
+    byKey.set(`${file.name}-${file.size}`, file)
+  }
+
+  pendingUploads.value = [...byKey.values()]
 }
 
 const handleDrop = (event: DragEvent) => {
@@ -318,8 +345,8 @@ const clearUploadModal = () => {
 }
 
 const handleUpload = async () => {
-  for (const fileName of pendingUploads.value) {
-    await uploadDocument(slug.value, fileName)
+  for (const file of pendingUploads.value) {
+    await uploadDocument(slug.value, file)
   }
 
   clearUploadModal()
@@ -343,10 +370,38 @@ const getDocumentPreview = (document: KnowledgeDocument) =>
     .replace('{storage}', document.sourceStorage)
     .replace('{uploadedAt}', document.uploadedAt)
 
+const isPdfDocument = (document: KnowledgeDocument) => document.title.toLowerCase().endsWith('.pdf')
+const isImageDocument = (document: KnowledgeDocument) =>
+  ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'].some((extension) => document.title.toLowerCase().endsWith(extension))
+
+const getDocumentContentUrl = (document: KnowledgeDocument) =>
+  `/api/documents/${encodeURIComponent(slug.value)}/${encodeURIComponent(document.id)}/content`
+
+const loadDocumentPreview = async (document: KnowledgeDocument) => {
+  if (isPdfDocument(document) || isImageDocument(document) || previewsByDocumentId.value[document.id]) {
+    return
+  }
+
+  const preview = await $fetch<{ kind: string, content?: string | null, message?: string | null }>(
+    `/api/documents/${encodeURIComponent(slug.value)}/${encodeURIComponent(document.id)}/preview`
+  )
+
+  previewsByDocumentId.value = {
+    ...previewsByDocumentId.value,
+    [document.id]: preview
+  }
+}
+
 onMounted(async () => {
   await loadOrganizations()
   await loadDocuments(slug.value)
 
   expandedFolders.value = new Set(folderDefinitions.value.map((folder) => folder.id))
+})
+
+watch(selectedDocument, (document) => {
+  if (document) {
+    loadDocumentPreview(document)
+  }
 })
 </script>

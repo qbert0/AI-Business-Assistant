@@ -1,0 +1,2 @@
+from app.repositories.inference_repository import InferenceRepository as InferenceService
+

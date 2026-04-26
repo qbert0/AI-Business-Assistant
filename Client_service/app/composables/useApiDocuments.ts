@@ -5,11 +5,20 @@ export const useApiDocuments = () => {
 
   const list = (slug: string) => apiFetch<{ documents: KnowledgeDocument[] }>(`/api/documents/${slug}`)
 
-  const upload = (slug: string, title: string) =>
-    apiFetch<{ document: KnowledgeDocument }>(`/api/documents/${slug}`, {
+  const upload = (slug: string, file: string | File) => {
+    const body = typeof file === 'string'
+      ? { title: file }
+      : (() => {
+          const formData = new FormData()
+          formData.append('file', file)
+          return formData
+        })()
+
+    return apiFetch<{ document: KnowledgeDocument }>(`/api/documents/${slug}`, {
       method: 'POST',
-      body: { title }
+      body
     })
+  }
 
   const pipeline = (slug: string) =>
     apiFetch<{ pipeline: PipelineStep[] }>(`/api/documents/${slug}/pipeline`)

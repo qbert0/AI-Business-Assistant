@@ -1,36 +1,7 @@
 include:
   - ./Database-service/docker-compose.yml
   - ./Search-service/docker-compose.yml
-
-services:
-  # web-frontend:
-  #   build:
-  #     context: ./Client_service
-  #     dockerfile: Dockerfile
-  #   container_name: client_app
-  #   ports:
-  #     - "8501:8501"
-  #   volumes:
-  #     - ./Client_service:/app
-  #   depends_on:
-  #     - server_service
-
-  server_service:
-    build:
-      context: ./Server_service
-      dockerfile: Dockerfile
-    container_name: server_app
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=mysql+pymysql://precisioncast:precisioncast123@mariadb:3306/precisioncast
-      - JWT_SECRET_KEY=change-this-local-dev-secret
-      - ACCESS_TOKEN_EXPIRE_MINUTES=1440
-    volumes:
-      - ./Server_service:/app
-    depends_on:
-      mariadb:
-        condition: service_healthy
-
-volumes:
-  mariadb_data:
+  - ./Server_service/docker-compose.yml
+  - ./Client_service/docker-compose.yml
+  - ./Plugin-service/docker-compose.yml
+  - ./Model_service/docker-compose.yml

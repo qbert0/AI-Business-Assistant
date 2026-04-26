@@ -2,6 +2,7 @@ import type { OrganizationPermission } from '@/constants/rbac'
 
 const SEGMENT_PERMISSION_MAP: Record<string, OrganizationPermission | null> = {
   dashboard: null,
+  workspace: 'chat_advisory',
   employees: 'view_employees',
   documents: 'read_documents',
   analytics: 'view_analytics',

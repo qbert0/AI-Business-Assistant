@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+body {
+  margin: 0;
+  font-family: sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.header {
+  background: var(--color);
+  color: white;
+  padding: 12px;
+}
+
+.messages {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.msg {
+  margin: 8px 0;
+  padding: 10px;
+  border-radius: 12px;
+  max-width: 80%;
+}
+
+.user { background: var(--color); color: white; margin-left: auto; }
+.bot { background: #eee; }
+
+.input {
+  display: flex;
+  padding: 10px;
+}
+input { flex: 1; padding: 8px; }
+button { margin-left: 5px; }
+</style>
+</head>
+
+<body>
+<div class="header" id="header"></div>
+
+<div class="messages" id="chat"></div>
+
+<div class="input">
+  <input id="q" placeholder="Nhập..." />
+  <button onclick="send()">Gửi</button>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+
+const apiKey = params.get('key');
+const serverUrl = params.get('serverUrl');
+const apiPath = params.get('apiPath');
+
+const title = params.get('title');
+const welcome = params.get('welcome');
+const color = params.get('color');
+
+document.documentElement.style.setProperty('--color', color);
+document.getElementById('header').innerText = title;
+
+addMsg(welcome, 'bot');
+
+async function send() {
+  const input = document.getElementById('q');
+  const text = input.value.trim();
+  if (!text) return;
+
+  addMsg(text, 'user');
+  input.value = '';
+
+  const res = await fetch(serverUrl + apiPath, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey
+    },
+    body: JSON.stringify({ question: text })
+  });
+
+  const data = await res.json();
+  addMsg(data.answer || 'No response', 'bot');
+}
+
+function addMsg(text, type) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + type;
+  div.innerText = text;
+  document.getElementById('chat').appendChild(div);
+}
+
+function closeChat() {
+  parent.postMessage('close-chat', '*');
+}
+</script>
+
+</body>
+</html>

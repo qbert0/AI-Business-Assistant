@@ -1,12 +1,13 @@
-import { requireAuthPayload } from '../../../../utils/jwt'
-import { mockMembersByOrg } from '../../../../utils/mockData'
+import { backendFetch, getBackendUser } from '../../../../utils/backend'
 
-export default defineEventHandler((event) => {
-  requireAuthPayload(event)
-  const slug = getRouterParam(event, 'slug') || ''
-  const memberId = getRouterParam(event, 'memberId')
+export default defineEventHandler(async (event) => {
+  const user = await getBackendUser(event)
+  const orgId = getRouterParam(event, 'slug') || ''
+  const memberId = getRouterParam(event, 'memberId') || ''
 
-  mockMembersByOrg[slug] = (mockMembersByOrg[slug] ?? []).filter((member) => member.id !== memberId)
+  await backendFetch(event, `/organizations/${orgId}/members/${memberId}?acting_user_id=${encodeURIComponent(user.id)}`, {
+    method: 'DELETE'
+  })
 
   return { ok: true }
 })

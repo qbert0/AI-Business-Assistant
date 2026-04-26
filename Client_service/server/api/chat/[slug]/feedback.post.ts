@@ -1,6 +1,5 @@
 import { z } from 'zod'
-import { requireAuthPayload } from '../../../utils/jwt'
-import { mockFeedback } from '../../../utils/mockData'
+import { getBackendUser } from '../../../utils/backend'
 
 const feedbackSchema = z.object({
   rating: z.enum(['positive', 'negative']),
@@ -8,17 +7,8 @@ const feedbackSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  requireAuthPayload(event)
-  const slug = getRouterParam(event, 'slug') || 'personal'
-  const body = feedbackSchema.parse(await readBody(event))
-
-  mockFeedback.unshift({
-    id: `f-${Date.now()}`,
-    organizationSlug: slug,
-    rating: body.rating,
-    comment: body.comment,
-    createdAt: new Date().toISOString().slice(0, 10)
-  })
+  await getBackendUser(event)
+  feedbackSchema.parse(await readBody(event))
 
   return { ok: true }
 })

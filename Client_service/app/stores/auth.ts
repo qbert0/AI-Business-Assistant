@@ -1,5 +1,5 @@
 import type { AuthUser } from '@/types/auth'
-import { loginSchema, type LoginInput } from '@/schemas/auth'
+import { loginSchema, registerSchema, type LoginInput, type RegisterInput } from '@/schemas/auth'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null)
@@ -55,6 +55,32 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  const register = async (payload: RegisterInput) => {
+    const parsed = registerSchema.safeParse(payload)
+    if (!parsed.success) {
+      error.value = parsed.error.issues[0]?.message ?? 'Invalid register input'
+      return false
+    }
+
+    isLoading.value = true
+    error.value = null
+
+    try {
+      const api = useApiAuth()
+      const response = await api.register(parsed.data)
+      persistClientAuthToken(response.token)
+      user.value = response.user
+      isReady.value = true
+      return true
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Register failed'
+      user.value = null
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   const logout = async () => {
     const api = useApiAuth()
     await api.logout()
@@ -71,6 +97,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     hydrate,
     login,
+    register,
     logout
   }
 })
