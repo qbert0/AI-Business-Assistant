@@ -63,7 +63,7 @@ interface BackendChatMessage {
   id: string
   sender_type: 'user' | 'ai' | 'assistant'
   content: string
-  citations?: Array<{ file_name: string }>
+  citations?: Array<{ document_id?: string, file_name: string, source_url?: string }>
 }
 
 interface BackendPipelineEvent {
@@ -185,7 +185,14 @@ export const mapChatMessage = (message: BackendChatMessage): ChatMessage => ({
   id: message.id,
   role: message.sender_type === 'user' ? 'user' : 'assistant',
   content: message.content,
-  citations: message.citations?.map((citation) => citation.file_name) ?? []
+  citations: message.citations?.map((citation) => ({
+    documentId: citation.document_id || '',
+    fileName: citation.file_name,
+    sourceUrl: citation.source_url || ''
+  })) ?? [],
+  searchHits: [],
+  status: 'complete',
+  activity: null
 })
 
 export const mapSuggestions = (questions: string[]): SuggestionQuestion[] =>

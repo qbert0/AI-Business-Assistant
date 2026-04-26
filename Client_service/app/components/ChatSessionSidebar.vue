@@ -117,13 +117,14 @@
 </template>
 
 <script setup lang="ts">
-import { APP_ROUTES } from '@/constants/navigation'
+import { APP_ROUTES, getContextChatRoute } from '@/constants/navigation'
 import type { ChatSession, OrganizationSummary } from '@/types/organization'
 import { createInitials, getAvatarToneClass } from '@/utils/avatar'
 import { includesSearchTerm } from '@/utils/search'
 
 const { text } = useAppLocale()
 const { user } = useAuth()
+const router = useRouter()
 
 const props = defineProps<{
   slug: string
@@ -165,10 +166,11 @@ const filteredSessions = computed(() => {
 })
 const visibleSessions = computed(() => (isExpanded.value ? filteredSessions.value : filteredSessions.value.slice(0, collapsedLimit)))
 
-const selectContext = (slug: string) => {
+const selectContext = async (slug: string) => {
   emit('update:slug', slug)
   emit('update:selectedSessionId', null)
   isContextMenuOpen.value = false
+  await router.push(getContextChatRoute(slug))
 }
 
 const selectSession = (sessionId: string) => {

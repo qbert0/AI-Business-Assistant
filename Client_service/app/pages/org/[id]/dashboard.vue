@@ -9,7 +9,7 @@
         <div class="flex flex-wrap gap-2.5">
           <NuxtLink class="btn-primary" :to="getOrganizationRoute(organization.slug, 'employees')">{{ text.organizationDetail.manageEmployees }}</NuxtLink>
           <NuxtLink class="btn-secondary" :to="getOrganizationRoute(organization.slug, 'documents')">{{ text.organizationDetail.documentStore }}</NuxtLink>
-          <NuxtLink class="btn-dark" :to="getOrganizationRoute(organization.slug, 'chat')">{{ text.common.chat }}</NuxtLink>
+          <NuxtLink class="btn-dark" :to="getOrganizationRoute(organization.slug, 'workspace')">{{ text.navigation.workspace }}</NuxtLink>
         </div>
       </div>
 

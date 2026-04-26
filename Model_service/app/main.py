@@ -1,7 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import contexts, feedback, inferences, metrics, models_registry, providers, system
+from app.controllers import (
+    contexts_controller,
+    feedback_controller,
+    inferences_controller,
+    metrics_controller,
+    models_registry_controller,
+    providers_controller,
+    system_controller,
+)
 from app.core.config import get_settings
 from app.db.session import init_db
 
@@ -43,10 +51,10 @@ def startup() -> None:
     init_db()
 
 
-app.include_router(system.router)
-app.include_router(providers.router, prefix="/api/v1")
-app.include_router(models_registry.router, prefix="/api/v1")
-app.include_router(contexts.router, prefix="/api/v1")
-app.include_router(inferences.router, prefix="/api/v1")
-app.include_router(feedback.router, prefix="/api/v1")
-app.include_router(metrics.router, prefix="/api/v1")
+app.include_router(system_controller.router)
+app.include_router(providers_controller.router, prefix="/api/v1")
+app.include_router(models_registry_controller.router, prefix="/api/v1")
+app.include_router(contexts_controller.router, prefix="/api/v1")
+app.include_router(inferences_controller.router, prefix="/api/v1")
+app.include_router(feedback_controller.router, prefix="/api/v1")
+app.include_router(metrics_controller.router, prefix="/api/v1")

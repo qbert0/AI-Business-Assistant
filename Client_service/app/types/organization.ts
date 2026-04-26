@@ -78,11 +78,27 @@ export interface FeedbackEntry {
   createdAt: string
 }
 
+export interface ChatCitation {
+  documentId: string
+  fileName: string
+  sourceUrl: string
+}
+
+export interface ChatSearchHit {
+  documentId: string
+  fileName: string
+  sourceUrl: string
+  score?: number | null
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
-  citations?: string[]
+  citations?: ChatCitation[]
+  searchHits?: ChatSearchHit[]
+  status?: 'thinking' | 'streaming' | 'complete' | 'error'
+  activity?: string | null
 }
 
 export interface ChatSession {

@@ -10,7 +10,8 @@ export default defineEventHandler(async (event) => {
   const user = await getBackendUser(event)
   const orgId = getRouterParam(event, 'slug') || ''
   const body = askSchema.parse(await readBody(event))
-  const response = await backendFetch<any>(event, `/organizations/${orgId}/chat/ask`, {
+  const backendPath = orgId === 'personal' ? '/chat/personal/ask' : `/organizations/${orgId}/chat/ask`
+  const response = await backendFetch<any>(event, backendPath, {
     method: 'POST',
     body: {
       user_id: user.id,
@@ -21,6 +22,17 @@ export default defineEventHandler(async (event) => {
 
   return {
     session: mapChatSession(response.session),
-    messages: [response.user_message, response.assistant_message].map(mapChatMessage)
+    messages: [
+      mapChatMessage(response.user_message),
+      {
+        ...mapChatMessage(response.assistant_message),
+        searchHits: (response.search_hits || []).map((item: any) => ({
+          documentId: item.document_id,
+          fileName: item.file_name,
+          sourceUrl: item.source_url,
+          score: item.score ?? null
+        }))
+      }
+    ]
   }
 })

@@ -25,6 +25,7 @@ export const APP_ROUTES = {
 
 export const ORGANIZATION_ROUTE_SEGMENTS = {
   dashboard: 'dashboard',
+  workspace: 'workspace',
   employees: 'employees',
   documents: 'documents',
   pipeline: 'pipeline',
@@ -41,7 +42,7 @@ export const getOrganizationRoute = (slug: string, segment: OrganizationRouteSeg
 export const getOrganizationPublicRoute = (slug: string) => `${APP_ROUTES.organizations}/${slug}/public`
 
 export const getContextChatRoute = (slug: string) =>
-  slug === 'personal' ? APP_ROUTES.dashboard : getOrganizationRoute(slug, 'chat')
+  slug === 'personal' ? APP_ROUTES.dashboard : getOrganizationRoute(slug, 'workspace')
 
 export const getAppNavigation = (text: AppMessages): NavigationItem[] => [
   {
@@ -81,10 +82,10 @@ export const getSettingNavigation = (text: AppMessages): NavigationItem[] => [
 
 export const getOrganizationNavigation = (text: AppMessages) => [
   { label: text.common.overview, to: (slug: string) => getOrganizationRoute(slug, 'dashboard') },
+  { label: text.navigation.workspace, to: (slug: string) => getOrganizationRoute(slug, 'workspace') },
   { label: text.common.employees, to: (slug: string) => getOrganizationRoute(slug, 'employees') },
   { label: text.common.documents, to: (slug: string) => getOrganizationRoute(slug, 'documents') },
   { label: text.common.pipeline, to: (slug: string) => getOrganizationRoute(slug, 'pipeline') },
   { label: text.common.analytics, to: (slug: string) => getOrganizationRoute(slug, 'analytics') },
-  { label: text.common.chat, to: (slug: string) => getOrganizationRoute(slug, 'chat') },
   { label: text.common.settings, to: (slug: string) => getOrganizationRoute(slug, 'settings') }
 ]

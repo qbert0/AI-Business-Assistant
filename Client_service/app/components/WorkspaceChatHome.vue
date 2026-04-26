@@ -28,8 +28,29 @@
           :class="message.role === 'assistant' ? 'chat-bubble assistant' : 'chat-bubble user'"
         >
           <p>{{ message.content }}</p>
+          <p v-if="message.activity" class="mt-2 text-sm opacity-70">{{ message.activity }}</p>
           <div v-if="message.citations?.length" class="mt-3 flex flex-wrap gap-2">
-            <span v-for="citation in message.citations" :key="citation" class="pill">{{ citation }}</span>
+            <a
+              v-for="citation in message.citations"
+              :key="`${message.id}-${citation.documentId}-${citation.fileName}`"
+              class="pill"
+              :href="citation.sourceUrl || undefined"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {{ citation.fileName }}
+            </a>
+          </div>
+          <div v-if="message.searchHits?.length" class="mt-3 space-y-2">
+            <div
+              v-for="hit in message.searchHits"
+              :key="`${message.id}-${hit.documentId}`"
+              class="rounded-md border border-white/10 px-3 py-2 text-sm"
+            >
+              <p class="font-medium">{{ hit.fileName }}</p>
+              <p class="opacity-70">{{ hit.sourceUrl }}</p>
+              <p v-if="hit.score !== null && hit.score !== undefined" class="opacity-60">Score: {{ hit.score.toFixed(3) }}</p>
+            </div>
           </div>
         </article>
       </div>
@@ -42,8 +63,9 @@
         </div>
         <div class="chat-input-shell">
           <textarea v-model="prompt" class="chat-input" rows="2" :placeholder="text.workspace.inputPlaceholder" />
-          <button class="btn-primary" type="button" @click="handleAsk">{{ text.workspace.send }}</button>
+          <button class="btn-primary" type="button" :disabled="isStreaming" @click="handleAsk">{{ isStreaming ? 'Dang tra loi...' : text.workspace.send }}</button>
         </div>
+        <p v-if="streamingStatus" class="text-sm opacity-70">{{ streamingStatus }}</p>
       </div>
     </section>
   </main>
@@ -52,13 +74,15 @@
 <script setup lang="ts">
 const { text } = useAppLocale()
 const { organizations, getOrganizationBySlug } = useOrganization()
-const { getMessages, getSessions, getSuggestions, askQuestion, loadContext, loadMessages } = useChatbot()
+const { getMessages, getSessions, getSuggestions, askQuestion, loadContext, loadMessages, getStreamingStatus, getIsStreaming } = useChatbot()
 
 const selectedSlug = ref('personal')
 const selectedSessionId = ref<string | null>(null)
 const messages = computed(() => getMessages(selectedSlug.value, selectedSessionId.value))
 const sessions = computed(() => getSessions(selectedSlug.value))
 const suggestions = computed(() => getSuggestions(selectedSlug.value))
+const streamingStatus = computed(() => getStreamingStatus(selectedSlug.value))
+const isStreaming = computed(() => getIsStreaming(selectedSlug.value))
 const prompt = ref('')
 
 const handleAsk = async () => {

@@ -1,4 +1,6 @@
-import type { ChatMessage, ChatSession, PopularQuestion, SuggestionQuestion } from '@/types/organization'
+import { streamChatAnswer } from '@/utils/chat-stream'
+import type { ChatMessage, ChatSearchHit, ChatSession, PopularQuestion, SuggestionQuestion } from '@/types/organization'
+import { useAuthStore } from './auth'
 
 interface ChatContextState {
   sessions: ChatSession[]
@@ -7,6 +9,8 @@ interface ChatContextState {
   messageCursorBySession: Record<string, number | null>
   suggestions: SuggestionQuestion[]
   popularQuestions: PopularQuestion[]
+  streamingStatus: string | null
+  isStreaming: boolean
 }
 
 const createContextState = (): ChatContextState => ({
@@ -15,7 +19,18 @@ const createContextState = (): ChatContextState => ({
   messagesBySession: {},
   messageCursorBySession: {},
   suggestions: [],
-  popularQuestions: []
+  popularQuestions: [],
+  streamingStatus: null,
+  isStreaming: false
+})
+
+const mapStreamSession = (session: any): ChatSession => ({
+  id: session.id,
+  organizationSlug: session.organization_id || 'personal',
+  title: session.title,
+  updatedAt: String(session.updated_at || '').slice(0, 16).replace('T', ' '),
+  preview: session.title,
+  isPinned: Boolean(session.is_pinned)
 })
 
 export const useChatStore = defineStore('chat', () => {
@@ -34,6 +49,8 @@ export const useChatStore = defineStore('chat', () => {
   const getSessions = (slug: string) => ensureContext(slug).sessions
   const getSuggestions = (slug: string) => ensureContext(slug).suggestions
   const getPopularQuestions = (slug: string) => ensureContext(slug).popularQuestions
+  const getStreamingStatus = (slug: string) => ensureContext(slug).streamingStatus
+  const getIsStreaming = (slug: string) => ensureContext(slug).isStreaming
   const getMessages = (slug: string, sessionId?: string | null) => {
     const context = ensureContext(slug)
     const targetSessionId = sessionId ?? context.sessions[0]?.id
@@ -103,19 +120,198 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   const askQuestion = async (slug: string, prompt: string, sessionId?: string | null) => {
-    const api = useApiChat()
-    const response = await api.ask(slug, prompt, sessionId)
     const context = ensureContext(slug)
-    const targetSessionId = response.session.id
-    context.sessions = [
-      response.session,
-      ...context.sessions.filter((session) => session.id !== targetSessionId)
-    ]
-    context.messagesBySession[targetSessionId] = [
-      ...(context.messagesBySession[targetSessionId] ?? []),
-      ...response.messages
-    ]
-    return targetSessionId
+    const auth = useAuthStore()
+    const currentUser = auth.user
+    if (!currentUser) {
+      throw new Error('Bạn chưa đăng nhập.')
+    }
+
+    isLoading.value = true
+    error.value = null
+    context.isStreaming = true
+    context.streamingStatus = 'Đang chuẩn bị câu trả lời.'
+
+    let activeSessionId = sessionId ?? null
+    let tempAssistantMessage: ChatMessage | null = null
+    const localUserMessageId = `local-user-${Date.now()}`
+
+    try {
+      await streamChatAnswer(
+        slug,
+        {
+          question: prompt,
+          sessionId,
+          userId: currentUser.id
+        },
+        (event) => {
+          if (event.type === 'session') {
+            const session = mapStreamSession(event.session)
+            activeSessionId = session.id
+            context.sessions = [
+              session,
+              ...context.sessions.filter((item) => item.id !== session.id)
+            ]
+            const existingMessages = context.messagesBySession[session.id] ?? []
+            tempAssistantMessage = {
+              id: `stream-${session.id}`,
+              role: 'assistant',
+              content: '',
+              citations: [],
+              searchHits: [],
+              status: 'thinking',
+              activity: context.streamingStatus
+            }
+            context.messagesBySession[session.id] = [
+              ...existingMessages,
+              {
+                id: localUserMessageId,
+                role: 'user',
+                content: prompt,
+                citations: [],
+                searchHits: [],
+                status: 'complete',
+                activity: null
+              },
+              tempAssistantMessage
+            ]
+            return
+          }
+
+          if (!activeSessionId) {
+            return
+          }
+
+          const messages = context.messagesBySession[activeSessionId] ?? []
+          const assistantIndex = messages.findIndex((item) => item.id === tempAssistantMessage?.id)
+          const ensureAssistant = () => {
+            if (assistantIndex >= 0) {
+              return messages[assistantIndex]
+            }
+            const created: ChatMessage = {
+              id: `stream-${activeSessionId}`,
+              role: 'assistant',
+              content: '',
+              citations: [],
+              searchHits: [],
+              status: 'thinking',
+              activity: context.streamingStatus
+            }
+            context.messagesBySession[activeSessionId] = [...messages, created]
+            tempAssistantMessage = created
+            return created
+          }
+          const assistantMessage = ensureAssistant()
+
+          if (event.type === 'status') {
+            context.streamingStatus = event.message || null
+            assistantMessage.activity = event.message || null
+            assistantMessage.status = event.stage === 'answering' ? 'streaming' : 'thinking'
+            return
+          }
+
+          if (event.type === 'search_results') {
+            assistantMessage.citations = event.citations?.map((item: any) => ({
+              documentId: item.document_id,
+              fileName: item.file_name,
+              sourceUrl: item.source_url
+            })) ?? []
+            assistantMessage.searchHits = event.hits?.map((item: any): ChatSearchHit => ({
+              documentId: item.document_id,
+              fileName: item.file_name,
+              sourceUrl: item.source_url,
+              score: item.score ?? null
+            })) ?? []
+            return
+          }
+
+          if (event.type === 'answer_chunk') {
+            assistantMessage.content += event.chunk || ''
+            assistantMessage.status = 'streaming'
+            assistantMessage.activity = context.streamingStatus
+            return
+          }
+
+          if (event.type === 'error') {
+            context.streamingStatus = event.message || 'Trả lời thất bại.'
+            assistantMessage.status = 'error'
+            assistantMessage.activity = event.message || null
+            if (!assistantMessage.content) {
+              assistantMessage.content = event.message || 'Trả lời thất bại.'
+            }
+            return
+          }
+
+          if (event.type === 'complete') {
+            const response = event.response as any
+            const finalSession = mapStreamSession(response.session)
+            const finalMessages: ChatMessage[] = [
+              {
+                id: response.user_message.id,
+                role: 'user',
+                content: response.user_message.content,
+                citations: [],
+                searchHits: [],
+                status: 'complete',
+                activity: null
+              },
+              {
+                id: response.assistant_message.id,
+                role: 'assistant',
+                content: response.assistant_message.content,
+                citations: (response.assistant_message.citations || []).map((item: any) => ({
+                  documentId: item.document_id,
+                  fileName: item.file_name,
+                  sourceUrl: item.source_url
+                })),
+                searchHits: (response.search_hits || []).map((item: any) => ({
+                  documentId: item.document_id,
+                  fileName: item.file_name,
+                  sourceUrl: item.source_url,
+                  score: item.score ?? null
+                })),
+                status: 'complete',
+                activity: null
+              }
+            ]
+            context.sessions = [
+              finalSession,
+              ...context.sessions.filter((item) => item.id !== finalSession.id)
+            ]
+            context.messagesBySession[finalSession.id] = [
+              ...(context.messagesBySession[finalSession.id] ?? []).filter(
+                (item) => item.id !== tempAssistantMessage?.id && item.id !== localUserMessageId
+              ),
+              ...finalMessages
+            ]
+            activeSessionId = finalSession.id
+          }
+        }
+      )
+      return activeSessionId
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : 'Không thể stream câu trả lời.'
+      error.value = detail
+      context.streamingStatus = 'Trả lời thất bại.'
+      if (activeSessionId) {
+        const messages = context.messagesBySession[activeSessionId] ?? []
+        const assistantMessage = messages.find((item) => item.id === tempAssistantMessage?.id)
+        if (assistantMessage) {
+          assistantMessage.status = 'error'
+          assistantMessage.activity = detail
+          if (!assistantMessage.content) {
+            assistantMessage.content = detail
+          }
+        }
+      }
+      throw err
+    } finally {
+      context.isStreaming = false
+      if (context.streamingStatus !== 'Trả lời thất bại.') {
+        context.streamingStatus = null
+      }
+      isLoading.value = false
+    }
   }
 
   const renameSession = async (slug: string, sessionId: string, title: string) => {
@@ -156,6 +352,8 @@ export const useChatStore = defineStore('chat', () => {
     getSuggestions,
     getPopularQuestions,
     getMessages,
+    getStreamingStatus,
+    getIsStreaming,
     loadContext,
     loadMoreSessions,
     loadMessages,

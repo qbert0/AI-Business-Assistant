@@ -3,16 +3,16 @@ from datetime import datetime, timezone
 from fastapi import APIRouter
 
 from app.core.config import get_settings
-from app.schemas.common import ApiInfo, HealthStatus
+from app import models
 
 
 router = APIRouter(tags=["System"])
 
 
-@router.get("/", response_model=ApiInfo, summary="Thong tin Model Service va Swagger")
-def root() -> ApiInfo:
+@router.get("/", response_model=models.ApiInfo, summary="Thong tin Model Service va Swagger")
+def root() -> models.ApiInfo:
     settings = get_settings()
-    return ApiInfo(
+    return models.ApiInfo(
         name=settings.app_name,
         version=settings.app_version,
         docs_url="/docs",
@@ -29,6 +29,7 @@ def root() -> ApiInfo:
     )
 
 
-@router.get("/health", response_model=HealthStatus, summary="Kiem tra Model Service dang hoat dong")
-def health() -> HealthStatus:
-    return HealthStatus(status="ok", timestamp=datetime.now(timezone.utc))
+@router.get("/health", response_model=models.HealthStatus, summary="Kiem tra Model Service dang hoat dong")
+def health() -> models.HealthStatus:
+    return models.HealthStatus(status="ok", timestamp=datetime.now(timezone.utc))
+

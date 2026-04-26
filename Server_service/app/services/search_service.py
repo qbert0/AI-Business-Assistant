@@ -34,7 +34,8 @@ def _request_json(path: str, payload: dict) -> dict:
         ) from exc
 
 
-def index_document(document: db_entities.Document) -> SearchDocumentEntity:
+def index_document(document: db_entities.Document, content_text: str | None = None) -> SearchDocumentEntity:
+    metadata = parse_json_dict(document.metadata_json)
     payload = {
         "index_name": document.vector_index or f"org-{document.organization_id}-documents",
         "document_id": document.id,
@@ -47,7 +48,8 @@ def index_document(document: db_entities.Document) -> SearchDocumentEntity:
             "status": document.status,
             "chunk_count": int(document.chunk_count or 0),
             "embedding_model": document.embedding_model,
-            "metadata": parse_json_dict(document.metadata_json),
+            "metadata": metadata,
+            "content_text": content_text or metadata.get("content_text") or "",
         },
         "refresh": True,
     }
@@ -67,7 +69,7 @@ def query_documents(index_name: str, query: str, *, size: int = 3) -> list[Searc
             "index_name": index_name,
             "query": query,
             "size": size,
-            "fields": ["file_name^3", "source_url", "metadata.*", "status"],
+            "fields": ["file_name^3", "content_text^5", "source_url"],
         },
     )
     data = response.get("data", response)

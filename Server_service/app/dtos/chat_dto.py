@@ -63,4 +63,14 @@ def to_chat_answer_model(entity: ChatAnswerEntity) -> models.ChatAnswer:
         assistant_message=to_chat_message_model(entity.assistant_message),
         answer=entity.answer,
         citations=citations,
+        search_hits=[
+            models.DocumentSearchHit(
+                document_id=hit.document_id,
+                file_name=hit.document.get("file_name") or hit.document_id,
+                source_url=hit.document.get("source_url") or "",
+                score=hit.score,
+                document=hit.document,
+            )
+            for hit in entity.search_hits
+        ],
     )

@@ -1,29 +1,33 @@
 import json
 
-from fastapi import HTTPException, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.constants.permissions import ADMIN_PERMISSIONS
-from app import models
 from app.entities import database as db_entities
 from app.entities.api import OrganizationDashboardEntity
-from app.repositories.common import dump_schema, get_membership, get_org_or_404, get_user_or_404, require_permission
 
 
-def create_organization(payload: models.OrganizationCreate, db: Session) -> db_entities.Organization:
-    get_user_or_404(db, payload.owner_user_id)
-    org = db_entities.Organization(name=payload.name, industry=payload.industry, description=payload.description)
+def create_organization(
+    *,
+    name: str,
+    industry: str | None,
+    description: str | None,
+    owner_user_id: str,
+    db: Session,
+) -> db_entities.Organization:
+    org = db_entities.Organization(name=name, industry=industry, description=description)
     db.add(org)
     db.flush()
-    member = db_entities.OrganizationMember(
-        user_id=payload.owner_user_id,
-        organization_id=org.id,
-        role="admin",
-        permissions=json.dumps(ADMIN_PERMISSIONS),
-        status="active",
+    db.add(
+        db_entities.OrganizationMember(
+            user_id=owner_user_id,
+            organization_id=org.id,
+            role="admin",
+            permissions=json.dumps(ADMIN_PERMISSIONS),
+            status="active",
+        )
     )
-    db.add(member)
     db.commit()
     db.refresh(org)
     return org
@@ -51,29 +55,33 @@ def list_organizations(
     return query.order_by(db_entities.Organization.created_at.desc()).offset(skip).limit(limit).all()
 
 
-def get_organization(org_id: str, db: Session) -> db_entities.Organization:
-    return get_org_or_404(db, org_id)
+def get_organization(org_id: str, db: Session) -> db_entities.Organization | None:
+    return db.get(db_entities.Organization, org_id)
 
 
-def update_organization(
-    org_id: str,
-    payload: models.OrganizationUpdate,
-    acting_user_id: str,
-    db: Session,
-) -> db_entities.Organization:
-    org = get_org_or_404(db, org_id)
-    require_permission(db, org_id, acting_user_id, "access_org_settings")
-    for field, value in dump_schema(payload, exclude_unset=True).items():
-        setattr(org, field, value)
+def get_membership(org_id: str, user_id: str, db: Session) -> db_entities.OrganizationMember | None:
+    return (
+        db.query(db_entities.OrganizationMember)
+        .filter(
+            db_entities.OrganizationMember.organization_id == org_id,
+            db_entities.OrganizationMember.user_id == user_id,
+            db_entities.OrganizationMember.status == "active",
+        )
+        .first()
+    )
+
+
+def save_organization(db: Session) -> None:
     db.commit()
+
+
+def refresh_organization(org: db_entities.Organization, db: Session) -> db_entities.Organization:
     db.refresh(org)
     return org
 
 
-def organization_dashboard(org_id: str, acting_user_id: str, db: Session) -> OrganizationDashboardEntity:
-    org = get_org_or_404(db, org_id)
-    if not get_membership(db, org_id, acting_user_id):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User khong thuoc to chuc nay.")
+def build_dashboard(org: db_entities.Organization, db: Session) -> OrganizationDashboardEntity:
+    org_id = org.id
     document_count = db.query(db_entities.Document).filter(db_entities.Document.organization_id == org_id).count()
     return OrganizationDashboardEntity(
         organization=org,

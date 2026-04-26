@@ -1,0 +1,39 @@
+services:
+  model_mariadb:
+    image: mariadb:${MODEL_MARIADB_VERSION}
+    container_name: ${MODEL_MARIADB_CONTAINER_NAME}
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MODEL_MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${MODEL_MARIADB_DATABASE}
+      MARIADB_USER: ${MODEL_MARIADB_USER}
+      MARIADB_PASSWORD: ${MODEL_MARIADB_PASSWORD}
+    ports:
+      - "${MODEL_MARIADB_PORT}:3306"
+    volumes:
+      - ${DOCKER_VOLUME_DIRECTORY}/model_mariadb:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  model_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${MODEL_SERVICE_CONTAINER_NAME}
+    restart: unless-stopped
+    ports:
+      - "${MODEL_SERVICE_PORT}:8888"
+    environment:
+      DATABASE_URL: ${MODEL_SERVICE_DATABASE_URL}
+      MODEL_SERVICE_SECRET_KEY: ${MODEL_SERVICE_SECRET_KEY}
+      MODEL_SERVICE_CORS_ORIGINS: ${MODEL_SERVICE_CORS_ORIGINS}
+      DEFAULT_INFERENCE_TIMEOUT_SECONDS: ${DEFAULT_INFERENCE_TIMEOUT_SECONDS}
+      DEFAULT_PROVIDER_TIMEOUT_SECONDS: ${DEFAULT_PROVIDER_TIMEOUT_SECONDS}
+    volumes:
+      - .:/app
+    depends_on:
+      model_mariadb:
+        condition: service_healthy

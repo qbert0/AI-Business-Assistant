@@ -1,11 +1,17 @@
 import type { AuthUser } from '@/types/auth'
-import type { LoginInput } from '@/schemas/auth'
+import type { LoginInput, RegisterInput } from '@/schemas/auth'
 
 export const useApiAuth = () => {
   const apiFetch = useApiFetch()
 
   const login = (payload: LoginInput) =>
     apiFetch<{ token: string, user: AuthUser }>('/api/auth/login', {
+      method: 'POST',
+      body: payload
+    })
+
+  const register = (payload: RegisterInput) =>
+    apiFetch<{ token: string, user: AuthUser }>('/api/auth/register', {
       method: 'POST',
       body: payload
     })
@@ -19,6 +25,7 @@ export const useApiAuth = () => {
 
   return {
     login,
+    register,
     me,
     logout
   }

@@ -1,6 +1,6 @@
 from app import models
 from app.entities import database as db_entities
-from app.entities.document import DocumentPipelineEntity, DocumentSearchResultEntity
+from app.entities.document import DocumentPipelineEntity, DocumentPreviewEntity, DocumentSearchResultEntity
 from app.entities.search import SearchHitEntity
 from app.repositories.common import parse_json_dict
 
@@ -43,6 +43,16 @@ def to_document_pipeline_model(entity: DocumentPipelineEntity) -> models.Documen
     return models.DocumentPipeline(
         document=to_document_model(entity.document),
         events=[to_pipeline_event_model(event) for event in entity.events],
+    )
+
+
+def to_document_preview_model(entity: DocumentPreviewEntity) -> models.DocumentPreviewRead:
+    return models.DocumentPreviewRead(
+        document_id=entity.document.id,
+        file_name=entity.document.file_name,
+        kind=entity.kind,
+        content=entity.content,
+        message=entity.message,
     )
 
 

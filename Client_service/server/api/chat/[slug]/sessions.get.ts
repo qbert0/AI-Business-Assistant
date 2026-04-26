@@ -5,9 +5,12 @@ export default defineEventHandler(async (event) => {
   const orgId = getRouterParam(event, 'slug') || ''
   const cursor = Number(getQuery(event).cursor ?? 0)
   const limit = Number(getQuery(event).limit ?? 8)
+  const backendPath = orgId === 'personal'
+    ? `/chat/personal/sessions?acting_user_id=${encodeURIComponent(user.id)}`
+    : `/organizations/${orgId}/chat/sessions?acting_user_id=${encodeURIComponent(user.id)}`
   const sessions = await backendFetch<any[]>(
     event,
-    `/organizations/${orgId}/chat/sessions?acting_user_id=${encodeURIComponent(user.id)}`
+    backendPath
   )
   const mapped = sessions.map(mapChatSession)
 

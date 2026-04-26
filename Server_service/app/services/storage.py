@@ -57,3 +57,11 @@ def upload_file_to_minio(org_id: str, file: UploadFile) -> MinioObjectEntity:
         source_url=f"s3://{MINIO_BUCKET}/{object_key}",
         content_type=file.content_type,
     )
+
+
+def get_file_from_minio(bucket: str, object_key: str):
+    client = get_minio_client()
+    try:
+        return client.get_object(Bucket=bucket, Key=object_key)
+    except (BotoCoreError, ClientError) as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"{messages.MINIO_DOWNLOAD_FAILED}: {exc}")

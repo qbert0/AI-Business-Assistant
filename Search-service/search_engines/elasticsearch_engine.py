@@ -219,6 +219,7 @@ class ElasticsearchSearchEngine(AbstractSearchEngine):
                         "fields": search_fields,
                         "type": "best_fields",
                         "fuzziness": "AUTO",
+                        "lenient": True,
                     }
                 },
             )

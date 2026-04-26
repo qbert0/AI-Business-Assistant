@@ -11,7 +11,10 @@ export default defineNuxtConfig({
   ],
   devtools: { enabled: true },
   runtimeConfig: {
-    backendApiBaseUrl: process.env.NUXT_BACKEND_API_BASE_URL || 'http://localhost:8000'
+    backendApiBaseUrl: process.env.NUXT_BACKEND_API_BASE_URL || 'http://localhost:8000',
+    public: {
+      backendApiBaseUrl: process.env.NUXT_PUBLIC_BACKEND_API_BASE_URL || 'http://localhost:8000'
+    }
   },
   tailwindcss: {
     cssPath: '~/assets/css/tailwind-core.css',

@@ -17,6 +17,8 @@ services:
       MINIO_SECURE: ${MINIO_SECURE:-false}
       SEARCH_SERVICE_URL: ${SEARCH_SERVICE_URL:-http://search-service:8000}
       SEARCH_SERVICE_TIMEOUT: ${SEARCH_SERVICE_TIMEOUT:-10}
+      MODEL_SERVICE_URL: ${MODEL_SERVICE_URL:-http://model_service:8888}
+      MODEL_SERVICE_TIMEOUT: ${MODEL_SERVICE_TIMEOUT:-90}
     volumes:
       - .:/app
     depends_on:
@@ -26,4 +28,6 @@ services:
         condition: service_healthy
       search-service:
         condition: service_healthy
+      model_service:
+        condition: service_started
     restart: unless-stopped
