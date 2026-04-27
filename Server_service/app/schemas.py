@@ -331,6 +331,11 @@ class AuthLogin(BaseModel):
     password: str
 
 
+class GoogleOAuthExchange(BaseModel):
+    code: str = Field(..., min_length=1)
+    redirect_uri: str = Field(..., min_length=1, max_length=500)
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

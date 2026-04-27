@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from api.deps import get_search_engine
 from api.health_schema import SearchBackendHealthRead
 from api.response_schema import DataResponse
-from dependencies import get_search_engine
 from search_engines.base import AbstractSearchEngine
 from search_engines.exceptions import SearchEngineError, UnsupportedSearchBackendError
 

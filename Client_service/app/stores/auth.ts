@@ -1,5 +1,6 @@
 import type { AuthUser } from '@/types/auth'
 import { loginSchema, registerSchema, type LoginInput, type RegisterInput } from '@/schemas/auth'
+import { hasClientAuthToken } from '@/utils/auth-token'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null)
@@ -11,6 +12,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   const hydrate = async () => {
     if (isReady.value) {
+      return
+    }
+
+    if (!hasClientAuthToken()) {
+      user.value = null
+      error.value = null
+      isReady.value = true
+      isLoading.value = false
       return
     }
 

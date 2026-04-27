@@ -20,7 +20,8 @@ export const APP_ROUTES = {
   settingAuthen: '/setting/authen',
   notifications: '/notifications',
   authLogin: '/auth/login',
-  authRegister: '/auth/register'
+  authRegister: '/auth/register',
+  authGoogleCallback: '/auth/google/callback'
 } as const
 
 export const ORGANIZATION_ROUTE_SEGMENTS = {

@@ -1,7 +1,7 @@
 ﻿<script setup lang="ts">
 import { APP_ROUTES } from '@/constants/navigation'
 import { loginSchema } from '@/schemas/auth'
-import { AUTH_REDIRECT_QUERY } from '@/utils/auth-redirect'
+import { AUTH_REDIRECT_QUERY, getAuthRedirectTarget } from '@/utils/auth-redirect'
 
 const { text } = useAppLocale()
 const route = useRoute()
@@ -17,15 +17,27 @@ const form = reactive({
   password: 'demo123456'
 })
 const formError = ref('')
+const rawRedirect = computed(() => route.query[AUTH_REDIRECT_QUERY])
+const sanitizedRedirect = computed(() =>
+  getAuthRedirectTarget(rawRedirect.value, APP_ROUTES.dashboard)
+)
+const googleAuthHref = computed(() => {
+  const redirect = sanitizedRedirect.value
+  const query = redirect ? `?${AUTH_REDIRECT_QUERY}=${encodeURIComponent(redirect)}` : ''
+  return `/api/auth/google/start${query}`
+})
+
+if (rawRedirect.value !== undefined && rawRedirect.value !== sanitizedRedirect.value) {
+  await navigateTo({
+    path: APP_ROUTES.authLogin,
+    query: sanitizedRedirect.value === APP_ROUTES.dashboard
+      ? {}
+      : { [AUTH_REDIRECT_QUERY]: sanitizedRedirect.value }
+  }, { replace: true })
+}
 
 const loginWithSocial = () => {
   login()
-}
-
-const loginWithGoogle = () => {
-  const redirect = route.query[AUTH_REDIRECT_QUERY]
-  const query = typeof redirect === 'string' ? `?${AUTH_REDIRECT_QUERY}=${encodeURIComponent(redirect)}` : ''
-  window.location.href = `/api/auth/google/callback${query}`
 }
 
 const loginWithPassword = async () => {
@@ -48,9 +60,9 @@ const loginWithPassword = async () => {
     </div>
 
     <div class="mb-5 space-y-2.5">
-      <button class="btn-secondary w-full" @click="loginWithGoogle">
+      <a :href="googleAuthHref" class="btn-secondary block w-full text-center">
         {{ text.auth.google }}
-      </button>
+      </a>
 
       <button class="w-full rounded-lg bg-[#1877F2] px-3 py-2 text-body font-semibold text-white hover:bg-[#166FE5]" @click="loginWithSocial">
         {{ text.auth.facebook }}

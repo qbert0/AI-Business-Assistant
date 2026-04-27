@@ -41,3 +41,5 @@ export const getClientAuthToken = () => {
 
   return null
 }
+
+export const hasClientAuthToken = () => Boolean(getClientAuthToken())

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from config import get_settings
+from configs import get_settings
 from search_engines.base import AbstractSearchEngine
 from search_engines.factory import SearchEngineFactory
 

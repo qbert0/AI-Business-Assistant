@@ -1,9 +1,16 @@
 import { getBackendUser, mapUser } from '../../utils/backend'
 
 export default defineEventHandler(async (event) => {
-  const user = await getBackendUser(event)
+  try {
+    const user = await getBackendUser(event)
 
-  return {
-    user: mapUser(user)
+    return {
+      user: mapUser(user)
+    }
+  } catch {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Authentication required'
+    })
   }
 })

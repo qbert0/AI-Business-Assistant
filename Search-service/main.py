@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 from api.api_router import router
-from constants import API_PREFIX
+from utils.constants import API_PREFIX
 
 def get_application() -> FastAPI:
     application = FastAPI(

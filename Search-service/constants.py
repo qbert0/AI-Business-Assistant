@@ -1,6 +1,0 @@
-API_PREFIX = ""
-
-DEFAULT_SEARCH_BACKEND = "elasticsearch"
-
-HEALTH_ROUTE_PREFIX = "/health"
-SEARCH_DOCUMENTS_ROUTE_PREFIX = "/search/documents"
