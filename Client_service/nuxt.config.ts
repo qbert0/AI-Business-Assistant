@@ -2,6 +2,11 @@
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
+  components: [
+    { path: '~/components/shared', pathPrefix: false },
+    { path: '~/components/form', pathPrefix: false },
+    { path: '~/components/card', pathPrefix: false }
+  ],
   modules: [
     '@nuxtjs/tailwindcss',
     '@nuxt/icon',

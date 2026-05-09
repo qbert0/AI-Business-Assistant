@@ -1,30 +1,63 @@
 import { streamChatAnswer } from '@/utils/chat-stream'
-import type { ChatMessage, ChatSearchHit, ChatSession, PopularQuestion, SuggestionQuestion } from '@/types/organization'
-import { useAuthStore } from './auth'
+import type { ChatMessage, ChatSearchHit, ChatSession } from '@/types/organization'
 
-interface ChatContextState {
-  sessions: ChatSession[]
-  sessionCursor: number | null
+interface StreamSessionPayload {
+  id: string
+  organization_id?: string | null
+  title: string
+  updated_at?: string | null
+  is_pinned?: boolean | null
+}
+
+interface StreamCitationPayload {
+  document_id: string
+  file_name: string
+  source_url: string
+}
+
+interface StreamSearchHitPayload extends StreamCitationPayload {
+  score?: number | null
+}
+
+interface StreamMessagePayload {
+  id: string
+  content: string
+  citations?: StreamCitationPayload[]
+}
+
+interface StreamCompletePayload {
+  session: StreamSessionPayload
+  user_message: StreamMessagePayload
+  assistant_message: StreamMessagePayload
+  search_hits?: StreamSearchHitPayload[]
+}
+
+interface StreamEventPayload {
+  type: 'session' | 'status' | 'search_results' | 'answer_chunk' | 'error' | 'complete'
+  session?: StreamSessionPayload
+  message?: string | null
+  stage?: string | null
+  citations?: StreamCitationPayload[]
+  hits?: StreamSearchHitPayload[]
+  chunk?: string | null
+  response?: StreamCompletePayload
+}
+
+interface ChatMessageContextState {
   messagesBySession: Record<string, ChatMessage[]>
   messageCursorBySession: Record<string, number | null>
-  suggestions: SuggestionQuestion[]
-  popularQuestions: PopularQuestion[]
   streamingStatus: string | null
   isStreaming: boolean
 }
 
-const createContextState = (): ChatContextState => ({
-  sessions: [],
-  sessionCursor: 0,
+const createMessageContextState = (): ChatMessageContextState => ({
   messagesBySession: {},
   messageCursorBySession: {},
-  suggestions: [],
-  popularQuestions: [],
   streamingStatus: null,
   isStreaming: false
 })
 
-const mapStreamSession = (session: any): ChatSession => ({
+const mapStreamSession = (session: StreamSessionPayload): ChatSession => ({
   id: session.id,
   organizationSlug: session.organization_id || 'personal',
   title: session.title,
@@ -33,63 +66,29 @@ const mapStreamSession = (session: any): ChatSession => ({
   isPinned: Boolean(session.is_pinned)
 })
 
-export const useChatStore = defineStore('chat', () => {
-  const contexts = ref<Record<string, ChatContextState>>({})
+export const useChatMessageStore = defineStore('chat-messages', () => {
+  const contexts = ref<Record<string, ChatMessageContextState>>({})
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
   const ensureContext = (slug: string) => {
     if (!contexts.value[slug]) {
-      contexts.value[slug] = createContextState()
+      contexts.value[slug] = createMessageContextState()
     }
 
     return contexts.value[slug]
   }
 
-  const getSessions = (slug: string) => ensureContext(slug).sessions
-  const getSuggestions = (slug: string) => ensureContext(slug).suggestions
-  const getPopularQuestions = (slug: string) => ensureContext(slug).popularQuestions
+  const getMessages = (slug: string, sessionId?: string | null) => {
+    if (!sessionId) {
+      return []
+    }
+
+    return ensureContext(slug).messagesBySession[sessionId] ?? []
+  }
+
   const getStreamingStatus = (slug: string) => ensureContext(slug).streamingStatus
   const getIsStreaming = (slug: string) => ensureContext(slug).isStreaming
-  const getMessages = (slug: string, sessionId?: string | null) => {
-    const context = ensureContext(slug)
-    const targetSessionId = sessionId ?? context.sessions[0]?.id
-    return targetSessionId ? context.messagesBySession[targetSessionId] ?? [] : []
-  }
-
-  const loadContext = async (slug: string) => {
-    const api = useApiChat()
-    isLoading.value = true
-    error.value = null
-
-    try {
-      const [sessionResponse, suggestionResponse] = await Promise.all([
-        api.sessions(slug, 0, 8),
-        api.suggestions(slug)
-      ])
-      const context = ensureContext(slug)
-      context.sessions = sessionResponse.sessions
-      context.sessionCursor = sessionResponse.nextCursor
-      context.suggestions = suggestionResponse.suggestions
-      context.popularQuestions = suggestionResponse.popularQuestions
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Cannot load chat context'
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  const loadMoreSessions = async (slug: string) => {
-    const context = ensureContext(slug)
-    if (context.sessionCursor === null) {
-      return
-    }
-
-    const api = useApiChat()
-    const response = await api.sessions(slug, context.sessionCursor, 8)
-    context.sessions = [...context.sessions, ...response.sessions]
-    context.sessionCursor = response.nextCursor
-  }
 
   const loadMessages = async (slug: string, sessionId?: string | null) => {
     if (!sessionId) {
@@ -119,9 +118,18 @@ export const useChatStore = defineStore('chat', () => {
     context.messageCursorBySession[sessionId] = response.nextCursor
   }
 
+  const deleteSessionMessages = (slug: string, sessionId: string) => {
+    const context = ensureContext(slug)
+    const { [sessionId]: _removedMessages, ...remainingMessages } = context.messagesBySession
+    const { [sessionId]: _removedCursor, ...remainingCursors } = context.messageCursorBySession
+    context.messagesBySession = remainingMessages
+    context.messageCursorBySession = remainingCursors
+  }
+
   const askQuestion = async (slug: string, prompt: string, sessionId?: string | null) => {
     const context = ensureContext(slug)
     const auth = useAuthStore()
+    const sessions = useChatSessionStore()
     const currentUser = auth.user
     if (!currentUser) {
       throw new Error('Bạn chưa đăng nhập.')
@@ -144,14 +152,14 @@ export const useChatStore = defineStore('chat', () => {
           sessionId,
           userId: currentUser.id
         },
-        (event) => {
+        (event: StreamEventPayload) => {
           if (event.type === 'session') {
+            if (!event.session) {
+              return
+            }
             const session = mapStreamSession(event.session)
             activeSessionId = session.id
-            context.sessions = [
-              session,
-              ...context.sessions.filter((item) => item.id !== session.id)
-            ]
+            sessions.upsertSession(slug, session)
             const existingMessages = context.messagesBySession[session.id] ?? []
             tempAssistantMessage = {
               id: `stream-${session.id}`,
@@ -211,12 +219,12 @@ export const useChatStore = defineStore('chat', () => {
           }
 
           if (event.type === 'search_results') {
-            assistantMessage.citations = event.citations?.map((item: any) => ({
+            assistantMessage.citations = event.citations?.map((item) => ({
               documentId: item.document_id,
               fileName: item.file_name,
               sourceUrl: item.source_url
             })) ?? []
-            assistantMessage.searchHits = event.hits?.map((item: any): ChatSearchHit => ({
+            assistantMessage.searchHits = event.hits?.map((item): ChatSearchHit => ({
               documentId: item.document_id,
               fileName: item.file_name,
               sourceUrl: item.source_url,
@@ -243,7 +251,10 @@ export const useChatStore = defineStore('chat', () => {
           }
 
           if (event.type === 'complete') {
-            const response = event.response as any
+            if (!event.response) {
+              return
+            }
+            const response = event.response
             const finalSession = mapStreamSession(response.session)
             const finalMessages: ChatMessage[] = [
               {
@@ -259,12 +270,12 @@ export const useChatStore = defineStore('chat', () => {
                 id: response.assistant_message.id,
                 role: 'assistant',
                 content: response.assistant_message.content,
-                citations: (response.assistant_message.citations || []).map((item: any) => ({
+                citations: (response.assistant_message.citations || []).map((item) => ({
                   documentId: item.document_id,
                   fileName: item.file_name,
                   sourceUrl: item.source_url
                 })),
-                searchHits: (response.search_hits || []).map((item: any) => ({
+                searchHits: (response.search_hits || []).map((item) => ({
                   documentId: item.document_id,
                   fileName: item.file_name,
                   sourceUrl: item.source_url,
@@ -274,10 +285,7 @@ export const useChatStore = defineStore('chat', () => {
                 activity: null
               }
             ]
-            context.sessions = [
-              finalSession,
-              ...context.sessions.filter((item) => item.id !== finalSession.id)
-            ]
+            sessions.upsertSession(slug, finalSession)
             context.messagesBySession[finalSession.id] = [
               ...(context.messagesBySession[finalSession.id] ?? []).filter(
                 (item) => item.id !== tempAssistantMessage?.id && item.id !== localUserMessageId
@@ -314,31 +322,6 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  const renameSession = async (slug: string, sessionId: string, title: string) => {
-    const context = ensureContext(slug)
-    context.sessions = context.sessions.map((session) => (session.id === sessionId ? { ...session, title } : session))
-  }
-
-  const togglePinSession = async (slug: string, sessionId: string) => {
-    const context = ensureContext(slug)
-    context.sessions = context.sessions
-      .map((session) => (session.id === sessionId ? { ...session, isPinned: !session.isPinned } : session))
-      .sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)))
-  }
-
-  const deleteSession = async (slug: string, sessionId: string) => {
-    const context = ensureContext(slug)
-    const targetSession = context.sessions.find((session) => session.id === sessionId)
-    if (targetSession?.isDeletionRestricted) {
-      return false
-    }
-
-    context.sessions = context.sessions.filter((session) => session.id !== sessionId)
-    const { [sessionId]: _deleted, ...remainingMessages } = context.messagesBySession
-    context.messagesBySession = remainingMessages
-    return true
-  }
-
   const submitFeedback = async (slug: string, rating: 'positive' | 'negative', comment: string) => {
     const api = useApiChat()
     await api.feedback(slug, rating, comment)
@@ -348,20 +331,13 @@ export const useChatStore = defineStore('chat', () => {
     contexts,
     isLoading,
     error,
-    getSessions,
-    getSuggestions,
-    getPopularQuestions,
     getMessages,
     getStreamingStatus,
     getIsStreaming,
-    loadContext,
-    loadMoreSessions,
     loadMessages,
     loadOlderMessages,
+    deleteSessionMessages,
     askQuestion,
-    renameSession,
-    togglePinSession,
-    deleteSession,
     submitFeedback
   }
 })

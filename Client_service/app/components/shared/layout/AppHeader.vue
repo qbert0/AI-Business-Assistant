@@ -124,6 +124,7 @@
 
 <script setup lang="ts">
 import { APP_ROUTES, getOrganizationRoute } from '@/constants/navigation'
+import type { AppLocale } from '@/locales'
 import { createInitials, getAvatarToneClass } from '@/utils/avatar'
 
 const { text, locale, supportedLocales, setLocale, hydrateLocale } = useAppLocale()
@@ -207,13 +208,13 @@ onMounted(() => {
   selectedLocale.value = locale.value
 })
 
-watch(locale, (value) => {
+watch(locale, (value: AppLocale) => {
   selectedLocale.value = value
 })
 
 watch(
   () => route.query.q,
-  (value) => {
+  (value: unknown) => {
     organizationSearch.value = typeof value === 'string' ? value : ''
   }
 )

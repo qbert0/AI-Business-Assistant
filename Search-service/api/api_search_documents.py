@@ -12,7 +12,7 @@ from api.search_document_schema import (
     SearchDocumentUpdateRequest,
 )
 from dependencies import get_search_engine
-from search_engines.base import AbstractSearchEngine
+from repositories.search_repository import SearchRepository
 from search_engines.exceptions import (
     SearchDocumentAlreadyExistsError,
     SearchDocumentNotFoundError,
@@ -20,13 +20,14 @@ from search_engines.exceptions import (
     SearchEngineError,
     UnsupportedSearchBackendError,
 )
+from services.search_service import SearchService
 
 router = APIRouter()
 
 
-def _get_search_engine_dependency() -> AbstractSearchEngine:
+def _get_search_service_dependency() -> SearchService:
     try:
-        return get_search_engine()
+        return SearchService(SearchRepository(get_search_engine()))
     except UnsupportedSearchBackendError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -65,24 +66,14 @@ def _raise_operation_http_exception(exc: SearchEngineError) -> None:
 )
 def create_document(
     payload: SearchDocumentCreateRequest,
-    search_engine: AbstractSearchEngine = Depends(_get_search_engine_dependency),
+    search_service: SearchService = Depends(_get_search_service_dependency),
 ):
     try:
-        document = search_engine.create_document(
-            index_name=payload.index_name,
-            document_id=payload.document_id,
-            document=payload.document,
-            refresh=payload.refresh,
-        )
+        document = search_service.create_document(payload)
     except SearchEngineError as exc:
         _raise_operation_http_exception(exc)
 
-    return DataResponse[SearchDocumentRead].success_response(
-        SearchDocumentRead.from_domain(
-            backend=search_engine.backend_name,
-            document=document,
-        )
-    )
+    return DataResponse[SearchDocumentRead].success_response(document)
 
 
 @router.post(
@@ -91,27 +82,14 @@ def create_document(
 )
 def query_documents(
     payload: SearchDocumentQueryRequest,
-    search_engine: AbstractSearchEngine = Depends(_get_search_engine_dependency),
+    search_service: SearchService = Depends(_get_search_service_dependency),
 ):
     try:
-        hits = search_engine.query_documents(
-            index_name=payload.index_name,
-            query=payload.query,
-            size=payload.size,
-            fields=payload.fields,
-        )
+        hits = search_service.query_documents(payload)
     except SearchEngineError as exc:
         _raise_operation_http_exception(exc)
 
-    return DataResponse[list[SearchDocumentQueryHitRead]].success_response(
-        [
-            SearchDocumentQueryHitRead.from_domain(
-                backend=search_engine.backend_name,
-                hit=hit,
-            )
-            for hit in hits
-        ]
-    )
+    return DataResponse[list[SearchDocumentQueryHitRead]].success_response(hits)
 
 
 @router.get(
@@ -121,22 +99,14 @@ def query_documents(
 def get_document(
     index_name: str,
     document_id: str,
-    search_engine: AbstractSearchEngine = Depends(_get_search_engine_dependency),
+    search_service: SearchService = Depends(_get_search_service_dependency),
 ):
     try:
-        document = search_engine.get_document(
-            index_name=index_name,
-            document_id=document_id,
-        )
+        document = search_service.get_document(index_name=index_name, document_id=document_id)
     except SearchEngineError as exc:
         _raise_operation_http_exception(exc)
 
-    return DataResponse[SearchDocumentRead].success_response(
-        SearchDocumentRead.from_domain(
-            backend=search_engine.backend_name,
-            document=document,
-        )
-    )
+    return DataResponse[SearchDocumentRead].success_response(document)
 
 
 @router.put(
@@ -147,24 +117,18 @@ def update_document(
     index_name: str,
     document_id: str,
     payload: SearchDocumentUpdateRequest,
-    search_engine: AbstractSearchEngine = Depends(_get_search_engine_dependency),
+    search_service: SearchService = Depends(_get_search_service_dependency),
 ):
     try:
-        document = search_engine.update_document(
+        document = search_service.update_document(
             index_name=index_name,
             document_id=document_id,
-            document=payload.document,
-            refresh=payload.refresh,
+            payload=payload,
         )
     except SearchEngineError as exc:
         _raise_operation_http_exception(exc)
 
-    return DataResponse[SearchDocumentRead].success_response(
-        SearchDocumentRead.from_domain(
-            backend=search_engine.backend_name,
-            document=document,
-        )
-    )
+    return DataResponse[SearchDocumentRead].success_response(document)
 
 
 @router.delete(
@@ -175,10 +139,10 @@ def delete_document(
     index_name: str,
     document_id: str,
     refresh: bool = True,
-    search_engine: AbstractSearchEngine = Depends(_get_search_engine_dependency),
+    search_service: SearchService = Depends(_get_search_service_dependency),
 ):
     try:
-        result = search_engine.delete_document(
+        result = search_service.delete_document(
             index_name=index_name,
             document_id=document_id,
             refresh=refresh,
@@ -187,8 +151,5 @@ def delete_document(
         _raise_operation_http_exception(exc)
 
     return DataResponse[SearchDocumentDeleteRead].success_response(
-        SearchDocumentDeleteRead.from_domain(
-            backend=search_engine.backend_name,
-            result=result,
-        )
+        result
     )

@@ -14,7 +14,7 @@ const { loadOrganizations } = useOrganization()
 
 watch(
   isAuthenticated,
-  async (value) => {
+  async (value: boolean) => {
     if (value) {
       await loadOrganizations()
     }

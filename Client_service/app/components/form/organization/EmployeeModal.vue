@@ -122,20 +122,20 @@ const getRoleLabel = (roleName: string) => {
   return roleName
 }
 
-watch(emailSearch, (value) => {
+watch(emailSearch, (value: string) => {
   emit('search', value)
 })
 
 watch(
   () => form.role,
-  (role) => {
-    form.permissions = [...(roleOptions.value.find((item) => item.name === role)?.permissions ?? getDefaultPermissionsByRole(role))]
+  (role: string) => {
+    form.permissions = [...(roleOptions.value.find((item: OrganizationRoleDefinition) => item.name === role)?.permissions ?? getDefaultPermissionsByRole(role))]
   }
 )
 
 watch(
   () => props.open,
-  (open) => {
+  (open: boolean) => {
     if (!open) {
       emailSearch.value = ''
       form.name = ''

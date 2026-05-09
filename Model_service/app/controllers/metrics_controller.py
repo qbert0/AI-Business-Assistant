@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.api.deps import get_db
-from app.repositories import MetricsRepository
+from app.services import MetricsService
 
 
 router = APIRouter(prefix="/metrics", tags=["Metrics"])
@@ -15,5 +15,4 @@ def get_metric_summary(
     model_id: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> models.MetricSummaryResponse:
-    return MetricsRepository(db).summarize(hours=hours, model_id=model_id)
-
+    return MetricsService.from_db(db).summarize(hours=hours, model_id=model_id)

@@ -23,9 +23,15 @@ export const useApiDocuments = () => {
   const pipeline = (slug: string) =>
     apiFetch<{ pipeline: PipelineStep[] }>(`/api/documents/${slug}/pipeline`)
 
+  const preview = (slug: string, documentId: string) =>
+    apiFetch<{ kind: string, content?: string | null, message?: string | null }>(
+      `/api/documents/${slug}/${documentId}/preview`
+    )
+
   return {
     list,
     upload,
-    pipeline
+    pipeline,
+    preview
   }
 }

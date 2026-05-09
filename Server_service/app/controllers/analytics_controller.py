@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models
 from app.dtos import analytics_dto
-from app.repositories import analytics_repository
+from app.services import AnalyticsService
 
 router = APIRouter()
 
@@ -15,7 +15,7 @@ def get_analytics(
     acting_user_id: str = Query(..., description="Can quyen view_analytics."),
     db: Session = Depends(get_db),
 ) -> models.AnalyticsRead:
-    analytics = analytics_repository.get_analytics(org_id, acting_user_id, db)
+    analytics = AnalyticsService(db).get_analytics(org_id, acting_user_id)
     return analytics_dto.to_analytics_model(analytics)
 
 
@@ -26,5 +26,5 @@ def update_restrictions(
     acting_user_id: str = Query(..., description="Can quyen edit_sensitive_restrictions."),
     db: Session = Depends(get_db),
 ) -> models.AnalyticsRead:
-    analytics = analytics_repository.update_restrictions(org_id, payload, acting_user_id, db)
+    analytics = AnalyticsService(db).update_restrictions(org_id, payload, acting_user_id)
     return analytics_dto.to_analytics_model(analytics)

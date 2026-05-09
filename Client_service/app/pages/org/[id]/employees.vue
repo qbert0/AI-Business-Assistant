@@ -55,7 +55,7 @@
                 :open="activeActionMemberId === member.id"
                 root-class="relative inline-block"
                 content-class="row-action-menu"
-                @update:open="(open) => updateRowMenu(open, member.id)"
+                @update:open="handleRowMenuUpdate(member.id, $event)"
               >
                 <template #trigger="{ toggle }">
                   <button class="icon-action-light" :aria-label="text.employeesPage.rowActions" @click="toggle">
@@ -139,7 +139,7 @@
       backdrop-class="modal-backdrop"
       transition-name="zoom"
       close-on-content-self
-      @update:open="(open) => !open && closeEditEmployee()"
+      @update:open="handleEditModalUpdate"
     >
       <template #default>
         <section class="modal-card">
@@ -182,7 +182,7 @@
       backdrop-class="modal-backdrop"
       transition-name="zoom"
       close-on-content-self
-      @update:open="(open) => !open && closeRoleModal()"
+      @update:open="handleRoleModalUpdate"
     >
       <template #default>
         <section class="modal-card">
@@ -221,7 +221,7 @@
 </template>
 
 <script setup lang="ts">
-import EmployeeModal from '@/components/EmployeeModal.vue'
+import EmployeeModal from '@/components/form/organization/EmployeeModal.vue'
 import { UI_MESSAGES } from '@/constants/messages'
 import {
   DEFAULT_ORGANIZATION_ROLES,
@@ -259,7 +259,7 @@ const isAddModalOpen = ref(false)
 const activeActionMemberId = ref<string | null>(null)
 const currentPage = ref(1)
 const pageSize = 5
-const roles = ref<OrganizationRoleDefinition[]>(DEFAULT_ORGANIZATION_ROLES.map((role) => ({
+const roles = ref<OrganizationRoleDefinition[]>(DEFAULT_ORGANIZATION_ROLES.map((role: OrganizationRoleDefinition) => ({
   name: role.name,
   permissions: [...role.permissions]
 })))
@@ -278,7 +278,7 @@ const roleForm = reactive({
 
 const matchedDirectoryUsers = computed(() => searchRegisteredUsersByEmail(emailSearch.value))
 const filteredMembers = computed(() =>
-  members.value.filter((member) =>
+  members.value.filter((member: OrganizationMember) =>
     `${member.name} ${member.email} ${member.department} ${member.role}`.toLowerCase().includes(memberSearch.value.trim().toLowerCase())
   )
 )
@@ -297,9 +297,9 @@ const roleLabel = (role: string) => {
 const statusLabel = (status: OrganizationMember['status']) => (status === 'active' ? text.common.active : text.common.invited)
 const isBuiltInRole = (roleName: string) => ['admin', 'user'].includes(roleName)
 const getPermissionOptions = (permissions: OrganizationPermission[]) =>
-  PERMISSION_OPTIONS.filter((permission) => permissions.includes(permission.id))
+  PERMISSION_OPTIONS.filter((permission: { id: OrganizationPermission, label: string }) => permissions.includes(permission.id))
 const getRolePermissions = (roleName: string) =>
-  getPermissionOptions(roles.value.find((role) => role.name === roleName)?.permissions ?? [])
+  getPermissionOptions(roles.value.find((role: OrganizationRoleDefinition) => role.name === roleName)?.permissions ?? [])
 
 watch(filteredMembers, () => {
   if (currentPage.value > totalPages.value) {
@@ -328,7 +328,7 @@ const handleAddEmployee = async (payload: {
   role: string
   permissions: OrganizationPermission[]
 }) => {
-  const role = roles.value.find((item) => item.name === payload.role)
+  const role = roles.value.find((item: OrganizationRoleDefinition) => item.name === payload.role)
   await addEmployee(slug.value, {
     ...payload,
     permissions: [...(role?.permissions ?? payload.permissions)]
@@ -354,6 +354,22 @@ const updateRowMenu = (open: boolean, memberId: string) => {
   activeActionMemberId.value = open ? memberId : null
 }
 
+const handleRowMenuUpdate = (memberId: string, open: boolean) => {
+  updateRowMenu(open, memberId)
+}
+
+const handleEditModalUpdate = (open: boolean) => {
+  if (!open) {
+    closeEditEmployee()
+  }
+}
+
+const handleRoleModalUpdate = (open: boolean) => {
+  if (!open) {
+    closeRoleModal()
+  }
+}
+
 const openEditEmployee = (member: OrganizationMember) => {
   editingMember.value = member
   employeeForm.department = member.department
@@ -371,7 +387,7 @@ const saveEmployeeEdit = async () => {
     return
   }
 
-  const role = roles.value.find((item) => item.name === employeeForm.role)
+  const role = roles.value.find((item: OrganizationRoleDefinition) => item.name === employeeForm.role)
   await updateEmployeeDetails(slug.value, editingMember.value.id, {
     department: employeeForm.department,
     title: employeeForm.title,
@@ -411,18 +427,18 @@ const saveRole = async () => {
   }
 
   if (!roleForm.originalName) {
-    if (!roles.value.some((role) => role.name === nextName)) {
+    if (!roles.value.some((role: OrganizationRoleDefinition) => role.name === nextName)) {
       roles.value = [...roles.value, nextRole]
     }
     closeRoleModal()
     return
   }
 
-  roles.value = roles.value.map((role) => (role.name === roleForm.originalName ? nextRole : role))
+  roles.value = roles.value.map((role: OrganizationRoleDefinition) => (role.name === roleForm.originalName ? nextRole : role))
   await Promise.all(
     members.value
-      .filter((member) => member.role === roleForm.originalName)
-      .map((member) =>
+      .filter((member: OrganizationMember) => member.role === roleForm.originalName)
+      .map((member: OrganizationMember) =>
         updateEmployeeDetails(slug.value, member.id, {
           department: member.department,
           title: member.title,

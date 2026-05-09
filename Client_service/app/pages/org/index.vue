@@ -138,7 +138,7 @@ const localSearch = ref(typeof route.query.q === 'string' ? route.query.q : '')
 
 const searchedOrganizations = computed(() => searchOrganizations(localSearch.value))
 const filteredOrganizations = computed(() =>
-  searchedOrganizations.value.filter((organization) => {
+  searchedOrganizations.value.filter((organization: OrganizationSummary) => {
     if (activeFilter.value === 'all') return true
     if (activeFilter.value === 'pending') return organization.status === 'pending'
     return organization.role === activeFilter.value
@@ -147,8 +147,8 @@ const filteredOrganizations = computed(() =>
 
 const getCount = (filter: OrganizationFilter) => {
   if (filter === 'all') return searchedOrganizations.value.length
-  if (filter === 'pending') return searchedOrganizations.value.filter((organization) => organization.status === 'pending').length
-  return searchedOrganizations.value.filter((organization) => organization.role === filter).length
+  if (filter === 'pending') return searchedOrganizations.value.filter((organization: OrganizationSummary) => organization.status === 'pending').length
+  return searchedOrganizations.value.filter((organization: OrganizationSummary) => organization.role === filter).length
 }
 
 const filterOptions = computed(() => [

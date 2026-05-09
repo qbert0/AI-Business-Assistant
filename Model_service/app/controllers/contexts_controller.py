@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.api.deps import get_db
-from app.repositories import ContextRepository
+from app.services import ContextService
 
 
 router = APIRouter(prefix="/contexts", tags=["Contexts"])
@@ -11,7 +11,7 @@ router = APIRouter(prefix="/contexts", tags=["Contexts"])
 
 @router.post("/build", response_model=models.ContextBuildResponse, summary="Assemble context cho mot query")
 def build_context(payload: models.ContextBuildRequest) -> models.ContextBuildResponse:
-    return ContextRepository().build_context(payload)
+    return ContextService().build_context(payload)
 
 
 @router.get("", response_model=list[models.StoredContextRead], summary="Lay danh sach context da luu")
@@ -22,7 +22,7 @@ def list_contexts(
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> list[models.StoredContextRead]:
-    return ContextRepository().list_stored_contexts(
+    return ContextService().list_stored_contexts(
         db,
         conversation_id=conversation_id,
         organization_id=organization_id,
@@ -33,5 +33,4 @@ def list_contexts(
 
 @router.get("/{request_id}", response_model=models.StoredContextDetail, summary="Lay context da luu theo request")
 def get_context(request_id: str, db: Session = Depends(get_db)) -> models.StoredContextDetail:
-    return ContextRepository().get_stored_context(db, request_id)
-
+    return ContextService().get_stored_context(db, request_id)

@@ -1,11 +1,19 @@
 <template>
+  <!--
+    Layout page:
+    - Khối 1: heading
+    - Khối 2: gói hiện tại và hành động đổi gói
+    - Khối 3: phương thức thanh toán
+  -->
   <div class="settings-content">
+    <!-- Block 1: page heading -->
     <section class="settings-page-heading">
       <p class="eyebrow">{{ text.settingsNavigation.payment }}</p>
       <h1 class="page-title">{{ text.settingsPayment.title }}</h1>
       <p class="muted-copy">{{ text.settingsPayment.description }}</p>
     </section>
 
+    <!-- Block 2: current plan -->
     <section class="settings-panel">
       <div class="settings-panel-heading">
         <div>
@@ -17,6 +25,7 @@
       <p class="muted-copy">{{ text.settingsPayment.planDescription }}</p>
     </section>
 
+    <!-- Block 3: payment method -->
     <section class="settings-panel">
       <h2 class="panel-title">{{ text.settingsPayment.methodTitle }}</h2>
       <div class="settings-info-row">
@@ -43,4 +52,16 @@ const form = reactive({
 const savePayment = () => {
   validatePayment(form)
 }
+
+/*
+Layout map
+
++-----------------------------------------------+
+| Heading                                       |
+|-----------------------------------------------|
+| Current plan + CTA                            |
+|-----------------------------------------------|
+| Payment method input + rename action          |
++-----------------------------------------------+
+*/
 </script>

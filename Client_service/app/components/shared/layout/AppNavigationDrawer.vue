@@ -80,6 +80,7 @@
 
 <script setup lang="ts">
 import { getAppNavigation, getContextChatRoute } from '@/constants/navigation'
+import type { ChatSession, OrganizationSummary } from '@/types/organization'
 import { includesSearchTerm } from '@/utils/search'
 
 const { text } = useAppLocale()
@@ -95,14 +96,14 @@ const isSearchVisible = ref(false)
 const appNavigation = computed(() => getAppNavigation(text))
 const sessions = computed(() => [
   ...getSessions('personal'),
-  ...organizations.value.flatMap((organization) => getSessions(organization.slug))
+  ...organizations.value.flatMap((organization: OrganizationSummary) => getSessions(organization.slug))
 ])
 const filteredSessions = computed(() => {
   if (!searchTerm.value.trim()) {
     return sessions.value
   }
 
-  return sessions.value.filter((session) => includesSearchTerm(session.title, searchTerm.value))
+  return sessions.value.filter((session: ChatSession) => includesSearchTerm(session.title, searchTerm.value))
 })
 const visibleSessions = computed(() => (isExpanded.value ? filteredSessions.value : filteredSessions.value.slice(0, collapsedLimit)))
 

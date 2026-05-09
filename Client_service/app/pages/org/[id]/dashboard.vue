@@ -56,8 +56,8 @@
 </template>
 
 <script setup lang="ts">
-import ActionCard from '@/components/ActionCard.vue'
-import StatsCard from '@/components/StatsCard.vue'
+import ActionCard from '@/components/card/ActionCard.vue'
+import StatsCard from '@/components/card/StatsCard.vue'
 import { getOrganizationRoute } from '@/constants/navigation'
 import type { ActionCardItem, StatItem } from '@/types/dashboard'
 

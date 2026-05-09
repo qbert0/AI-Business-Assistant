@@ -1,11 +1,19 @@
 <template>
+  <!--
+    Layout page:
+    - Khối 1: heading mô tả màn hình profile setting
+    - Khối 2: form chỉnh hồ sơ public
+    - Khối 3: nhóm quyền hiển thị thông tin
+  -->
   <div class="settings-content">
+    <!-- Block 1: page heading -->
     <section class="settings-page-heading">
       <p class="eyebrow">{{ text.settingsNavigation.profile }}</p>
       <h1 class="page-title">{{ text.settingsProfile.title }}</h1>
       <p class="muted-copy">{{ text.settingsProfile.description }}</p>
     </section>
 
+    <!-- Block 2: public profile form -->
     <section class="settings-panel">
       <div class="settings-panel-heading">
         <h2 class="panel-title">{{ text.settingsProfile.publicPreviewTitle }}</h2>
@@ -30,6 +38,7 @@
       <button class="btn-primary" @click="saveProfile">{{ text.common.openPage }}</button>
     </section>
 
+    <!-- Block 3: visibility toggles -->
     <section class="settings-panel">
       <h2 class="panel-title">{{ text.settingsProfile.visibilityTitle }}</h2>
       <label v-for="item in text.settingsProfile.visibilityOptions" :key="item" class="settings-toggle-row">
@@ -62,4 +71,19 @@ const form = reactive({
 const saveProfile = () => {
   validateProfile(form)
 }
+
+/*
+Layout map
+
++-----------------------------------------------+
+| Heading                                       |
+|-----------------------------------------------|
+| Public profile form                           |
+| display name | headline                       |
+| bio                                           |
+| save                                          |
+|-----------------------------------------------|
+| Visibility toggles                            |
++-----------------------------------------------+
+*/
 </script>

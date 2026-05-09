@@ -1,12 +1,20 @@
 <template>
+  <!--
+    Layout page:
+    - Cột trái: sidebar của chat trong workspace tổ chức
+    - Cột giữa: thread chat + composer
+    - Cột phải: gợi ý câu hỏi + feedback
+  -->
   <div v-if="organization" class="space-y-6">
     <section class="chat-layout">
+      <!-- Left rail: organization chat sessions -->
       <ChatSessionSidebar
         :slug="slug"
         v-model:selected-session-id="selectedSessionId"
         :sessions="sessions"
       />
 
+      <!-- Main column: thread + composer -->
       <section class="surface-card space-y-4">
         <h1 class="page-title">{{ organization.name }} Workspace</h1>
 
@@ -54,6 +62,7 @@
         </div>
       </section>
 
+      <!-- Right rail: suggestion + feedback -->
       <aside class="space-y-3">
         <section class="surface-card space-y-3">
           <h2 class="panel-title">{{ text.chatPage.suggestionsTitle }}</h2>
@@ -78,7 +87,7 @@
 </template>
 
 <script setup lang="ts">
-import ChatSessionSidebar from '@/components/ChatSessionSidebar.vue'
+import ChatSessionSidebar from '@/components/shared/chat/ChatSessionSidebar.vue'
 import { UI_MESSAGES } from '@/constants/messages'
 
 definePageMeta({
@@ -127,4 +136,12 @@ onMounted(async () => {
   selectedSessionId.value = sessions.value[0]?.id ?? null
   await loadMessages(slug.value, selectedSessionId.value)
 })
+
+/*
+Layout map
+
++-------------------------------------------------------------------+
+| Session sidebar | Chat thread + composer | Suggestions + feedback |
++-------------------------------------------------------------------+
+*/
 </script>

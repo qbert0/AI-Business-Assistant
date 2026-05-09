@@ -70,7 +70,7 @@
             :open="activeSessionMenuId === session.id"
             root-class="session-actions-menu"
             content-class="session-menu"
-            @update:open="(open) => updateSessionMenu(open, session.id)"
+            @update:open="handleSessionMenuUpdate(session.id, $event)"
           >
             <template #trigger="{ toggle }">
               <button class="session-action" type="button" :aria-label="text.chatSidebar.actions" @click.stop="toggle">
@@ -150,7 +150,7 @@ const initials = computed(() => createInitials(user.value.name))
 const avatarToneClass = computed(() => getAvatarToneClass(user.value.name))
 const contextOptions = computed(() => [
   { slug: 'personal', name: user.value.name || text.navigation.workspace },
-  ...(props.organizations ?? []).map((organization) => ({
+  ...(props.organizations ?? []).map((organization: OrganizationSummary) => ({
     slug: organization.slug,
     name: organization.name
   }))
@@ -162,7 +162,7 @@ const filteredSessions = computed(() => {
     return props.sessions
   }
 
-  return props.sessions.filter((session) => includesSearchTerm(session.title, searchTerm.value))
+  return props.sessions.filter((session: ChatSession) => includesSearchTerm(session.title, searchTerm.value))
 })
 const visibleSessions = computed(() => (isExpanded.value ? filteredSessions.value : filteredSessions.value.slice(0, collapsedLimit)))
 
@@ -180,6 +180,10 @@ const selectSession = (sessionId: string) => {
 
 const updateSessionMenu = (open: boolean, sessionId: string) => {
   activeSessionMenuId.value = open ? sessionId : null
+}
+
+const handleSessionMenuUpdate = (sessionId: string, open: boolean) => {
+  updateSessionMenu(open, sessionId)
 }
 
 const pinChatSession = async (session: ChatSession) => {

@@ -1,6 +1,6 @@
 import type { KnowledgeDocument, PipelineStep } from '@/types/organization'
 
-export const useDocumentStore = defineStore('documents', () => {
+export const useDocumentLibraryStore = defineStore('document-library', () => {
   const documentsByOrg = ref<Record<string, KnowledgeDocument[]>>({})
   const pipelineByOrg = ref<Record<string, PipelineStep[]>>({})
   const isLoading = ref(false)

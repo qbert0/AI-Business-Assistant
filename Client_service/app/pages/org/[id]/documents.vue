@@ -49,7 +49,7 @@
           :key="document.id"
           :class="['document-tab', selectedDocumentId === document.id && 'active']"
         >
-          <button class="document-tab-select" type="button" @click="selectedDocumentId = document.id">
+          <button class="document-tab-select" type="button" @click="selectDocumentInStore(slug.value, document)">
             <Icon :name="getDocumentIcon(document.title)" />
             <span>{{ document.title }}</span>
           </button>
@@ -188,19 +188,29 @@ const { text } = useAppLocale()
 
 const route = useRoute()
 const { loadOrganizations, getOrganizationBySlug } = useOrganization()
-const { getDocuments, loadDocuments, uploadDocument } = useDocuments()
+const {
+  getDocuments,
+  getOpenDocumentIds,
+  getSelectedDocumentId,
+  getPreview,
+  loadDocuments,
+  uploadDocument,
+  openDocument: openDocumentInStore,
+  selectDocument: selectDocumentInStore,
+  closeDocument: closeDocumentInStore,
+  closeAllDocuments: closeAllDocumentsInStore
+} = useDocuments()
 
 const slug = computed(() => (route.params.slug ?? route.params.id) as string)
 const organization = computed(() => getOrganizationBySlug(slug.value))
 const documents = computed(() => getDocuments(slug.value))
+const openDocumentIds = computed(() => getOpenDocumentIds(slug.value))
+const selectedDocumentId = computed(() => getSelectedDocumentId(slug.value))
 
 const expandedFolders = ref(new Set<string>())
-const openDocumentIds = ref<string[]>([])
-const selectedDocumentId = ref<string | null>(null)
 const isUploadOpen = ref(false)
 const isDragging = ref(false)
 const pendingUploads = ref<File[]>([])
-const previewsByDocumentId = ref<Record<string, { kind: string, content?: string | null, message?: string | null }>>({})
 
 const folderDefinitions = computed(() => [
   { id: DOCUMENT_FOLDER_IDS.people, name: text.documents.peopleFolder },
@@ -239,7 +249,7 @@ const documentTree = computed<DocumentFolder[]>(() => {
     grouped.set(folderId, [...(grouped.get(folderId) ?? []), document])
   }
 
-  return folderDefinitions.value.map((folder) => ({
+  return folderDefinitions.value.map((folder: { id: string, name: string }) => ({
     ...folder,
     documents: grouped.get(folder.id) ?? []
   }))
@@ -247,17 +257,12 @@ const documentTree = computed<DocumentFolder[]>(() => {
 
 const openDocuments = computed(() =>
   openDocumentIds.value
-    .map((id) => documents.value.find((document) => document.id === id))
+    .map((id: string) => documents.value.find((document: KnowledgeDocument) => document.id === id))
     .filter((document): document is KnowledgeDocument => Boolean(document))
 )
 
-const selectedDocument = computed(() => documents.value.find((document) => document.id === selectedDocumentId.value) ?? null)
-const selectedDocumentPreview = computed(() => {
-  if (!selectedDocument.value) {
-    return null
-  }
-  return previewsByDocumentId.value[selectedDocument.value.id] ?? null
-})
+const selectedDocument = computed(() => documents.value.find((document: KnowledgeDocument) => document.id === selectedDocumentId.value) ?? null)
+const selectedDocumentPreview = computed(() => (selectedDocument.value ? getPreview(slug.value, selectedDocument.value.id) : null))
 
 const toggleFolder = (folderId: string) => {
   const next = new Set(expandedFolders.value)
@@ -271,28 +276,14 @@ const toggleFolder = (folderId: string) => {
   expandedFolders.value = next
 }
 
-const openDocument = (document: KnowledgeDocument) => {
-  if (!openDocumentIds.value.includes(document.id)) {
-    openDocumentIds.value = [...openDocumentIds.value, document.id]
-  }
-
-  selectedDocumentId.value = document.id
-}
+const openDocument = (document: KnowledgeDocument) => openDocumentInStore(slug.value, document)
 
 const closeDocument = (documentId: string) => {
-  const currentIndex = openDocumentIds.value.indexOf(documentId)
-  openDocumentIds.value = openDocumentIds.value.filter((id) => id !== documentId)
-
-  if (selectedDocumentId.value !== documentId) {
-    return
-  }
-
-  selectedDocumentId.value = openDocumentIds.value[Math.max(0, currentIndex - 1)] ?? openDocumentIds.value[0] ?? null
+  closeDocumentInStore(slug.value, documentId)
 }
 
 const closeAllDocuments = () => {
-  openDocumentIds.value = []
-  selectedDocumentId.value = null
+  closeAllDocumentsInStore(slug.value)
 }
 
 const getDocumentIcon = (title: string) => {
@@ -311,7 +302,7 @@ const getDocumentIcon = (title: string) => {
 
 const syncPendingFiles = (files: FileList | File[]) => {
   const nextFiles = Array.from(files)
-  const byKey = new Map(pendingUploads.value.map((file) => [`${file.name}-${file.size}`, file]))
+  const byKey = new Map(pendingUploads.value.map((file: File) => [`${file.name}-${file.size}`, file] as const))
 
   for (const file of nextFiles) {
     byKey.set(`${file.name}-${file.size}`, file)
@@ -377,31 +368,16 @@ const isImageDocument = (document: KnowledgeDocument) =>
 const getDocumentContentUrl = (document: KnowledgeDocument) =>
   `/api/documents/${encodeURIComponent(slug.value)}/${encodeURIComponent(document.id)}/content`
 
-const loadDocumentPreview = async (document: KnowledgeDocument) => {
-  if (isPdfDocument(document) || isImageDocument(document) || previewsByDocumentId.value[document.id]) {
-    return
-  }
-
-  const preview = await $fetch<{ kind: string, content?: string | null, message?: string | null }>(
-    `/api/documents/${encodeURIComponent(slug.value)}/${encodeURIComponent(document.id)}/preview`
-  )
-
-  previewsByDocumentId.value = {
-    ...previewsByDocumentId.value,
-    [document.id]: preview
-  }
-}
-
 onMounted(async () => {
   await loadOrganizations()
   await loadDocuments(slug.value)
 
-  expandedFolders.value = new Set(folderDefinitions.value.map((folder) => folder.id))
+  expandedFolders.value = new Set(folderDefinitions.value.map((folder: DocumentFolder) => folder.id))
 })
 
-watch(selectedDocument, (document) => {
+watch(selectedDocument, (document: KnowledgeDocument | null) => {
   if (document) {
-    loadDocumentPreview(document)
+    selectDocumentInStore(slug.value, document)
   }
 })
 </script>

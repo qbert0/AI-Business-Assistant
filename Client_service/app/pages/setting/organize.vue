@@ -1,11 +1,19 @@
 <template>
+  <!--
+    Layout page:
+    - Khối 1: heading
+    - Khối 2: chọn workspace mặc định
+    - Khối 3: danh sách tổ chức để truy cập nhanh
+  -->
   <div class="settings-content">
+    <!-- Block 1: page heading -->
     <section class="settings-page-heading">
       <p class="eyebrow">{{ text.settingsNavigation.organize }}</p>
       <h1 class="page-title">{{ text.settingsOrganize.title }}</h1>
       <p class="muted-copy">{{ text.settingsOrganize.description }}</p>
     </section>
 
+    <!-- Block 2: default workspace selector -->
     <section class="settings-panel">
       <div class="settings-panel-heading">
         <div>
@@ -26,6 +34,7 @@
       <p v-if="organizeErrors" class="text-caption text-orange">{{ organizeErrors }}</p>
     </section>
 
+    <!-- Block 3: quick access organization list -->
     <section class="settings-panel">
       <div class="settings-panel-heading">
         <div>
@@ -62,6 +71,7 @@
 
 <script setup lang="ts">
 import { APP_ROUTES, getContextChatRoute, getOrganizationRoute } from '@/constants/navigation'
+import type { OrganizationSummary } from '@/types/organization'
 
 definePageMeta({
   layout: 'settings'
@@ -76,7 +86,7 @@ const form = reactive({
 })
 
 const selectedOrganization = computed(() =>
-  organizations.value.find((organization) => organization.slug === form.defaultWorkspace)
+  organizations.value.find((organization: OrganizationSummary) => organization.slug === form.defaultWorkspace)
 )
 
 const defaultContextDescription = computed(() =>
@@ -88,4 +98,17 @@ const defaultContextDescription = computed(() =>
 const saveOrganize = () => {
   validateOrganize(form)
 }
+
+/*
+Layout map
+
++---------------------------------------------------+
+| Heading                                           |
+|---------------------------------------------------|
+| Default workspace selector + open workspace CTA   |
+|---------------------------------------------------|
+| Organization quick access list                    |
+| org row | role badge | open action                |
++---------------------------------------------------+
+*/
 </script>

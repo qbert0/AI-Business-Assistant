@@ -4,15 +4,14 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models
 from app.dtos import common_dto
-from app.entities import database as db_entities
-from app.repositories import users_repository
+from app.services import UsersService
 
 router = APIRouter()
 
 
 @router.post("/users", response_model=models.UserRead, status_code=status.HTTP_201_CREATED, tags=["Users"], summary="Tao user moi")
 def create_user(payload: models.UserCreate, db: Session = Depends(get_db)) -> models.UserRead:
-    user = users_repository.create_user(payload, db)
+    user = UsersService(db).create_user(payload)
     return common_dto.to_user_model(user)
 
 
@@ -23,11 +22,11 @@ def list_users(
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> list[models.UserRead]:
-    users = users_repository.list_users(search, skip, limit, db)
+    users = UsersService(db).list_users(search, skip, limit)
     return [common_dto.to_user_model(user) for user in users]
 
 
 @router.get("/users/{user_id}", response_model=models.UserRead, tags=["Users"], summary="Lay chi tiet user")
 def get_user(user_id: str, db: Session = Depends(get_db)) -> models.UserRead:
-    user = users_repository.get_user(user_id, db)
+    user = UsersService(db).get_user(user_id)
     return common_dto.to_user_model(user)

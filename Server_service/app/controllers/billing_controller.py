@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models
 from app.dtos import billing_dto, common_dto
-from app.repositories import billing_repository
+from app.services import BillingService
 
 router = APIRouter()
 
@@ -15,7 +15,7 @@ def get_billing(
     acting_user_id: str = Query(..., description="Can quyen access_org_settings."),
     db: Session = Depends(get_db),
 ) -> models.BillingSummary:
-    billing = billing_repository.get_billing(org_id, acting_user_id, db)
+    billing = BillingService(db).get_billing(org_id, acting_user_id)
     return billing_dto.to_billing_summary_model(billing)
 
 
@@ -25,7 +25,7 @@ def create_billing_checkout(
     payload: models.BillingCheckoutCreate,
     db: Session = Depends(get_db),
 ) -> models.BillingRecordRead:
-    record = billing_repository.create_billing_checkout(org_id, payload, db)
+    record = BillingService(db).create_billing_checkout(org_id, payload)
     return common_dto.to_billing_record_model(record)
 
 
@@ -36,5 +36,5 @@ def update_billing_record(
     acting_user_id: str = Query(..., description="Can quyen access_org_settings trong to chuc cua billing record."),
     db: Session = Depends(get_db),
 ) -> models.BillingRecordRead:
-    record = billing_repository.update_billing_record(record_id, payload, acting_user_id, db)
+    record = BillingService(db).update_billing_record(record_id, payload, acting_user_id)
     return common_dto.to_billing_record_model(record)
