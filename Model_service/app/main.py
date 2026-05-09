@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.controllers import (
     contexts_controller,
+    embeddings_controller,
     feedback_controller,
     inferences_controller,
     metrics_controller,
@@ -11,6 +12,8 @@ from app.controllers import (
     system_controller,
 )
 from app.core.config import get_settings
+from app.db.session import SessionLocal
+from app.repositories.registry_repository import RegistryRepository
 from app.db.session import init_db
 
 
@@ -21,6 +24,7 @@ tags_metadata = [
     {"name": "Providers", "description": "Quan ly provider cho cac model serving endpoint."},
     {"name": "Registry", "description": "Dang ky model, policy va health check model."},
     {"name": "Contexts", "description": "Assemble context cho query truoc khi inference."},
+    {"name": "Embeddings", "description": "Goi embedding models de tao vector cho retrieval va indexing."},
     {"name": "Inferences", "description": "Thuc hien inference va luu metadata request/response."},
     {"name": "Feedback", "description": "Luu feedback nguoi dung theo model va conversation."},
     {"name": "Metrics", "description": "Thong ke usage, latency, token va chi phi uoc tinh."},
@@ -49,12 +53,18 @@ app.add_middleware(
 @app.on_event("startup")
 def startup() -> None:
     init_db()
+    db = SessionLocal()
+    try:
+        RegistryRepository(db, settings).sync_models_from_config()
+    finally:
+        db.close()
 
 
 app.include_router(system_controller.router)
 app.include_router(providers_controller.router, prefix="/api/v1")
 app.include_router(models_registry_controller.router, prefix="/api/v1")
 app.include_router(contexts_controller.router, prefix="/api/v1")
+app.include_router(embeddings_controller.router, prefix="/api/v1")
 app.include_router(inferences_controller.router, prefix="/api/v1")
 app.include_router(feedback_controller.router, prefix="/api/v1")
 app.include_router(metrics_controller.router, prefix="/api/v1")

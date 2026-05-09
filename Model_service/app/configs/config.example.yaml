@@ -1,0 +1,30 @@
+embedding:
+    api_type: "openai"
+    base_url: "MY_EMBEDDING_BASE_URL" 
+    api_key: "MY_EMBEDDING_API_KEY"
+    model: "MY_EMBEDDING_MODEL_NAME"
+
+llm:
+    api_type: "openai"
+    base_url: "MY_MODEL_BASE_URL"
+    api_key: "MY_MODEL_API_KEY"
+    temperature: 0
+    model: "MY_MODEL_NAME"
+    max_token: 40000
+    timeout: 3600
+    reasoning_effort: "low"
+
+models:
+    "MY_MODEL_NAME":
+        api_type: "openai"
+        base_url: "MY_MODEL_BASE_URL"
+        api_key: "MY_MODEL_API_KEY"
+        temperature: 0
+        reasoning_effort: "low"
+        model: "MY_MODEL_NAME"
+
+embeddings:
+  "MY_EMBEDDING_MODEL_NAME":
+    api_type: "openai"
+    base_url: "MY_EMBEDDING_BASE_URL" 
+    api_key: "MY_EMBEDDING_API_KEY"

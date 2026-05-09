@@ -194,10 +194,24 @@ class InferenceRepository:
         return items
 
     def create_inference(self, payload: InferenceCreate) -> InferenceResult:
-        model, policy = self.registry_repository.resolve_model(payload.model_id, payload.organization_id, payload.use_case)
-        resolved_temperature = payload.temperature if payload.temperature is not None else (policy.temperature if policy else 0.2)
-        resolved_max_tokens = payload.max_tokens if payload.max_tokens is not None else (policy.max_tokens if policy else 1200)
-        resolved_system_prompt = payload.system_prompt or (policy.system_prompt if policy else None)
+        model = self.registry_repository.resolve_runtime_model(
+            model_id=payload.model_id,
+            model_name=payload.model,
+            kind="chat",
+        )
+        policy = None
+        model_parameters = parse_json_dict(model.parameters_json)
+        resolved_temperature = (
+            payload.temperature
+            if payload.temperature is not None
+            else float(model_parameters.get("temperature") or 0.2)
+        )
+        resolved_max_tokens = (
+            payload.max_tokens
+            if payload.max_tokens is not None
+            else int(model_parameters.get("max_tokens") or 1200)
+        )
+        resolved_system_prompt = payload.system_prompt
 
         context = self.context_repository.build_context(
             ContextBuildRequest(

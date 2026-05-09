@@ -11,6 +11,7 @@ from app.models.context_model import (
     StoredContextPayload,
     StoredContextRead,
 )
+from app.models.embedding_model import EmbeddingCreate, EmbeddingResultRead, EmbeddingUsageRead, EmbeddingVectorRead
 from app.models.feedback_model import FeedbackCreate, FeedbackRead
 from app.models.inference_model import (
     InferenceCreate,

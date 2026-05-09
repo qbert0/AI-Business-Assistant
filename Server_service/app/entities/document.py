@@ -1,8 +1,11 @@
 from dataclasses import dataclass, field
+from typing import Literal
 
 from app.entities import database as db_entities
 from app.entities.search import SearchHitEntity
-from app.services.document_preview import PreviewKind
+
+
+PreviewKind = Literal["text", "image", "pdf", "download"]
 
 
 @dataclass(slots=True)

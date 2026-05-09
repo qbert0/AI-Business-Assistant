@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.api.deps import get_db, get_settings
-from app.services import RegistryService
+from app.services.registry_service import RegistryService
 
 
 router = APIRouter(tags=["Registry"])

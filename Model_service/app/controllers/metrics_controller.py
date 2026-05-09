@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.api.deps import get_db
-from app.services import MetricsService
+from app.services.metrics_service import MetricsService
 
 
 router = APIRouter(prefix="/metrics", tags=["Metrics"])

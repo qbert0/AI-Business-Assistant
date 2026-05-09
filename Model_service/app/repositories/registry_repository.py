@@ -1,12 +1,14 @@
 from datetime import datetime, timezone
+from uuid import NAMESPACE_URL, uuid5
 
 from fastapi import HTTPException, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
+from app.configs.runtime_catalog import RuntimeModelEntry, load_runtime_model_catalog
 from app.core.config import Settings
 from app.core.security import decrypt_secret, encrypt_secret, mask_secret
-from app.core.serialization import dump_json
+from app.core.serialization import dump_json, parse_json_dict, parse_json_list
 from app.db import models as db_models
 from app.dtos.registry_dto import (
     to_model_health_check_model,
@@ -32,6 +34,138 @@ class RegistryRepository:
     def __init__(self, db: Session, settings: Settings) -> None:
         self.db = db
         self.settings = settings
+
+    @staticmethod
+    def _provider_id(provider_type: str) -> str:
+        return str(uuid5(NAMESPACE_URL, f"provider:{provider_type}"))
+
+    @staticmethod
+    def _model_id(entry: RuntimeModelEntry) -> str:
+        kind = "embedding" if "embedding" in entry.capabilities else "chat"
+        return str(uuid5(NAMESPACE_URL, f"model:{kind}:{entry.key}:{entry.model_name}"))
+
+    def sync_models_from_config(self) -> None:
+        catalog = load_runtime_model_catalog()
+        providers_by_type: dict[str, db_models.Provider] = {}
+        expected_model_ids: set[str] = set()
+
+        for entry in catalog.all_models():
+            expected_model_ids.add(self._model_id(entry))
+            provider = providers_by_type.get(entry.provider_type)
+            if provider is None:
+                provider = self.db.get(db_models.Provider, self._provider_id(entry.provider_type))
+                if provider is None:
+                    provider = db_models.Provider(
+                        id=self._provider_id(entry.provider_type),
+                        name=f"config::{entry.provider_type}",
+                        provider_type=entry.provider_type,
+                        description="Provider synced from configs/config.yaml",
+                        metadata_json=dump_json({"config_managed": True}),
+                        is_active=True,
+                    )
+                    self.db.add(provider)
+                else:
+                    provider.name = f"config::{entry.provider_type}"
+                    provider.provider_type = entry.provider_type
+                    provider.description = "Provider synced from configs/config.yaml"
+                    provider.metadata_json = dump_json({"config_managed": True})
+                    provider.is_active = True
+                providers_by_type[entry.provider_type] = provider
+
+            model = self.db.get(db_models.RegisteredModel, self._model_id(entry))
+            if model is None:
+                model = db_models.RegisteredModel(
+                    id=self._model_id(entry),
+                    provider_id=provider.id,
+                    display_name=entry.key,
+                    model_name=entry.model_name,
+                    base_url=entry.base_url,
+                    api_key_encrypted=encrypt_secret(entry.api_key, self.settings),
+                    api_key_masked=mask_secret(entry.api_key),
+                    capabilities_json=dump_json(entry.capabilities),
+                    parameters_json=dump_json(entry.parameters),
+                    priority=100,
+                    is_default=entry.is_default,
+                    is_active=True,
+                    health_status="unknown",
+                )
+                self.db.add(model)
+            else:
+                model.provider_id = provider.id
+                model.display_name = entry.key
+                model.model_name = entry.model_name
+                model.base_url = entry.base_url
+                model.api_key_encrypted = encrypt_secret(entry.api_key, self.settings)
+                model.api_key_masked = mask_secret(entry.api_key)
+                model.capabilities_json = dump_json(entry.capabilities)
+                model.parameters_json = dump_json(entry.parameters)
+                model.is_default = entry.is_default
+                model.is_active = True
+
+        for model in self.db.query(db_models.RegisteredModel).all():
+            parameters = parse_json_dict(model.parameters_json)
+            if parameters.get("config_managed") is True and model.id not in expected_model_ids:
+                model.is_active = False
+                model.is_default = False
+
+        self.db.commit()
+
+    def _find_model_by_name(self, name: str) -> db_models.RegisteredModel | None:
+        candidates = (
+            self.db.query(db_models.RegisteredModel)
+            .options(joinedload(db_models.RegisteredModel.provider))
+            .filter(
+                db_models.RegisteredModel.is_active.is_(True),
+                or_(
+                    db_models.RegisteredModel.display_name == name,
+                    db_models.RegisteredModel.model_name == name,
+                ),
+            )
+            .order_by(db_models.RegisteredModel.is_default.desc(), db_models.RegisteredModel.priority.asc())
+            .all()
+        )
+        for candidate in candidates:
+            if parse_json_dict(candidate.parameters_json).get("config_managed") is True:
+                return candidate
+        return None
+
+    def resolve_runtime_model(
+        self,
+        *,
+        model_id: str | None,
+        model_name: str | None,
+        kind: str,
+    ) -> db_models.RegisteredModel:
+        catalog = load_runtime_model_catalog()
+
+        if model_id:
+            model = self._get_model_entity(model_id)
+        else:
+            requested_name = model_name
+            if not requested_name:
+                requested_name = (
+                    catalog.default_embedding_model if kind == "embedding" else catalog.default_llm_model
+                )
+            if not requested_name:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Khong co default {kind} model trong configs/config.yaml.",
+                )
+            model = self._find_model_by_name(requested_name)
+            if model is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Model '{requested_name}' khong ton tai trong configs/config.yaml.",
+                )
+
+        capabilities = parse_json_list(model.capabilities_json)
+        required_capability = "embedding" if kind == "embedding" else "chat"
+        if required_capability not in capabilities:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Model '{model.display_name}' khong ho tro capability '{required_capability}'.",
+            )
+        return model
 
     def _serialize_provider(self, provider: db_models.Provider) -> ProviderRead:
         return to_provider_model(provider)

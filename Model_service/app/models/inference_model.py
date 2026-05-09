@@ -11,6 +11,7 @@ class InferenceCreate(BaseModel):
     organization_id: str | None = None
     user_id: str | None = None
     model_id: str | None = None
+    model: str | None = None
     use_case: str = Field("chat_advisory", min_length=1, max_length=80)
     question: str = Field(..., min_length=1)
     history: list[ConversationMessage] = Field(default_factory=list)

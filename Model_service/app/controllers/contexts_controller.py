@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.api.deps import get_db
-from app.services import ContextService
+from app.services.context_service import ContextService
 
 
 router = APIRouter(prefix="/contexts", tags=["Contexts"])

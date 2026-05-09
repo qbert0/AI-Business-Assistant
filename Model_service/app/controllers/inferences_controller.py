@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.api.deps import get_db, get_settings
-from app.services import InferenceService
+from app.services.inference_service import InferenceService
 
 
 router = APIRouter(prefix="/inferences", tags=["Inferences"])
