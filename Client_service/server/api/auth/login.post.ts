@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { AUTH_CLIENT_TOKEN_COOKIE, AUTH_TOKEN_COOKIE, AUTH_TOKEN_MAX_AGE } from '../../../app/constants/auth'
 import { backendFetch, mapUser } from '../../utils/backend'
+import { setAuthCookies } from '../../utils/auth-session'
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -25,22 +25,7 @@ export default defineEventHandler(async (event) => {
     body
   })
   const token = response.access_token
-
-  setCookie(event, AUTH_TOKEN_COOKIE, token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: AUTH_TOKEN_MAX_AGE
-  })
-
-  setCookie(event, AUTH_CLIENT_TOKEN_COOKIE, token, {
-    httpOnly: false,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: AUTH_TOKEN_MAX_AGE
-  })
+  setAuthCookies(event, token)
 
   return {
     token,

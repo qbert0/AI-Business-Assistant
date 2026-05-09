@@ -1,0 +1,4 @@
+oauth:
+  google:
+    client_id: your-google-oauth-client-id.apps.googleusercontent.com
+    client_secret: your-google-oauth-client-secret

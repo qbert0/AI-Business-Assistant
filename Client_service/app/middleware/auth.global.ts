@@ -1,13 +1,14 @@
 import { APP_ROUTES } from '@/constants/navigation'
 import { AUTH_REDIRECT_QUERY, getAuthRedirectTarget } from '@/utils/auth-redirect'
+import { hasClientAuthToken } from '@/utils/auth-token'
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const auth = useAuthStore()
-  const publicRoutes = [APP_ROUTES.home, APP_ROUTES.authLogin, APP_ROUTES.authRegister]
+  const publicRoutes = [APP_ROUTES.home, APP_ROUTES.authLogin, APP_ROUTES.authRegister, APP_ROUTES.authGoogleCallback]
   const isOrganizationPublicRoute = /^\/org\/[^/]+\/public\/?$/.test(to.path)
   const isPublicRoute = publicRoutes.includes(to.path) || isOrganizationPublicRoute
 
-  if (!auth.isReady) {
+  if (!auth.isReady && (!isPublicRoute || hasClientAuthToken())) {
     await auth.hydrate()
   }
 

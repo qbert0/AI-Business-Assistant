@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from config import SearchSettings
+from configs import SearchSettings
 from search_engines.base import AbstractSearchEngine
 from search_engines.elasticsearch_engine import ElasticsearchSearchEngine
 from search_engines.exceptions import UnsupportedSearchBackendError

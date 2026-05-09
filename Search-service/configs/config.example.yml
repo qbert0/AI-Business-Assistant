@@ -1,0 +1,14 @@
+app:
+  api_prefix: ""
+  routes:
+    health: "/health"
+    search_documents: "/search/documents"
+
+search:
+  backend: "elasticsearch"
+  elasticsearch:
+    url: "http://localhost:9200"
+    username: null
+    password: null
+    verify_certs: false
+    request_timeout: 30

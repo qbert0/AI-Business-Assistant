@@ -12,6 +12,10 @@ export const getAuthRedirectTarget = (redirect?: unknown, fallback = APP_ROUTES.
     return fallback
   }
 
+  if (target.startsWith('/api/')) {
+    return fallback
+  }
+
   if ([APP_ROUTES.authLogin, APP_ROUTES.authRegister].includes(target)) {
     return fallback
   }

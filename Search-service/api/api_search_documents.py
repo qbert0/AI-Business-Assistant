@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from api.deps import get_search_engine
 from api.response_schema import DataResponse
 from api.search_document_schema import (
     SearchDocumentCreateRequest,
@@ -11,7 +12,6 @@ from api.search_document_schema import (
     SearchDocumentRead,
     SearchDocumentUpdateRequest,
 )
-from dependencies import get_search_engine
 from repositories.search_repository import SearchRepository
 from search_engines.exceptions import (
     SearchDocumentAlreadyExistsError,

@@ -23,6 +23,12 @@ def login(payload: models.AuthLogin, db: Session = Depends(get_db)) -> models.To
     return auth_dto.to_token_model(token)
 
 
+@router.post("/auth/google/exchange", response_model=models.TokenResponse, tags=["Auth"], summary="Doi Google authorization code lay JWT he thong")
+def google_exchange(payload: models.GoogleOAuthExchange, db: Session = Depends(get_db)) -> models.TokenResponse:
+    token = auth_repository.login_with_google(payload, db)
+    return auth_dto.to_token_model(token)
+
+
 @router.get("/auth/me", response_model=models.UserRead, tags=["Auth"], summary="Lay user hien tai tu Bearer JWT")
 def auth_me(current_user: db_entities.User = Depends(get_current_user)) -> models.UserRead:
     return common_dto.to_user_model(current_user)

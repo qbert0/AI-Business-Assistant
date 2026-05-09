@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from api.api_healthcheck import router as health_router
 from api.api_search_documents import router as search_documents_router
-from constants import HEALTH_ROUTE_PREFIX, SEARCH_DOCUMENTS_ROUTE_PREFIX
+from utils.constants import HEALTH_ROUTE_PREFIX, SEARCH_DOCUMENTS_ROUTE_PREFIX
 
 router = APIRouter()
 

@@ -18,7 +18,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     backendApiBaseUrl: process.env.NUXT_BACKEND_API_BASE_URL || 'http://localhost:8000',
     public: {
-      backendApiBaseUrl: process.env.NUXT_PUBLIC_BACKEND_API_BASE_URL || 'http://localhost:8000'
+      backendApiBaseUrl: process.env.NUXT_PUBLIC_BACKEND_API_BASE_URL || 'http://localhost:8000',
+      googleClientId: process.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID || ''
     }
   },
   tailwindcss: {
