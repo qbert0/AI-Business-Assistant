@@ -4,6 +4,7 @@ import { backendFetch, getBackendUser } from '../../../utils/backend'
 const presignSchema = z.object({
   fileName: z.string().min(1),
   contentType: z.string().min(1).optional(),
+  visibility: z.enum(['public', 'private']).default('private'),
   expires: z.number().int().min(60).max(86400).optional()
 })
 

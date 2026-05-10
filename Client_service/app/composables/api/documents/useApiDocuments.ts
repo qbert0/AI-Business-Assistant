@@ -3,6 +3,8 @@ import type { DocumentGraph, DocumentSearchResult, KnowledgeDocument, PipelineSt
 import { useApiFetch } from '@/composables/api/core/useApiFetch'
 import { getClientAuthToken } from '@/utils/auth-token'
 
+type DocumentVisibility = 'public' | 'private'
+
 const decodeJwtSubject = (token: string | null): string => {
   if (!token) {
     return ''
@@ -34,11 +36,11 @@ export const useApiDocuments = () => {
   const publicList = (slug: string) =>
     apiFetch<{ documents: KnowledgeDocument[] }>(`/api/public/organizations/${slug}/documents`)
 
-  const upload = async (slug: string, file: string | File) => {
+  const upload = async (slug: string, file: string | File, visibility: DocumentVisibility = 'private') => {
     if (typeof file === 'string') {
       return apiFetch<{ document: KnowledgeDocument }>(`/api/documents/${slug}`, {
         method: 'POST',
-        body: { title: file }
+        body: { title: file, visibility }
       })
     }
 
@@ -55,6 +57,7 @@ export const useApiDocuments = () => {
       body: {
         fileName: file.name,
         contentType,
+        visibility,
         expires: 3600
       }
     })
@@ -80,8 +83,11 @@ export const useApiDocuments = () => {
         objectKey: presignedUpload.object_key,
         sourceUrl: presignedUpload.source_url,
         contentType,
+        visibility,
         metadata: {
-          source: 'client-presigned-upload'
+          source: 'client-presigned-upload',
+          visibility,
+          folder: visibility
         }
       }
     })
@@ -129,6 +135,11 @@ export const useApiDocuments = () => {
       method: 'POST'
     })
 
+  const deleteDocument = (slug: string, documentId: string) =>
+    apiFetch<{ ok: boolean }>(`/api/documents/${slug}/${documentId}`, {
+      method: 'DELETE'
+    })
+
   const graph = (slug: string, documentId: string) =>
     apiFetch<{ graph: DocumentGraph }>(`/api/documents/${slug}/${documentId}/graph`)
 
@@ -157,6 +168,7 @@ export const useApiDocuments = () => {
     downloadUrl,
     startAnalysis,
     stopAnalysis,
+    deleteDocument,
     graph,
     organizationGraph,
     searchDocument,

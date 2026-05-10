@@ -53,13 +53,17 @@
             <Icon name="lucide:file-plus" />
             <span>{{ text.documents.addFile }}</span>
           </button>
-          <button class="document-node-menu-item" type="button" @click="emitNodeAction('download', close)">
+          <button v-if="!isRootScope" class="document-node-menu-item" type="button" @click="emitNodeAction('download', close)">
             <Icon name="lucide:download" />
             <span>Download</span>
           </button>
-          <button class="document-node-menu-item" type="button" @click="emitNodeAction('rename', close)">
+          <button v-if="!isRootScope" class="document-node-menu-item" type="button" @click="emitNodeAction('rename', close)">
             <Icon name="lucide:pencil" />
             <span>{{ text.common.rename }}</span>
+          </button>
+          <button v-if="!isRootScope" class="document-node-menu-item danger" type="button" @click="emitNodeAction('delete', close)">
+            <Icon name="lucide:trash-2" />
+            <span>{{ text.common.delete }}</span>
           </button>
         </template>
       </AppPopup>
@@ -84,6 +88,7 @@
         @add-file="$emit('add-file', $event)"
         @download="$emit('download', $event)"
         @rename="$emit('rename', $event)"
+        @delete="$emit('delete', $event)"
       />
     </div>
   </div>
@@ -113,12 +118,14 @@ const emit = defineEmits<{
   'add-file': [parentId: string]
   download: [node: OrganizationDocumentTreeNode]
   rename: [nodeId: string]
+  delete: [node: OrganizationDocumentTreeNode]
 }>()
 
 const childNodes = computed(() => props.node.children ?? [])
 const isExpanded = computed(() => props.expandedIds.includes(props.node.id))
+const isRootScope = computed(() => props.node.id === 'public-documents' || props.node.id === 'private-documents')
 
-const emitNodeAction = (action: 'add-folder' | 'add-file' | 'download' | 'rename', close: () => void) => {
+const emitNodeAction = (action: 'add-folder' | 'add-file' | 'download' | 'rename' | 'delete', close: () => void) => {
   close()
   if (action === 'add-folder') {
     emit('add-folder', props.node.id)
@@ -130,6 +137,10 @@ const emitNodeAction = (action: 'add-folder' | 'add-file' | 'download' | 'rename
   }
   if (action === 'download') {
     emit('download', props.node)
+    return
+  }
+  if (action === 'delete') {
+    emit('delete', props.node)
     return
   }
   emit('rename', props.node.id)

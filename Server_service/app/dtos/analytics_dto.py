@@ -11,5 +11,8 @@ def to_analytics_model(entity: AnalyticsEntity) -> models.AnalyticsRead:
         chat_session_count=entity.chat_session_count,
         question_count=entity.question_count,
         popular_questions=entity.popular_questions,
+        popular_question_stats=entity.popular_question_stats,
+        feedback_summary=entity.feedback_summary,
+        feedback_items=entity.feedback_items,
         sensitive_restrictions=entity.sensitive_restrictions,
     )

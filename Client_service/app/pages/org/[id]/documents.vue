@@ -1,17 +1,27 @@
 <template>
   <div v-if="organization" class="org-content-page">
+    <section v-if="remediationQuestion || remediationResultMessage" class="surface-card upload-remediation-banner">
+      <div>
+        <p class="section-kicker">Khắc phục phản hồi</p>
+        <h2>{{ remediationQuestion || 'Kiểm tra lại câu hỏi đã bị phản hồi' }}</h2>
+        <p v-if="remediationResultMessage" class="table-copy">{{ remediationResultMessage }}</p>
+        <p v-else-if="isRemediationChecking" class="table-copy">
+          <Icon name="lucide:loader-circle" class="upload-spinner" />
+          Đang kiểm tra tài liệu khắc phục trong nền.
+        </p>
+      </div>
+      <button v-if="!isPublicReadOnly" class="btn-primary" type="button" @click="openUploadModal(null)">
+        <Icon name="lucide:upload" />
+        Tải tài liệu khắc phục
+      </button>
+    </section>
+
     <section class="document-flex-layout" :style="{ '--document-tree-width': `${treePanelWidth}px` }">
       <article class="surface-card document-tree-panel">
         <div class="section-heading">
           <h2 class="document-tree-heading">{{ text.documents.treeTitle }}</h2>
           <div class="flex flex-wrap items-center justify-end gap-2">
             <span class="text-caption text-olive">{{ treeNodeCount }}</span>
-            <button v-if="!isPublicReadOnly" class="icon-action-light" type="button" :aria-label="text.documents.addFolder" @click="promptCreateFolder(null)">
-              <Icon name="lucide:folder-plus" />
-            </button>
-            <button v-if="!isPublicReadOnly" class="icon-action-light" type="button" :aria-label="text.documents.addFile" @click="openUploadModal(null)">
-              <Icon name="lucide:file-plus" />
-            </button>
             <button v-if="!isPublicReadOnly" class="icon-action-light" type="button" aria-label="Download all" @click="downloadAllDocuments">
               <Icon name="lucide:archive" />
             </button>
@@ -37,6 +47,7 @@
             @add-file="openUploadModal"
             @download="downloadNode"
             @rename="renameNode"
+            @delete="deleteNode"
           />
 
           <p v-if="!documentTree.length && (!isPublicReadOnly || allowGuestDocumentAccess)" class="rounded-2xl border border-dashed border-cream bg-white px-4 py-5 text-sm text-olive">
@@ -180,9 +191,38 @@
           <span>Chỉ hỗ trợ PDF, DOCX, XLSX/CSV và TXT.</span>
         </label>
 
+        <p v-if="remediationQuestion" class="upload-remediation-note">
+          Tài liệu sau khi tải lên sẽ được kiểm tra lại với câu hỏi: "{{ remediationQuestion }}"
+        </p>
+
         <p v-if="uploadValidationError" class="upload-validation-error">
           {{ uploadValidationError }}
         </p>
+
+        <p v-if="remediationResultMessage" class="upload-remediation-note">
+          {{ remediationResultMessage }}
+        </p>
+
+        <div class="upload-scope-grid">
+          <button
+            type="button"
+            :class="['upload-scope-option', uploadVisibility === 'public' && 'active']"
+            @click="uploadVisibility = 'public'"
+          >
+            <Icon name="lucide:globe-2" />
+            <span>Public</span>
+            <small>Khach hang co the hoi tren chat tu van.</small>
+          </button>
+          <button
+            type="button"
+            :class="['upload-scope-option', uploadVisibility === 'private' && 'active']"
+            @click="uploadVisibility = 'private'"
+          >
+            <Icon name="lucide:lock" />
+            <span>Private</span>
+            <small>Chi nhan vien co quyen moi duoc hoi.</small>
+          </button>
+        </div>
 
         <div v-if="pendingUploads.length" class="upload-file-list">
           <div v-for="file in pendingUploads" :key="`${file.name}-${file.size}`" class="upload-file-row">
@@ -194,8 +234,9 @@
         <footer class="modal-footer">
           <button v-if="pendingUploads.length" class="btn-secondary" type="button" @click="pendingUploads = []">{{ text.documents.changeFiles }}</button>
           <button class="btn-secondary" type="button" @click="clearUploadModal">{{ text.common.cancel }}</button>
-          <button class="btn-primary" type="button" :disabled="!pendingUploads.length || isSavingTree" @click="handleUpload">
-            {{ text.documents.upload }}
+          <button class="btn-primary" type="button" :disabled="!pendingUploads.length || isSavingTree || isUploadProcessing" @click="handleUpload">
+            <Icon v-if="isUploadProcessing" name="lucide:loader-circle" class="upload-spinner" />
+            {{ isUploadProcessing ? 'Đang tải tài liệu...' : text.documents.upload }}
           </button>
         </footer>
       </div>
@@ -230,6 +271,7 @@ const {
   uploadDocument,
   startAnalysis,
   stopAnalysis,
+  deleteDocument: deleteDocumentFromStore,
   openDocument: openDocumentInStore,
   selectDocument: selectDocumentInStore,
   closeDocument: closeDocumentInStore,
@@ -259,7 +301,11 @@ const isUploadOpen = ref(false)
 const isDragging = ref(false)
 const pendingUploads = ref<File[]>([])
 const uploadParentId = ref<string | null>(null)
+const uploadVisibility = ref<'public' | 'private'>('private')
 const uploadValidationError = ref<string | null>(null)
+const remediationResultMessage = ref<string | null>(null)
+const isUploadProcessing = ref(false)
+const isRemediationChecking = ref(false)
 const analysisActionError = ref<string | null>(null)
 const downloadError = ref<string | null>(null)
 const isSavingTree = ref(false)
@@ -268,6 +314,7 @@ let analysisPollTimer: ReturnType<typeof setInterval> | null = null
 
 const SUPPORTED_UPLOAD_EXTENSIONS = new Set(['pdf', 'docx', 'xlsx', 'csv', 'txt'])
 const SUPPORTED_UPLOAD_ACCEPT = '.pdf,.docx,.xlsx,.csv,.txt'
+const remediationQuestion = computed(() => typeof route.query.feedbackQuestion === 'string' ? route.query.feedbackQuestion.trim() : '')
 
 const normalizeNode = (node: OrganizationDocumentTreeNode, parentId: string | null = null): OrganizationDocumentTreeNode => ({
   id: node.id,
@@ -280,16 +327,63 @@ const normalizeNode = (node: OrganizationDocumentTreeNode, parentId: string | nu
 
 const cloneTree = (nodes: OrganizationDocumentTreeNode[]) => nodes.map((node) => normalizeNode(node, node.parentId ?? null))
 
-const buildFallbackTree = () =>
-  documents.value.map<OrganizationDocumentTreeNode>((document) => ({
+const ensureDefaultFolders = (nodes: OrganizationDocumentTreeNode[]) => {
+  if (isPublicReadOnly.value) {
+    return nodes
+  }
+
+  const nextNodes = [...nodes]
+  if (!nextNodes.some((node) => node.id === 'public-documents')) {
+    nextNodes.unshift({ id: 'public-documents', type: 'folder', name: 'Public', parentId: null, children: [] })
+  }
+  if (!nextNodes.some((node) => node.id === 'private-documents')) {
+    nextNodes.push({ id: 'private-documents', type: 'folder', name: 'Private', parentId: null, children: [] })
+  }
+  return nextNodes
+}
+
+const buildDocumentNodes = (visibility: 'public' | 'private') =>
+  documents.value
+    .filter((document) => document.visibility === visibility)
+    .map<OrganizationDocumentTreeNode>((document) => ({
     id: `document-${document.id}`,
     type: 'file',
     name: document.title,
-    parentId: null,
+    parentId: `${visibility}-documents`,
     documentId: document.id
   }))
 
-const documentTree = computed(() => (treeState.value.length ? treeState.value : buildFallbackTree()))
+const buildFallbackTree = (): OrganizationDocumentTreeNode[] => [
+  {
+    id: 'public-documents',
+    type: 'folder',
+    name: 'Public',
+    parentId: null,
+    children: buildDocumentNodes('public')
+  },
+  {
+    id: 'private-documents',
+    type: 'folder',
+    name: 'Private',
+    parentId: null,
+    children: isPublicReadOnly.value ? [] : buildDocumentNodes('private')
+  }
+].filter((node) => !isPublicReadOnly.value || node.id === 'public-documents')
+
+const scopedDocumentTree = computed(() => {
+  const sourceTree = treeState.value.length ? treeState.value : buildFallbackTree()
+  if (isPublicReadOnly.value) {
+    return sourceTree.filter((node) => node.id === 'public-documents')
+  }
+
+  const publicNode = sourceTree.find((node) => node.id === 'public-documents')
+  const privateNode = sourceTree.find((node) => node.id === 'private-documents')
+  return [
+    publicNode ?? { id: 'public-documents', type: 'folder' as const, name: 'Public', parentId: null, children: [] },
+    privateNode ?? { id: 'private-documents', type: 'folder' as const, name: 'Private', parentId: null, children: [] }
+  ]
+})
+const documentTree = computed(() => scopedDocumentTree.value)
 const expandedIds = computed(() => [...expandedFolders.value])
 const treeNodeCount = computed(() => {
   const walk = (nodes: OrganizationDocumentTreeNode[]): number =>
@@ -319,7 +413,7 @@ const seedExpandedFolders = (nodes: OrganizationDocumentTreeNode[]) => {
 }
 
 const setTreeState = (nodes: OrganizationDocumentTreeNode[]) => {
-  treeState.value = nodes.map((node) => normalizeNode(node))
+  treeState.value = ensureDefaultFolders(nodes.map((node) => normalizeNode(node)))
   seedExpandedFolders(treeState.value)
 }
 
@@ -343,11 +437,16 @@ const persistTree = async (nextTree: OrganizationDocumentTreeNode[]) => {
 
 const loadTree = async () => {
   const response = await settingsApi.get(slug.value)
-  setTreeState(Array.isArray(response.settings.documentTree) ? response.settings.documentTree : [])
+  const rawTree = Array.isArray(response.settings.documentTree) ? response.settings.documentTree : []
+  const prunedTree = pruneMissingDocumentNodes(rawTree)
+  setTreeState(prunedTree)
+  if (JSON.stringify(rawTree) !== JSON.stringify(prunedTree)) {
+    await persistTree(prunedTree)
+  }
 }
 
 const loadPublicTree = () => {
-  setTreeState(Array.isArray(publicData.value?.documentTree) ? publicData.value.documentTree : [])
+  setTreeState(pruneMissingDocumentNodes(Array.isArray(publicData.value?.documentTree) ? publicData.value.documentTree : []))
 }
 
 const withTreeMutation = (
@@ -396,8 +495,41 @@ const findNode = (nodes: OrganizationDocumentTreeNode[], targetId: string): Orga
   return null
 }
 
+const removeNode = (nodes: OrganizationDocumentTreeNode[], targetId: string): OrganizationDocumentTreeNode[] =>
+  nodes
+    .filter((node) => node.id !== targetId)
+    .map((node) => ({
+      ...node,
+      children: node.children ? removeNode(node.children, targetId) : node.children
+    }))
+
+const removeDocumentNodesByIds = (nodes: OrganizationDocumentTreeNode[], documentIds: Set<string>): OrganizationDocumentTreeNode[] =>
+  nodes
+    .filter((node) => node.type !== 'file' || !node.documentId || !documentIds.has(node.documentId))
+    .map((node) => ({
+      ...node,
+      children: node.children ? removeDocumentNodesByIds(node.children, documentIds) : node.children
+    }))
+
+const pruneMissingDocumentNodes = (nodes: OrganizationDocumentTreeNode[]): OrganizationDocumentTreeNode[] => {
+  const existingDocumentIds = new Set(documents.value.map((document) => document.id))
+  return nodes
+    .filter((node) => node.type !== 'file' || (node.documentId && existingDocumentIds.has(node.documentId)))
+    .map((node) => ({
+      ...node,
+      children: node.children ? pruneMissingDocumentNodes(node.children) : node.children
+    }))
+}
+
+const isRootScopeNode = (nodeId: string) => nodeId === 'public-documents' || nodeId === 'private-documents'
+
 const promptCreateFolder = async (parentId: string | null) => {
-  if (isPublicReadOnly.value) {
+  if (isPublicReadOnly.value || !parentId) {
+    return
+  }
+
+  const parentNode = findNode(documentTree.value, parentId)
+  if (!parentNode || parentNode.type !== 'folder') {
     return
   }
 
@@ -414,7 +546,7 @@ const promptCreateFolder = async (parentId: string | null) => {
     children: []
   }
 
-  expandedFolders.value = new Set([...expandedFolders.value, nextNode.id, ...(parentId ? [parentId] : [])])
+  expandedFolders.value = new Set([...expandedFolders.value, parentId, nextNode.id])
   await persistTree(appendNode(documentTree.value, parentId, nextNode))
 }
 
@@ -424,7 +556,7 @@ const renameNode = async (nodeId: string) => {
   }
 
   const currentNode = findNode(documentTree.value, nodeId)
-  if (!currentNode) {
+  if (!currentNode || isRootScopeNode(currentNode.id)) {
     return
   }
 
@@ -434,6 +566,40 @@ const renameNode = async (nodeId: string) => {
   }
 
   await persistTree(withTreeMutation(documentTree.value, nodeId, (node) => ({ ...node, name: name.trim() })))
+}
+
+const deleteNode = async (node: OrganizationDocumentTreeNode) => {
+  if (isPublicReadOnly.value || isRootScopeNode(node.id)) {
+    return
+  }
+
+  const confirmMessage = node.type === 'folder'
+    ? `Xóa folder "${node.name}" và toàn bộ file bên trong khỏi hệ thống?`
+    : `Xóa file "${node.name}" khỏi hệ thống?`
+  if (!window.confirm(confirmMessage)) {
+    return
+  }
+
+  const documentIds = collectFileNodes(node)
+    .map((fileNode) => fileNode.documentId)
+    .filter((documentId): documentId is string => Boolean(documentId))
+
+  for (const documentId of documentIds) {
+    try {
+      await deleteDocumentFromStore(slug.value, documentId)
+      closeDocument(documentId)
+    } catch (err) {
+      downloadError.value = getActionErrorMessage(err, 'Khong xoa duoc tai lieu.')
+      return
+    }
+  }
+
+  await loadDocuments(slug.value)
+  const deletedDocumentIds = new Set(documentIds)
+  const nextTree = node.type === 'folder'
+    ? removeNode(documentTree.value, node.id)
+    : removeDocumentNodesByIds(documentTree.value, deletedDocumentIds)
+  await persistTree(pruneMissingDocumentNodes(nextTree))
 }
 
 const toggleFolder = (folderId: string) => {
@@ -644,12 +810,26 @@ const downloadAllDocuments = async () => {
   })
 }
 
+const inferVisibilityFromParent = (parentId: string | null): 'public' | 'private' => {
+  if (parentId === 'public-documents') {
+    return 'public'
+  }
+  if (parentId === 'private-documents') {
+    return 'private'
+  }
+
+  const parentNode = parentId ? findNode(documentTree.value, parentId) : null
+  const parentName = parentNode?.name.toLowerCase() || ''
+  return parentName.includes('public') ? 'public' : 'private'
+}
+
 const openUploadModal = (parentId: string | null) => {
   if (isPublicReadOnly.value) {
     return
   }
 
   uploadParentId.value = parentId
+  uploadVisibility.value = inferVisibilityFromParent(parentId)
   uploadValidationError.value = null
   isUploadOpen.value = true
 }
@@ -704,9 +884,68 @@ const handleFileInput = (event: Event) => {
 const clearUploadModal = () => {
   pendingUploads.value = []
   uploadParentId.value = null
+  uploadVisibility.value = 'private'
+  uploadValidationError.value = null
+  remediationResultMessage.value = null
+  isDragging.value = false
+  isUploadOpen.value = false
+}
+
+const finishUploadModal = () => {
+  pendingUploads.value = []
+  uploadParentId.value = null
+  uploadVisibility.value = 'private'
   uploadValidationError.value = null
   isDragging.value = false
   isUploadOpen.value = false
+}
+
+const verifyRemediationQuestion = async () => {
+  if (!remediationQuestion.value) {
+    return
+  }
+
+  try {
+    const response = await documentsApi.searchOrganization(slug.value, remediationQuestion.value, 5)
+    remediationResultMessage.value = response.count > 0
+      ? 'Đúng: tài liệu khắc phục có nội dung liên quan đến câu hỏi phản hồi.'
+      : 'Sai: tài liệu khắc phục chưa có nội dung liên quan đến câu hỏi phản hồi.'
+  } catch {
+    remediationResultMessage.value = 'Sai: hệ thống không xác minh được tài liệu khắc phục.'
+  }
+}
+
+const waitForAnalysisAttempt = async (documentIds: string[]) => {
+  if (!documentIds.length) {
+    return
+  }
+
+  const maxAttempts = 8
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+    await loadDocuments(slug.value)
+    const pendingDocuments = documents.value.filter((document) =>
+      documentIds.includes(document.id) && isAnalysisRunning(document)
+    )
+    if (!pendingDocuments.length) {
+      return
+    }
+  }
+}
+
+const runRemediationCheckInBackground = async (documentIds: string[]) => {
+  if (!remediationQuestion.value) {
+    return
+  }
+
+  remediationResultMessage.value = null
+  isRemediationChecking.value = true
+  try {
+    await waitForAnalysisAttempt(documentIds)
+    await verifyRemediationQuestion()
+  } finally {
+    isRemediationChecking.value = false
+  }
 }
 
 const handleUpload = async () => {
@@ -714,38 +953,52 @@ const handleUpload = async () => {
     return
   }
 
-  const hadPersistedTree = treeState.value.length > 0
+  isUploadProcessing.value = true
+  try {
+    const hadPersistedTree = treeState.value.length > 0
 
-  for (const file of pendingUploads.value) {
-    await uploadDocument(slug.value, file)
-  }
-
-  await loadDocuments(slug.value)
-
-  if (!hadPersistedTree && !uploadParentId.value) {
-    await persistTree(buildFallbackTree())
-    clearUploadModal()
-    return
-  }
-
-  let nextTree = documentTree.value
-  for (const file of pendingUploads.value) {
-    const matched = documents.value.find((document) => document.title === file.name)
-    if (!matched) {
-      continue
+    for (const file of pendingUploads.value) {
+      await uploadDocument(slug.value, file, uploadVisibility.value)
     }
 
-    nextTree = appendNode(nextTree, uploadParentId.value, {
-      id: `document-${matched.id}`,
-      type: 'file',
-      name: matched.title,
-      parentId: uploadParentId.value,
-      documentId: matched.id
-    })
-  }
+    await loadDocuments(slug.value)
+    const uploadedDocuments = pendingUploads.value
+      .map((file) => documents.value.find((document) => document.title === file.name && document.visibility === uploadVisibility.value))
+      .filter((document): document is KnowledgeDocument => Boolean(document))
 
-  await persistTree(nextTree)
-  clearUploadModal()
+    for (const document of uploadedDocuments) {
+      try {
+        await startAnalysis(slug.value, document.id)
+      } catch {
+        // The backend may reject analysis for documents that are already processing or not backed by storage metadata.
+      }
+    }
+
+    if (!hadPersistedTree && !uploadParentId.value) {
+      await persistTree(buildFallbackTree())
+      finishUploadModal()
+      void runRemediationCheckInBackground(uploadedDocuments.map((document) => document.id))
+      return
+    }
+
+    let nextTree = documentTree.value
+    const effectiveParentId = uploadParentId.value ?? `${uploadVisibility.value}-documents`
+    for (const document of uploadedDocuments) {
+      nextTree = appendNode(nextTree, effectiveParentId, {
+        id: `document-${document.id}`,
+        type: 'file',
+        name: document.title,
+        parentId: effectiveParentId,
+        documentId: document.id
+      })
+    }
+
+    await persistTree(nextTree)
+    finishUploadModal()
+    void runRemediationCheckInBackground(uploadedDocuments.map((document) => document.id))
+  } finally {
+    isUploadProcessing.value = false
+  }
 }
 
 const getActionErrorMessage = (err: unknown, fallback: string) => {

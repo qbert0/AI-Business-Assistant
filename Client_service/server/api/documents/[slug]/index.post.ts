@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { backendFetch, getBackendUser, mapDocument } from '../../../utils/backend'
 
 const uploadSchema = z.object({
-  title: z.string().min(2).max(160)
+  title: z.string().min(2).max(160),
+  visibility: z.enum(['public', 'private']).default('private')
 })
 
 const uploadToPresignedUrl = async (uploadUrl: string, data: Uint8Array, contentType?: string) => {
@@ -63,7 +64,9 @@ export default defineEventHandler(async (event) => {
         content_type: filePart.type || 'application/octet-stream',
         metadata: {
           uploaded_by_email: user.email,
-          source: 'client-presigned-upload'
+          source: 'client-presigned-upload',
+          visibility: 'private',
+          folder: 'private'
         }
       }
     })
@@ -80,7 +83,9 @@ export default defineEventHandler(async (event) => {
       source_url: `minio://documents/${orgId}/${body.title}`,
       metadata: {
         uploaded_by_email: user.email,
-        source: 'client-metadata-only'
+        source: 'client-metadata-only',
+        visibility: body.visibility,
+        folder: body.visibility
       }
     }
   })

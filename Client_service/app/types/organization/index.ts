@@ -43,6 +43,8 @@ export interface KnowledgeDocument {
   id: string
   organizationSlug: string
   title: string
+  visibility: 'public' | 'private'
+  folder: 'public' | 'private' | string
   uploadedBy: string
   uploadedAt: string
   chunkCount: number
@@ -159,6 +161,37 @@ export interface FeedbackEntry {
   rating: 'positive' | 'negative'
   comment: string
   createdAt: string
+}
+
+export interface AnalyticsFeedbackItem {
+  id: string
+  message_id: string
+  session_id: string
+  session_title: string
+  question: string
+  answer_excerpt: string
+  rating: 'positive' | 'negative'
+  comment: string
+  created_at: string | null
+}
+
+export interface OrganizationAnalytics {
+  organization_id: string
+  employee_count: number
+  document_count: number
+  indexed_document_count: number
+  chat_session_count: number
+  question_count: number
+  popular_questions: string[]
+  popular_question_stats: Array<{ question: string, count: number }>
+  feedback_summary: {
+    total: number
+    positive: number
+    negative: number
+    unresolved: number
+  }
+  feedback_items: AnalyticsFeedbackItem[]
+  sensitive_restrictions: string | null
 }
 
 export interface ChatCitation {

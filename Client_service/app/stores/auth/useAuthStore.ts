@@ -4,6 +4,8 @@ import { hasClientAuthToken } from '@/utils/auth-token'
 
 import { useApiAuth } from '@/composables/api/auth/useApiAuth'
 
+const DEFAULT_LOGIN_ERROR = 'Email hoặc mật khẩu không đúng.'
+
 export const useAuthStore = defineStore('auth', () => {
   const api = useApiAuth()
   const user = ref<AuthUser | null>(null)
@@ -57,7 +59,7 @@ export const useAuthStore = defineStore('auth', () => {
       isReady.value = true
       return true
     } catch (err) {
-      error.value = getAuthErrorMessage(err, 'Email hoặc mật khẩu không đúng.')
+      error.value = getAuthErrorMessage(err, DEFAULT_LOGIN_ERROR)
       user.value = null
       return false
     } finally {
@@ -112,8 +114,18 @@ export const useAuthStore = defineStore('auth', () => {
 
 const getAuthErrorMessage = (err: unknown, fallback: string) => {
   if (err && typeof err === 'object' && 'data' in err) {
-    const data = (err as { data?: { detail?: string, message?: string, statusMessage?: string } }).data
+    const data = (err as { data?: { detail?: string, message?: string, statusMessage?: string, statusCode?: number } }).data
+    if (data?.statusCode === 401) {
+      return data.detail || data.message || fallback
+    }
     return data?.detail || data?.message || data?.statusMessage || fallback
+  }
+
+  if (err && typeof err === 'object' && ('statusCode' in err || 'status' in err)) {
+    const status = err as { statusCode?: number, status?: number }
+    if (Number(status.statusCode || status.status) === 401) {
+      return fallback
+    }
   }
 
   if (err && typeof err === 'object' && 'statusMessage' in err) {

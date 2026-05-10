@@ -7,6 +7,7 @@ const completeSchema = z.object({
   objectKey: z.string().min(1),
   sourceUrl: z.string().min(1),
   contentType: z.string().min(1).optional(),
+  visibility: z.enum(['public', 'private']).default('private'),
   metadata: z.record(z.string(), z.unknown()).optional()
 })
 
@@ -24,7 +25,11 @@ export default defineEventHandler(async (event) => {
       object_key: body.objectKey,
       source_url: body.sourceUrl,
       content_type: body.contentType,
-      metadata: body.metadata ?? {}
+      metadata: {
+        ...(body.metadata ?? {}),
+        visibility: body.visibility,
+        folder: body.visibility
+      }
     }
   })
 

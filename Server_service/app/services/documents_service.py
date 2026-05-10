@@ -28,6 +28,7 @@ from app.services.document_preview import build_preview_payload, extract_documen
 from app.services.search_service import index_document, query_documents
 from app.services.storage import (
     build_object_key,
+    delete_object_from_minio,
     get_file_from_minio,
     get_object_metadata,
     get_presigned_upload_url,
@@ -77,6 +78,22 @@ class DocumentsService:
     def _ensure_org_exists(self, org_id: str) -> None:
         if not documents_repository.get_organization(org_id, self.db):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.ORGANIZATION_NOT_FOUND)
+
+    def _get_document_storage_location(self, document: db_entities.Document) -> tuple[str, str] | None:
+        metadata = parse_json_dict(document.metadata_json)
+        bucket = metadata.get("bucket")
+        object_key = metadata.get("object_key")
+        if isinstance(bucket, str) and bucket and isinstance(object_key, str) and object_key:
+            return bucket, object_key
+
+        source_url = document.source_url or ""
+        if source_url.startswith("s3://"):
+            without_scheme = source_url.removeprefix("s3://")
+            source_bucket, _, source_key = without_scheme.partition("/")
+            if source_bucket and source_key:
+                return source_bucket, source_key
+
+        return None
 
     def _require_public_document_access(self, org_id: str) -> db_entities.Organization:
         organization = documents_repository.get_organization(org_id, self.db)
@@ -432,7 +449,12 @@ class DocumentsService:
         limit: int,
     ) -> list[db_entities.Document]:
         self._require_public_document_access(org_id)
-        return documents_repository.list_documents(org_id, status_filter, skip, limit, self.db)
+        documents = documents_repository.list_documents(org_id, status_filter, skip, limit, self.db)
+        return [
+            document
+            for document in documents
+            if parse_json_dict(document.metadata_json).get("visibility") == "public"
+        ]
 
     def search_documents(self, org_id: str, payload: models.DocumentSearchRequest) -> DocumentSearchResultEntity:
         self._require_permission(org_id, payload.user_id, "read_documents")
@@ -487,6 +509,15 @@ class DocumentsService:
         documents_repository.save_document(self.db)
         return documents_repository.refresh_document(document, self.db)
 
+    def delete_document(self, document_id: str, acting_user_id: str) -> None:
+        document = self._get_document_or_404(document_id)
+        self._require_permission(document.organization_id, acting_user_id, "upload_documents")
+        storage_location = self._get_document_storage_location(document)
+        if storage_location:
+            bucket, object_key = storage_location
+            delete_object_from_minio(bucket, object_key)
+        documents_repository.delete_document(document, self.db)
+
     def get_document_content(self, document_id: str, acting_user_id: str) -> StreamingResponse:
         document = self._get_document_or_404(document_id)
         self._require_permission(document.organization_id, acting_user_id, "read_documents")
@@ -532,6 +563,8 @@ class DocumentsService:
     def get_public_document_preview(self, document_id: str) -> DocumentPreviewEntity:
         document = self._get_document_or_404(document_id)
         self._require_public_document_access(document.organization_id)
+        if parse_json_dict(document.metadata_json).get("visibility") != "public":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=messages.USER_NOT_IN_ORGANIZATION)
         return self._build_document_preview(document)
 
     def _build_document_preview(self, document: db_entities.Document) -> DocumentPreviewEntity:

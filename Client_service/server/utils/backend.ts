@@ -183,6 +183,8 @@ export const mapDocument = (document: BackendDocument): KnowledgeDocument => ({
   id: document.id,
   organizationSlug: document.organization_id,
   title: document.file_name,
+  visibility: document.metadata?.visibility === 'public' ? 'public' : 'private',
+  folder: typeof document.metadata?.folder === 'string' ? document.metadata.folder : document.metadata?.visibility === 'public' ? 'public' : 'private',
   uploadedBy: String(document.metadata?.uploaded_by_email || document.uploaded_by_user_id || 'Unknown'),
   uploadedAt: document.created_at.slice(0, 10),
   chunkCount: Number(document.chunk_count || 0),

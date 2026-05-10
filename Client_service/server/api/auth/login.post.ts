@@ -2,6 +2,8 @@ import { z } from 'zod'
 import { backendFetch, mapUser } from '../../utils/backend'
 import { setAuthCookies } from '../../utils/auth-session'
 
+const DEFAULT_LOGIN_ERROR = 'Email hoặc mật khẩu không đúng.'
+
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8)
@@ -19,14 +21,25 @@ interface BackendLoginResponse {
 }
 
 export default defineEventHandler(async (event) => {
-  const body = loginSchema.parse(await readBody(event))
+  const parsed = loginSchema.safeParse(await readBody(event))
+  if (!parsed.success) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Thong tin dang nhap khong hop le.',
+      data: { message: 'Thong tin dang nhap khong hop le.' }
+    })
+  }
+
+  const body = parsed.data
   const response = await backendFetch<BackendLoginResponse>(event, '/auth/login', {
     method: 'POST',
     body
   }).catch((err: unknown) => {
+    const message = getFetchErrorMessage(err, DEFAULT_LOGIN_ERROR)
     throw createError({
       statusCode: getFetchStatusCode(err, 401),
-      statusMessage: getFetchErrorMessage(err, 'Email hoặc mật khẩu không đúng.')
+      statusMessage: message,
+      data: { message }
     })
   })
   const token = response.access_token

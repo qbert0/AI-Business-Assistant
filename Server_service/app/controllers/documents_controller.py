@@ -186,6 +186,15 @@ def update_document_status(
     return document_dto.to_document_model(document)
 
 
+@router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Documents"], summary="Xoa tai lieu")
+def delete_document(
+    document_id: str,
+    acting_user_id: str = Query(..., description="Can quyen upload_documents."),
+    db: Session = Depends(get_db),
+) -> None:
+    DocumentsService(db).delete_document(document_id, acting_user_id)
+
+
 @router.get("/documents/{document_id}/content", tags=["Documents"], summary="Doc noi dung file goc cua tai lieu")
 def get_document_content(
     document_id: str,

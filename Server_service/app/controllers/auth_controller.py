@@ -5,6 +5,7 @@ from app import models
 from app.database import get_db
 from app.dtos import auth_dto, common_dto
 from app.entities import database as db_entities
+from app.repositories import auth_repository
 from app.services import AuthService
 from app.services.security import get_current_user
 

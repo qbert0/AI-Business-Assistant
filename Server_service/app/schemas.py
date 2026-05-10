@@ -311,6 +311,9 @@ class AnalyticsRead(BaseModel):
     chat_session_count: int
     question_count: int
     popular_questions: list[str]
+    popular_question_stats: list[dict[str, Any]] = Field(default_factory=list)
+    feedback_summary: dict[str, Any] = Field(default_factory=dict)
+    feedback_items: list[dict[str, Any]] = Field(default_factory=list)
     sensitive_restrictions: str | None
 
 

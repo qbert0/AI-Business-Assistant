@@ -45,7 +45,7 @@
     </div>
     <div v-if="showFeedbackForm" class="chat-feedback-panel">
       <div class="chat-feedback-heading">
-        <span>Góp ý riêng cho câu trả lời này</span>
+        <span>Xác nhận báo thiếu tài liệu cho câu hỏi này?</span>
         <button
           class="chat-feedback-close"
           type="button"
@@ -55,19 +55,13 @@
           <Icon name="lucide:x" />
         </button>
       </div>
-      <textarea
-        class="app-textarea"
-        rows="2"
-        :placeholder="feedbackPlaceholder"
-        :value="feedbackComment"
-        @input="$emit('update:feedbackComment', ($event.target as HTMLTextAreaElement).value)"
-      />
+      <p class="chat-feedback-confirm-copy">{{ feedbackPlaceholder }}</p>
       <div class="chat-feedback-actions">
-        <button class="btn-primary" type="button" :disabled="feedbackPending" @click="$emit('submitFeedback', message.id, 'positive')">
-          {{ positiveLabel }}
-        </button>
-        <button class="btn-secondary" type="button" :disabled="feedbackPending" @click="$emit('submitFeedback', message.id, 'negative')">
+        <button class="btn-primary" type="button" :disabled="feedbackPending" @click="$emit('submitFeedback', message.id, 'negative')">
           {{ negativeLabel }}
+        </button>
+        <button class="btn-secondary" type="button" :disabled="feedbackPending" @click="$emit('toggleFeedback', message.id)">
+          Hủy
         </button>
         <span v-if="feedbackSubmitted" class="chat-feedback-saved">Đã ghi nhận phản hồi.</span>
       </div>
@@ -92,7 +86,6 @@ const props = withDefaults(defineProps<{
   feedbackSubmitted?: boolean
   feedbackTitle?: string
   feedbackPlaceholder?: string
-  positiveLabel?: string
   negativeLabel?: string
 }>(), {
   isLatestAssistant: false,
@@ -102,7 +95,6 @@ const props = withDefaults(defineProps<{
   feedbackSubmitted: false,
   feedbackTitle: 'Đánh giá câu trả lời',
   feedbackPlaceholder: 'Nhận xét ngắn về chất lượng câu trả lời',
-  positiveLabel: 'Phản hồi tốt',
   negativeLabel: 'Cần cải thiện'
 })
 
@@ -113,11 +105,8 @@ defineEmits<{
 }>()
 
 const canShowFeedback = computed(() => (
-  props.message.role === 'assistant'
+  props.message.role === 'user'
   && Boolean(props.message.content?.trim())
-  && props.message.status !== 'thinking'
-  && props.message.status !== 'streaming'
-  && props.message.status !== 'error'
 ))
 const showFeedbackForm = computed(() => canShowFeedback.value && props.feedbackExpanded)
 </script>

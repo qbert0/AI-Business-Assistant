@@ -83,7 +83,7 @@ def list_chat_feedback_history(
         .join(db_entities.ChatMessage, db_entities.ChatFeedback.message_id == db_entities.ChatMessage.id)
         .filter(
             db_entities.ChatMessage.session_id == session_id,
-            db_entities.ChatMessage.sender_type == "ai",
+            db_entities.ChatMessage.sender_type == "user",
         )
         .order_by(db_entities.ChatFeedback.created_at.desc())
         .limit(limit)

@@ -67,8 +67,8 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
     }
   }
 
-  const uploadDocument = async (slug: string, file: string | File) => {
-    const response = await api.upload(slug, file)
+  const uploadDocument = async (slug: string, file: string | File, visibility: 'public' | 'private' = 'private') => {
+    const response = await api.upload(slug, file, visibility)
     documentsByOrg.value = {
       ...documentsByOrg.value,
       [slug]: [response.document, ...getDocuments(slug)]
@@ -102,6 +102,14 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
       throw err
     } finally {
       isLoading.value = false
+    }
+  }
+
+  const deleteDocument = async (slug: string, documentId: string) => {
+    await api.deleteDocument(slug, documentId)
+    documentsByOrg.value = {
+      ...documentsByOrg.value,
+      [slug]: getDocuments(slug).filter((item) => item.id !== documentId)
     }
   }
 
@@ -188,6 +196,7 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
     uploadDocument,
     startAnalysis,
     stopAnalysis,
+    deleteDocument,
     loadDocumentGraph,
     loadOrganizationGraph,
     searchDocument,

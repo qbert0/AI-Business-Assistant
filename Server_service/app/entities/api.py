@@ -30,6 +30,9 @@ class AnalyticsEntity:
     chat_session_count: int
     question_count: int
     popular_questions: list[str] = field(default_factory=list)
+    popular_question_stats: list[dict] = field(default_factory=list)
+    feedback_summary: dict = field(default_factory=dict)
+    feedback_items: list[dict] = field(default_factory=list)
     sensitive_restrictions: str | None = None
 
 

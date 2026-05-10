@@ -69,6 +69,11 @@ def refresh_document(document: db_entities.Document, db: Session) -> db_entities
     return document
 
 
+def delete_document(document: db_entities.Document, db: Session) -> None:
+    db.delete(document)
+    db.commit()
+
+
 def list_documents(
     org_id: str,
     status_filter: str | None,

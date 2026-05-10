@@ -30,6 +30,17 @@
           v-for="message in messages"
           :key="message.id"
           :message="message"
+          :is-latest-assistant="message.id === latestUserMessageId"
+          :feedback-expanded="feedbackMessageId === message.id"
+          :feedback-comment="feedbackComments[message.id] || ''"
+          :feedback-pending="feedbackPendingId === message.id"
+          :feedback-submitted="submittedFeedbackIds.has(message.id)"
+          feedback-title="Bao thieu tai lieu"
+          feedback-placeholder="He thong se ghi nhan chinh cau hoi nay de admin bo sung tai lieu lien quan."
+          negative-label="Can bo sung tai lieu"
+          @toggle-feedback="toggleFeedback"
+          @update:feedback-comment="feedbackComments[message.id] = $event"
+          @submit-feedback="submitMessageFeedback"
         />
       </div>
 
@@ -80,13 +91,18 @@ const {
   loadMoreSessions,
   loadMessages,
   getStreamingStatus,
-  getIsStreaming
+  getIsStreaming,
+  submitFeedback
 } = useChatbot()
 const { organizations, loadOrganizations } = useOrganization()
 
 const selectedSlug = ref(props.initialSlug)
 const selectedSessionId = ref<string | null>(props.initialSessionId ?? null)
 const prompt = ref('')
+const feedbackMessageId = ref<string | null>(null)
+const feedbackPendingId = ref<string | null>(null)
+const feedbackComments = reactive<Record<string, string>>({})
+const submittedFeedbackIds = ref(new Set<string>())
 
 const messages = computed(() => getMessages(selectedSlug.value, selectedSessionId.value))
 const sessions = computed(() => getSessions(selectedSlug.value))
@@ -95,6 +111,7 @@ const hasMoreSessions = computed(() => getHasMoreSessions(selectedSlug.value))
 const streamingStatus = computed(() => getStreamingStatus(selectedSlug.value))
 const isStreaming = computed(() => getIsStreaming(selectedSlug.value))
 const showPersonalContext = computed(() => organizations.value.length === 0)
+const latestUserMessageId = computed(() => [...messages.value].reverse().find((message) => message.role === 'user')?.id ?? null)
 
 const syncSessionFromRoute = async () => {
   const nextSessionId = props.initialSessionId ?? null
@@ -126,6 +143,23 @@ const handleAsk = async () => {
   } catch (error) {
     prompt.value = currentPrompt
     throw error
+  }
+}
+
+const toggleFeedback = (messageId: string) => {
+  feedbackMessageId.value = feedbackMessageId.value === messageId ? null : messageId
+}
+
+const submitMessageFeedback = async (messageId: string, rating: 'positive' | 'negative') => {
+  feedbackPendingId.value = messageId
+  try {
+    const question = messages.value.find((message) => message.id === messageId)?.content || ''
+    const comment = feedbackComments[messageId] || `Bao thieu tai lieu cho cau hoi: ${question}`
+    await submitFeedback(selectedSlug.value, messageId, rating, comment)
+    submittedFeedbackIds.value = new Set([...submittedFeedbackIds.value, messageId])
+    feedbackMessageId.value = null
+  } finally {
+    feedbackPendingId.value = null
   }
 }
 

@@ -174,7 +174,7 @@ definePageMeta({
   orgFullBleed: true
 })
 
-type OrganizationFilter = 'all' | 'admin' | 'user' | 'pending'
+type OrganizationFilter = 'all' | 'admin' | 'user'
 
 const { text } = useAppLocale()
 
@@ -190,22 +190,19 @@ const searchedOrganizations = computed(() => searchOrganizations(localSearch.val
 const filteredOrganizations = computed(() =>
   searchedOrganizations.value.filter((organization: OrganizationSummary) => {
     if (activeFilter.value === 'all') return true
-    if (activeFilter.value === 'pending') return organization.status === 'pending'
     return organization.role === activeFilter.value
   })
 )
 
 const getCount = (filter: OrganizationFilter) => {
   if (filter === 'all') return searchedOrganizations.value.length
-  if (filter === 'pending') return searchedOrganizations.value.filter((organization: OrganizationSummary) => organization.status === 'pending').length
   return searchedOrganizations.value.filter((organization: OrganizationSummary) => organization.role === filter).length
 }
 
 const filterOptions = computed(() => [
   { value: 'all' as const, label: text.organizations.allFilter, count: getCount('all') },
   { value: 'admin' as const, label: text.common.admin, count: getCount('admin') },
-  { value: 'user' as const, label: text.common.employee, count: getCount('user') },
-  { value: 'pending' as const, label: text.common.pending, count: getCount('pending') }
+  { value: 'user' as const, label: text.common.employee, count: getCount('user') }
 ])
 
 const getInitials = (name: string) =>

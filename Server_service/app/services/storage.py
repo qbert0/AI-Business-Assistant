@@ -255,3 +255,11 @@ def get_file_from_minio(bucket: str, object_key: str):
         return client.get_object(Bucket=bucket, Key=object_key)
     except (BotoCoreError, ClientError) as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"{messages.MINIO_DOWNLOAD_FAILED}: {exc}")
+
+
+def delete_object_from_minio(bucket: str, object_key: str) -> None:
+    client = get_minio_client()
+    try:
+        client.delete_object(Bucket=bucket, Key=object_key)
+    except (BotoCoreError, ClientError) as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"{messages.MINIO_DELETE_FAILED}: {exc}")

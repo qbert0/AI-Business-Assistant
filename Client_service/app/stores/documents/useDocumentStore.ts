@@ -24,6 +24,7 @@ export const useDocumentStore = defineStore('documents', () => {
     uploadDocument: library.uploadDocument,
     startAnalysis: library.startAnalysis,
     stopAnalysis: library.stopAnalysis,
+    deleteDocument: library.deleteDocument,
     loadDocumentGraph: library.loadDocumentGraph,
     loadOrganizationGraph: library.loadOrganizationGraph,
     searchDocument: library.searchDocument,

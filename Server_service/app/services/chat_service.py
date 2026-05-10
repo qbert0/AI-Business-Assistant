@@ -115,7 +115,17 @@ class ChatService:
         feedback_contexts: list[dict] = []
         for feedback, message in rows:
             comment = (feedback.comment or "").strip()[: AGENT_SETTINGS.feedback.comment_char_limit]
-            cleaned_content, _artifacts = extract_report_artifacts(message.content)
+            answer_message = (
+                self.db.query(db_entities.ChatMessage)
+                .filter(
+                    db_entities.ChatMessage.session_id == message.session_id,
+                    db_entities.ChatMessage.sender_type == "ai",
+                    db_entities.ChatMessage.created_at >= message.created_at,
+                )
+                .order_by(db_entities.ChatMessage.created_at.asc())
+                .first()
+            )
+            cleaned_content, _artifacts = extract_report_artifacts(answer_message.content if answer_message else "")
             answer_excerpt = cleaned_content[: AGENT_SETTINGS.feedback.answer_char_limit]
             feedback_contexts.append(
                 {
@@ -123,6 +133,7 @@ class ChatService:
                     "feedback_id": feedback.id,
                     "rating": feedback.rating,
                     "comment": comment,
+                    "user_question": message.content,
                     "assistant_answer_excerpt": answer_excerpt,
                     "created_at": feedback.created_at.isoformat() if feedback.created_at else None,
                 }
