@@ -112,9 +112,11 @@ const scrollToSubmittedMessage = async () => {
     return
   }
 
+  const latestAssistantMessage = [...threadElement.querySelectorAll<HTMLElement>('[data-message-role="assistant"]')].at(-1)
   const latestUserMessage = [...threadElement.querySelectorAll<HTMLElement>('[data-message-role="user"]')].at(-1)
-  if (latestUserMessage) {
-    latestUserMessage.scrollIntoView({ block: 'end', behavior: 'smooth' })
+  const targetMessage = latestAssistantMessage ?? latestUserMessage
+  if (targetMessage) {
+    targetMessage.scrollIntoView({ block: 'end', behavior: 'smooth' })
     return
   }
 
