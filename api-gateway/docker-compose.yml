@@ -9,4 +9,5 @@ services:
       - ./server.conf:/etc/nginx/conf.d/server.conf:ro
     depends_on:
       - server_service
+      - rag-service
     restart: unless-stopped

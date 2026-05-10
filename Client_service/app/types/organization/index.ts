@@ -62,6 +62,58 @@ export interface KnowledgeDocument {
       graph?: number
     }
   }
+  chunks?: Array<{
+    id: string
+    index: number
+    content: string
+    length?: number
+  }>
+}
+
+export interface DocumentGraphNode {
+  id: string
+  label: string
+  summary?: string
+  labels?: string[]
+  x?: number
+  y?: number
+}
+
+export interface DocumentGraphEdge {
+  id: string
+  source: string
+  target: string
+  type?: string
+  label?: string
+}
+
+export interface DocumentGraph {
+  documentId: string
+  groupId: string
+  nodes: DocumentGraphNode[]
+  edges: DocumentGraphEdge[]
+  episodes: Array<{
+    id: string
+    label: string
+    source_description?: string
+  }>
+  counts: {
+    nodes: number
+    edges: number
+    episodes: number
+  }
+}
+
+export interface DocumentSearchResult {
+  id: string
+  documentId: string
+  documentName: string
+  title: string
+  content: string
+  type: 'fact' | 'node'
+  score?: number | null
+  sourceNodeId?: string | null
+  targetNodeId?: string | null
 }
 
 export interface OrganizationDocumentTreeNode {
@@ -118,7 +170,10 @@ export interface ChatCitation {
 export interface ChatSearchHit {
   documentId: string
   fileName: string
+  documentName?: string | null
   sourceUrl: string
+  chunkId?: string | null
+  hitType?: string | null
   score?: number | null
 }
 

@@ -4,6 +4,12 @@ export type {
   JoinRequest,
   CompanyForm,
   KnowledgeDocument,
+  DocumentGraph,
+  DocumentGraphEdge,
+  DocumentGraphNode,
+  DocumentSearchResult,
+  OrganizationDocumentTreeNode,
+  OrganizationSettingsData,
   PipelineStep,
   SuggestionQuestion,
   PopularQuestion,
@@ -12,4 +18,4 @@ export type {
   ChatSearchHit,
   ChatMessage,
   ChatSession
-} from './organization'
+} from './organization/index'

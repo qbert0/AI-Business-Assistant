@@ -26,6 +26,7 @@ MODEL_SERVICE_CONFIG = config.get("model_service", {})
 REDIS_CONFIG = config.get("redis", {})
 INGEST_QUEUE_CONFIG = config.get("ingest_queue", {})
 SERVER_SERVICE_CONFIG = config.get("server_service", {})
+GRAPHITI_CONFIG = config.get("graphiti", {})
 
 LLM_STREAM_LOG = config.get("llm_config", {}).get("stream_log", False)
 LLM_RESPONSE_LOG = config.get("llm_config", {}).get("response_log", True)
@@ -37,7 +38,7 @@ NEO4J_URI = NEO4J_CONFIG.get("uri", "bolt://neo4j:7687")
 NEO4J_USERNAME = NEO4J_CONFIG.get("username", "neo4j")
 NEO4J_PASSWORD = NEO4J_CONFIG.get("password", "pleaseletmein")
 
-MODEL_SERVICE_URL = MODEL_SERVICE_CONFIG.get("url", "http://model-service:8888")
+MODEL_SERVICE_URL = MODEL_SERVICE_CONFIG.get("url", "http://model_service:8888")
 MODEL_SERVICE_ORGANIZATION_ID = MODEL_SERVICE_CONFIG.get("organization_id", "rag-service")
 MODEL_SERVICE_LLM_MODEL_ID = MODEL_SERVICE_CONFIG.get("llm_model_id")
 MODEL_SERVICE_EMBEDDING_MODEL_ID = MODEL_SERVICE_CONFIG.get("embedding_model_id")
@@ -50,6 +51,9 @@ MODEL_SERVICE_EMBEDDING_USE_CASE = MODEL_SERVICE_CONFIG.get(
     "embedding_use_case",
     "embeddings",
 )
+MODEL_SERVICE_TIMEOUT_SECONDS = float(MODEL_SERVICE_CONFIG.get("timeout_seconds", 180))
+MODEL_SERVICE_MAX_RETRIES = int(MODEL_SERVICE_CONFIG.get("max_retries", 1))
+MODEL_SERVICE_RETRY_BACKOFF_SECONDS = float(MODEL_SERVICE_CONFIG.get("retry_backoff_seconds", 2.0))
 
 REDIS_HOST = REDIS_CONFIG.get("host", "redis")
 REDIS_PORT = int(REDIS_CONFIG.get("port", 6379))
@@ -63,6 +67,7 @@ INGEST_CONSUMER_NAME = INGEST_QUEUE_CONFIG.get("consumer_name")
 INGEST_CONCURRENT = int(INGEST_QUEUE_CONFIG.get("concurrent", 1))
 INGEST_BATCH_SIZE = int(INGEST_QUEUE_CONFIG.get("batch_size", 1))
 INGEST_BLOCK_MS = int(INGEST_QUEUE_CONFIG.get("block_ms", 5000))
+GRAPHITI_INGEST_BULK_SIZE = int(GRAPHITI_CONFIG.get("ingest_bulk_size", 25))
 
 HEALTH_ROUTE_PREFIX = "/health"
 COMPAT_ROUTE_PREFIX = "/compat"

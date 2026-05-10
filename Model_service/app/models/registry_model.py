@@ -61,7 +61,7 @@ class PolicyCreate(BaseModel):
     default_model_id: str
     fallback_model_id: str | None = None
     temperature: float = Field(0.2, ge=0.0, le=2.0)
-    max_tokens: int = Field(1200, ge=1, le=8192)
+    max_tokens: int = Field(40000, ge=1, le=40000)
     system_prompt: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     is_active: bool = True
@@ -73,7 +73,7 @@ class PolicyUpdate(BaseModel):
     default_model_id: str | None = None
     fallback_model_id: str | None = None
     temperature: float | None = Field(None, ge=0.0, le=2.0)
-    max_tokens: int | None = Field(None, ge=1, le=8192)
+    max_tokens: int | None = Field(None, ge=1, le=40000)
     system_prompt: str | None = None
     metadata: dict[str, Any] | None = None
     is_active: bool | None = None

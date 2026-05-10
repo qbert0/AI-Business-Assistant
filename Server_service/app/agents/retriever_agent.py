@@ -5,13 +5,13 @@ from app.agents.base import BaseAgent, AgentWorkflowEvent, AgentWorkflowState
 from app.config import AGENT_SETTINGS
 from app.entities.chat import CitationEntity
 from app.entities.search import SearchHitEntity
-from app.services.search_service import query_documents
+from app.services.rag_search_service import build_group_id, query_rag_facts, query_rag_nodes
 
 
 class RetrieverAgent(BaseAgent):
     name = "retriever"
     stage = "retrieval"
-    start_message = "Đang tìm tài liệu liên quan trong kho nội bộ."
+    start_message = "Đang truy xuất facts và nodes liên quan trong kho tri thức nội bộ."
     METADATA_PREVIEW_TEXT_LIMIT = 4000
 
     def __init__(self, db: Session) -> None:
@@ -23,14 +23,24 @@ class RetrieverAgent(BaseAgent):
         return content_text[: self.METADATA_PREVIEW_TEXT_LIMIT]
 
     def _to_citations(self, hits: list[SearchHitEntity]) -> list[CitationEntity]:
-        return [
-            CitationEntity(
-                document_id=hit.document.get("document_id") or hit.document_id,
-                file_name=hit.document.get("file_name") or hit.document_id,
-                source_url=hit.document.get("source_url") or "",
+        citations: list[CitationEntity] = []
+        seen: set[tuple[str, str]] = set()
+        for hit in hits:
+            document_id = hit.document.get("document_id") or hit.document_id
+            file_name = hit.document.get("file_name") or hit.document.get("document_name") or hit.document_id
+            source_url = hit.document.get("source_url") or ""
+            citation_key = (str(document_id), str(source_url))
+            if citation_key in seen:
+                continue
+            seen.add(citation_key)
+            citations.append(
+                CitationEntity(
+                    document_id=document_id,
+                    file_name=file_name,
+                    source_url=source_url,
+                )
             )
-            for hit in hits
-        ]
+        return citations
 
     def _build_relevant_excerpt(self, content: str) -> str:
         normalized_content = (content or "").strip()
@@ -42,22 +52,31 @@ class RetrieverAgent(BaseAgent):
         context_items: list[dict] = []
         for hit in hits[: AGENT_SETTINGS.retrieval.max_context_items]:
             document = hit.document or {}
-            content = document.get("content_text") or ""
-            if not content:
-                metadata = document.get("metadata") or {}
-                content = metadata.get("content_text") or metadata.get("preview_text") or ""
+            content = (
+                document.get("content_text")
+                or document.get("snippet")
+                or document.get("fact")
+                or document.get("summary")
+                or ""
+            )
             if not content:
                 continue
             excerpt = self._build_relevant_excerpt(content)
             if not excerpt:
                 continue
+            source_url = document.get("source_url") or ""
+            hit_type = document.get("hit_type") or "graph"
+            hit_uuid = document.get("uuid") or hit.document_id
             context_items.append(
                 {
-                    "title": document.get("file_name") or hit.document_id,
+                    "title": document.get("document_name") or document.get("file_name") or document.get("name") or hit.document_id,
                     "content": excerpt,
-                    "source": document.get("source_url") or "",
+                    "source": source_url or f"rag://{hit_type}/{hit_uuid}",
                     "metadata": {
-                        "document_id": hit.document_id,
+                        "document_id": document.get("document_id") or hit.document_id,
+                        "chunk_id": document.get("chunk_id"),
+                        "episode_uuid": document.get("episode_uuid"),
+                        "hit_type": hit_type,
                         "score": hit.score,
                     },
                 }
@@ -78,24 +97,32 @@ class RetrieverAgent(BaseAgent):
         merged: dict[str, SearchHitEntity] = {}
         for hits in batches:
             for hit in hits:
-                current = merged.get(hit.document_id)
+                hit_key = (
+                    hit.document.get("hit_key")
+                    or hit.document.get("chunk_id")
+                    or hit.document.get("uuid")
+                    or hit.document.get("document_id")
+                    or hit.document_id
+                )
+                current = merged.get(str(hit_key))
                 current_score = current.score if current else None
                 incoming_score = hit.score if hit.score is not None else float("-inf")
                 stored_score = current_score if current_score is not None else float("-inf")
                 if current is None or incoming_score > stored_score:
-                    merged[hit.document_id] = hit
+                    merged[str(hit_key)] = hit
         return sorted(
             merged.values(),
             key=lambda item: item.score if item.score is not None else float("-inf"),
             reverse=True,
         )[: AGENT_SETTINGS.retrieval.max_merged_hits]
 
-    def _search(self, index_name: str, queries: list[str]) -> list[SearchHitEntity]:
-        batches = [
-            query_documents(index_name, query, size=AGENT_SETTINGS.retrieval.hits_per_query)
-            for query in queries
-            if query
-        ]
+    def _search(self, organization_id: str, queries: list[str]) -> list[SearchHitEntity]:
+        batches: list[list[SearchHitEntity]] = []
+        for query in queries:
+            if not query:
+                continue
+            batches.append(query_rag_facts(organization_id, query, limit=AGENT_SETTINGS.retrieval.hits_per_query))
+            batches.append(query_rag_nodes(organization_id, query, limit=AGENT_SETTINGS.retrieval.hits_per_query))
         return self._merge_hits(batches)
 
     def run(self, state: AgentWorkflowState) -> AgentWorkflowState:
@@ -105,22 +132,27 @@ class RetrieverAgent(BaseAgent):
             state.contexts = []
             return state
 
-        index_name = f"org-{state.organization_id}-documents"
         queries = self._build_queries(state)
+        state.metadata["retrieval_backend"] = "rag_search"
+        state.metadata["retrieval_group_id"] = build_group_id(state.organization_id)
 
         try:
-            hits = self._search(index_name, queries)
+            hits = self._search(state.organization_id, queries)
         except HTTPException:
             hits = []
 
         state.search_hits = hits
         state.citations = self._to_citations(hits)
         state.contexts = self._to_context_items(hits, state)
+        fact_hits = sum(1 for hit in hits if (hit.document or {}).get("hit_type") == "fact")
+        node_hits = sum(1 for hit in hits if (hit.document or {}).get("hit_type") == "node")
         state.search_attempts.append(
             {
                 "attempt": len(state.search_attempts) + 1,
                 "retrieval_queries": list(state.retrieval_queries),
                 "hit_count": len(hits),
+                "fact_hit_count": fact_hits,
+                "node_hit_count": node_hits,
             }
         )
         return state
@@ -129,14 +161,16 @@ class RetrieverAgent(BaseAgent):
         if not state.organization_id or not state.needs_document_search:
             return "Câu hỏi này không cần truy xuất tài liệu."
         if state.search_hits:
-            return "Đã tìm thấy tài liệu liên quan để đưa vào ngữ cảnh trả lời."
-        return "Chưa tìm thấy tài liệu phù hợp trong kho nội bộ."
+            return "Đã tìm thấy facts, nodes, và ngữ cảnh liên quan để đưa vào trả lời."
+        return "Chưa tìm thấy dữ kiện phù hợp trong kho tri thức nội bộ."
 
     def build_payload(self, state: AgentWorkflowState) -> dict[str, object]:
         return {
             "attempt": len(state.search_attempts),
             "retrieval_queries": state.retrieval_queries,
             "search_hit_count": len(state.search_hits),
+            "fact_hit_count": sum(1 for hit in state.search_hits if (hit.document or {}).get("hit_type") == "fact"),
+            "node_hit_count": sum(1 for hit in state.search_hits if (hit.document or {}).get("hit_type") == "node"),
             "context_count": len(state.contexts),
         }
 
@@ -149,14 +183,19 @@ class RetrieverAgent(BaseAgent):
                 event_type="search_results",
                 stage=self.stage,
                 agent=self.name,
-                message="Đã cập nhật kết quả tìm tài liệu.",
+                message="Đã cập nhật kết quả truy xuất RAG.",
                 payload={
                     "retrieval_queries": state.retrieval_queries,
+                    "retrieval_backend": state.metadata.get("retrieval_backend"),
+                    "group_id": state.metadata.get("retrieval_group_id"),
                     "hits": [
                         {
                             "document_id": hit.document_id,
                             "file_name": hit.document.get("file_name") or hit.document_id,
+                            "document_name": hit.document.get("document_name") or hit.document.get("file_name") or hit.document_id,
                             "source_url": hit.document.get("source_url") or "",
+                            "chunk_id": hit.document.get("chunk_id"),
+                            "hit_type": hit.document.get("hit_type"),
                             "score": hit.score,
                             "document": hit.document,
                         }

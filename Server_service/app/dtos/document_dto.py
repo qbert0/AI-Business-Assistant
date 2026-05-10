@@ -58,10 +58,14 @@ def to_document_preview_model(entity: DocumentPreviewEntity) -> models.DocumentP
 
 def to_document_search_hit_model(hit: SearchHitEntity) -> models.DocumentSearchHit:
     document_id = hit.document.get("document_id") or hit.document_id
+    document_name = hit.document.get("document_name") or hit.document.get("file_name") or document_id
     return models.DocumentSearchHit(
         document_id=document_id,
-        file_name=hit.document.get("file_name") or document_id,
+        file_name=hit.document.get("file_name") or document_name,
+        document_name=document_name,
         source_url=hit.document.get("source_url") or "",
+        chunk_id=hit.document.get("chunk_id"),
+        hit_type=hit.document.get("hit_type"),
         score=hit.score,
         document=hit.document,
     )

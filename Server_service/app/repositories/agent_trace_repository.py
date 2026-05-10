@@ -24,8 +24,12 @@ def _search_hit_summary(state: AgentWorkflowState) -> list[dict[str, Any]]:
         summaries.append(
             {
                 "document_id": hit.document_id,
+                "document_name": document.get("document_name") or document.get("file_name") or hit.document_id,
                 "file_name": document.get("file_name") or hit.document_id,
                 "source_url": document.get("source_url") or "",
+                "chunk_id": document.get("chunk_id"),
+                "hit_type": document.get("hit_type"),
+                "uuid": document.get("uuid"),
                 "score": hit.score,
             }
         )
@@ -70,6 +74,8 @@ def summarize_state(state: AgentWorkflowState) -> dict[str, Any]:
         "plan_summary": state.plan_summary,
         "retrieval_queries": list(state.retrieval_queries),
         "needs_document_search": state.needs_document_search,
+        "retrieval_backend": state.metadata.get("retrieval_backend"),
+        "retrieval_group_id": state.metadata.get("retrieval_group_id"),
         "wants_report_output": state.wants_report_output,
         "report_title_hint": state.report_title_hint,
         "search_attempts": list(state.search_attempts),

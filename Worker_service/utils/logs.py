@@ -60,4 +60,3 @@ def define_log_level(
 
 
 logger = define_log_level()
-

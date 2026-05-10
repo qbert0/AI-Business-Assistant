@@ -55,7 +55,10 @@ class PayloadParserWorker:
                 "message_id": message.id,
                 "parser_name": parsed_document.parser_name,
                 "source_path": str(source_path),
+                "document_name": source_path.name,
+                "source_url": str(source_path),
                 "file_type": source_path.suffix.lstrip(".").lower(),
+                "organization_id": payload.get("organization_id"),
             },
             chunks=[
                 {
@@ -135,6 +138,15 @@ class PayloadParserWorker:
                     "parser_name": parsed_document.parser_name,
                     "worker_message_id": message.id,
                     "file_type": Path(file_name).suffix.lstrip(".").lower(),
+                    "chunks": [
+                        {
+                            "id": f"{document_id}-chunk-{index}",
+                            "index": index,
+                            "content": chunk[:4000],
+                            "length": len(chunk),
+                        }
+                        for index, chunk in enumerate(chunks, start=1)
+                    ],
                 },
             )
 
@@ -164,6 +176,8 @@ class PayloadParserWorker:
                 metadata={
                     "message_id": message.id,
                     "parser_name": parsed_document.parser_name,
+                    "document_name": file_name,
+                    "source_url": payload.get("source_url") or content_url,
                     "file_type": Path(file_name).suffix.lstrip(".").lower(),
                     "organization_id": payload.get("organization_id"),
                     "acting_user_id": acting_user_id,

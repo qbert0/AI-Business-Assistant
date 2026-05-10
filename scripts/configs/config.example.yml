@@ -1,0 +1,66 @@
+benchmark:
+  # Namespace dung de sinh document_id/group_id rieng cho benchmark.
+  # Graphiti se tao group_id dang: document-<document_namespace>-...
+  document_namespace: benchmark
+  reports_glob: benchmark/dataset/reports/*.pdf
+  manifest_path: benchmark/results/index_manifest.json
+  organization_id: benchmark
+
+  # Mac dinh clean lai index benchmark truoc khi index de tranh duplicate.
+  reset_before_index: true
+
+  chunking:
+    chunk_chars: 900
+    chunk_overlap: 120
+
+  request:
+    timeout_seconds: 180
+    retries: 1
+
+  redis:
+    host: localhost
+    port: 6379
+    db: 0
+    password:
+    ingest_queue: rag-ingest
+    ingest_group: rag-ingest
+
+  model_service:
+    url: http://localhost:8888
+    embedding_model_id:
+    embedding_use_case: embeddings
+    embedding_dimensions:
+    embedding_batch_size: 8
+
+  elasticsearch:
+    url: http://localhost:9200
+    username:
+    password:
+    verify_certs: false
+    index_name: benchmark_vector
+    batch_size: 128
+    recreate: true
+
+  qa:
+    dataset_path: benchmark/dataset/benchmark_metric.xlsx
+    rag_results_path: benchmark/results/rag_results.xlsx
+    ras_results_path: benchmark/results/ras_basic_50.xlsx
+    llm_model_id:
+    llm_use_case: chat_advisory
+    temperature: 0.1
+    answer_max_tokens: 2048
+    analysis_max_tokens: 1200
+    top_k: 8
+    num_candidates: 80
+    max_rounds: 3
+    max_follow_up_queries: 3
+    query_graph_namespace: benchmark-query
+    cleanup_query_graph: true
+
+  rag:
+    url: http://localhost:8003
+
+  neo4j:
+    uri: bolt://localhost:7687
+    username: neo4j
+    password: pleaseletmein

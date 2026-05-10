@@ -42,6 +42,8 @@ def get_minio_client():
 
 def _rewrite_presigned_url_for_public_access(url: str) -> str:
     public_endpoint = (MINIO_PUBLIC_ENDPOINT or "").strip()
+    if not public_endpoint and STORAGE_PUBLIC_ENDPOINT:
+        return _rewrite_presigned_url(url)
     if not public_endpoint:
         return url
 
@@ -78,7 +80,7 @@ def build_object_key(org_id: str, file_name: str | None) -> str:
 
 def _rewrite_presigned_url(presigned_url: str) -> str:
     if not STORAGE_PUBLIC_ENDPOINT:
-        return presigned_url
+        return _rewrite_presigned_url_for_minio_public_endpoint(presigned_url)
 
     parsed = urlparse(presigned_url)
     public_parsed = urlparse(STORAGE_PUBLIC_ENDPOINT)
@@ -96,6 +98,30 @@ def _rewrite_presigned_url(presigned_url: str) -> str:
             parsed.fragment,
         )
     )
+
+
+def _rewrite_presigned_url_for_minio_public_endpoint(url: str) -> str:
+    public_endpoint = (MINIO_PUBLIC_ENDPOINT or "").strip()
+    if not public_endpoint:
+        return url
+
+    try:
+        original = urlparse(url)
+        public = urlparse(public_endpoint)
+        if not public.scheme or not public.netloc:
+            return url
+        return urlunparse(
+            (
+                public.scheme,
+                public.netloc,
+                original.path,
+                original.params,
+                original.query,
+                original.fragment,
+            )
+        )
+    except Exception:
+        return url
 
 
 def get_presigned_url(bucket_name: str, object_name: str, expires: int = 3600) -> str:

@@ -11,7 +11,7 @@ const uploadToPresignedUrl = async (uploadUrl: string, data: Uint8Array, content
     headers: {
       'Content-Type': contentType || 'application/octet-stream'
     },
-    body: data
+    body: new Uint8Array(data)
   })
 
   if (!response.ok) {

@@ -1,4 +1,4 @@
-import type { KnowledgeDocument, PipelineStep } from '@/types/organization'
+import type { DocumentGraph, DocumentSearchResult, KnowledgeDocument, PipelineStep } from '@/types/organization'
 
 import { useApiFetch } from '@/composables/api/core/useApiFetch'
 import { getClientAuthToken } from '@/utils/auth-token'
@@ -129,6 +129,24 @@ export const useApiDocuments = () => {
       method: 'POST'
     })
 
+  const graph = (slug: string, documentId: string) =>
+    apiFetch<{ graph: DocumentGraph }>(`/api/documents/${slug}/${documentId}/graph`)
+
+  const organizationGraph = (slug: string) =>
+    apiFetch<{ graph: DocumentGraph }>(`/api/documents/${slug}/graph`)
+
+  const searchDocument = (slug: string, documentId: string, query: string, limit = 12) =>
+    apiFetch<{ results: DocumentSearchResult[], count: number }>(`/api/documents/${slug}/${documentId}/search`, {
+      method: 'POST',
+      body: { query, limit }
+    })
+
+  const searchOrganization = (slug: string, query: string, limit = 24) =>
+    apiFetch<{ results: DocumentSearchResult[], count: number }>(`/api/documents/${slug}/search`, {
+      method: 'POST',
+      body: { query, limit }
+    })
+
   return {
     list,
     publicList,
@@ -138,6 +156,10 @@ export const useApiDocuments = () => {
     publicPreview,
     downloadUrl,
     startAnalysis,
-    stopAnalysis
+    stopAnalysis,
+    graph,
+    organizationGraph,
+    searchDocument,
+    searchOrganization
   }
 }

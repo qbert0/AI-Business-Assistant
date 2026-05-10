@@ -5,6 +5,8 @@ interface BackendOrganizationSettingsResponse {
     identity_keywords?: string[]
     suggested_questions?: string[]
     allow_join_requests?: boolean
+    allow_guest_chat?: boolean
+    allow_guest_document_access?: boolean
     document_tree?: unknown[]
   }
 }

@@ -76,4 +76,3 @@ def define_log_level(
 define_log_level()
 logger = _logger.bind(channel="app")
 llm_response_logger = _logger.bind(channel="llm_response")
-

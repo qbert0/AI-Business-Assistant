@@ -1,6 +1,6 @@
 import type { OrganizationPermission } from '@/constants/rbac'
-import type { CompanyForm } from '@/types/organization'
 import { useOrganizationStore } from '@/stores/organizations/useOrganizationStore'
+import type { CompanyForm, OrganizationMember } from '@/types/organization'
 
 export const useOrganization = () => {
   const store = useOrganizationStore()

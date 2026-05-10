@@ -9,7 +9,17 @@ export const SUPPORTED_LOCALES = [
 ] as const
 
 export type AppLocale = (typeof SUPPORTED_LOCALES)[number]['code']
-export type AppMessages = typeof VI_MESSAGES
+type WidenLocaleValue<T> = T extends string
+  ? string
+  : T extends readonly (infer U)[]
+    ? readonly WidenLocaleValue<U>[]
+    : T extends object
+      ? { readonly [K in keyof T]: WidenLocaleValue<T[K]> }
+      : T
+
+type WidenLocaleMessages<T> = { readonly [K in keyof T]: WidenLocaleValue<T[K]> }
+
+export type AppMessages = WidenLocaleMessages<typeof VI_MESSAGES>
 
 export const LOCALE_MESSAGES: Record<AppLocale, AppMessages> = {
   vi: VI_MESSAGES,

@@ -11,6 +11,33 @@ class PlannerAgent(BaseAgent):
     name = "planner"
     stage = "planning"
     start_message = "Đang phân tích câu hỏi và lập kế hoạch truy xuất."
+    SOCIAL_GREETING_PHRASES = {
+        "alo",
+        "chao",
+        "chao ban",
+        "chao chatbot",
+        "chao em",
+        "good afternoon",
+        "good evening",
+        "good morning",
+        "hello",
+        "hey",
+        "hi",
+        "hi ban",
+        "hi chatbot",
+        "hoi",
+        "ok cam on",
+        "ok cảm ơn",
+        "tam biet",
+        "thank you",
+        "xin chao",
+        "xin chào",
+        "yo",
+        "bye",
+        "goodbye",
+        "cam on",
+        "cảm ơn",
+    }
     REPORT_PATTERN = re.compile(
         r"(?i)\b("
         r"bao\s*cao|báo\s*cáo|report|pdf|xuat\s*pdf|xuất\s*pdf|tai\s*pdf|tải\s*pdf|"
@@ -37,16 +64,38 @@ class PlannerAgent(BaseAgent):
             return cleaned
         return cleaned[:93].rstrip() + "..."
 
+    def _is_social_greeting_only(self, question: str) -> bool:
+        lowered = clean_text(question).lower()
+        if not lowered:
+            return False
+        normalized = re.sub(r"[^\w\sÀ-ỹ]", " ", lowered)
+        normalized = re.sub(r"\s+", " ", normalized).strip()
+        if not normalized:
+            return False
+        return normalized in self.SOCIAL_GREETING_PHRASES
+
     def run(self, state: AgentWorkflowState) -> AgentWorkflowState:
         heuristic_report_request = self._detect_report_request(state.question)
+        heuristic_social_greeting = self._is_social_greeting_only(state.question)
         if not state.organization_id:
             state.plan_summary = (
                 "Act as a personal workspace guide for the product. "
                 "Use the provided system guidance, the user's available workspace access, and the chat history. "
                 "If the question requires internal company documents, policies, or indexed organization knowledge, "
-                "redirect the user to the relevant organization workspace instead of answering as if document retrieval had happened."
+                "redirect the user to the relevant organization workspace instead of answering as if grounded retrieval had happened."
             )
             state.retrieval_queries = [state.question]
+            state.needs_document_search = False
+            state.wants_report_output = False
+            state.report_title_hint = ""
+            return state
+
+        if heuristic_social_greeting:
+            state.plan_summary = (
+                "Reply warmly to the user's social greeting in the same language, keep it brief, "
+                "and invite the user to ask a concrete question when they are ready."
+            )
+            state.retrieval_queries = []
             state.needs_document_search = False
             state.wants_report_output = False
             state.report_title_hint = ""
@@ -72,7 +121,8 @@ class PlannerAgent(BaseAgent):
                         f"retrieval_queries must contain at most {AGENT_SETTINGS.retrieval.max_queries_per_attempt} short retrieval queries, "
                         "all written in the same language as the user's question. "
                         "Each query should represent a different useful phrasing or retrieval angle for the same request. "
-                        "Set needs_document_search to true when internal documents are required to answer reliably. "
+                        "Set needs_document_search to true when grounded retrieval from the organization's knowledge graph is required to answer reliably. "
+                        "Set needs_document_search to false only for pure social talk such as greetings, thanks, or other lightweight conversational turns that do not need internal documents. "
                         "Set wants_report_output to true when the user explicitly asks to create, export, or receive a report or PDF. "
                         "When wants_report_output is true, report_title_hint should be a concise Vietnamese title suitable for the final report heading. "
                         + (f"\n\n{feedback_guidance}" if feedback_guidance else "")
@@ -92,19 +142,18 @@ class PlannerAgent(BaseAgent):
             ]
             state.wants_report_output = coerce_bool(payload.get("wants_report_output"), heuristic_report_request)
             state.report_title_hint = clean_text(payload.get("report_title_hint"))
-            # For organization chat, retrieval remains mandatory. The planner can
-            # shape the strategy, but it should not short-circuit the document
-            # search loop entirely.
-            state.needs_document_search = True
+            state.needs_document_search = coerce_bool(payload.get("needs_document_search"), True)
         except HTTPException:
             state.plan_summary = ""
             state.needs_document_search = True
             state.wants_report_output = heuristic_report_request
 
         if not state.plan_summary:
-            state.plan_summary = "Retrieve the most relevant internal documents, then synthesize a concise grounded answer."
+            state.plan_summary = "Retrieve the most relevant internal facts and graph-grounded evidence, then synthesize a concise grounded answer."
         if not state.retrieval_queries:
             state.retrieval_queries = [state.question]
+        if not state.needs_document_search:
+            state.retrieval_queries = []
         if heuristic_report_request:
             state.wants_report_output = True
         if state.wants_report_output and not state.report_title_hint:
@@ -114,7 +163,7 @@ class PlannerAgent(BaseAgent):
 
     def finish_message(self, state: AgentWorkflowState) -> str:
         if state.needs_document_search:
-            return "Đã xác định kế hoạch và bộ truy vấn cho bước tìm tài liệu."
+            return "Đã xác định kế hoạch và bộ truy vấn cho bước truy xuất tri thức."
         return "Đã xác định kế hoạch trả lời trực tiếp từ hội thoại hiện có."
 
     def build_payload(self, state: AgentWorkflowState) -> dict[str, object]:

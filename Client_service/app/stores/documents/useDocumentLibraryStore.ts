@@ -1,4 +1,4 @@
-import type { KnowledgeDocument, PipelineStep } from '@/types/organization'
+import type { DocumentGraph, DocumentSearchResult, KnowledgeDocument, PipelineStep } from '@/types/organization'
 
 import { useApiDocuments } from '@/composables/api/documents/useApiDocuments'
 
@@ -6,11 +6,17 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
   const api = useApiDocuments()
   const documentsByOrg = ref<Record<string, KnowledgeDocument[]>>({})
   const pipelineByOrg = ref<Record<string, PipelineStep[]>>({})
+  const graphByDocumentId = ref<Record<string, DocumentGraph>>({})
+  const graphByOrg = ref<Record<string, DocumentGraph>>({})
+  const searchResultsByScope = ref<Record<string, DocumentSearchResult[]>>({})
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
   const getDocuments = (slug: string) => documentsByOrg.value[slug] ?? []
   const getPipeline = (slug: string) => pipelineByOrg.value[slug] ?? []
+  const getDocumentGraph = (documentId: string) => graphByDocumentId.value[documentId] ?? null
+  const getOrganizationGraph = (slug: string) => graphByOrg.value[slug] ?? null
+  const getSearchResults = (scope: string) => searchResultsByScope.value[scope] ?? []
 
   const loadDocuments = async (slug: string) => {
     isLoading.value = true
@@ -99,18 +105,92 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
     }
   }
 
+  const loadDocumentGraph = async (slug: string, documentId: string) => {
+    try {
+      const response = await api.graph(slug, documentId)
+      graphByDocumentId.value = {
+        ...graphByDocumentId.value,
+        [documentId]: response.graph
+      }
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Cannot load document graph'
+    }
+  }
+
+  const loadOrganizationGraph = async (slug: string) => {
+    try {
+      const response = await api.organizationGraph(slug)
+      graphByOrg.value = {
+        ...graphByOrg.value,
+        [slug]: response.graph
+      }
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Cannot load organization graph'
+    }
+  }
+
+  const searchDocument = async (slug: string, documentId: string, query: string) => {
+    const scope = `document:${documentId}`
+    if (!query.trim()) {
+      searchResultsByScope.value = { ...searchResultsByScope.value, [scope]: [] }
+      return []
+    }
+
+    try {
+      const response = await api.searchDocument(slug, documentId, query.trim())
+      searchResultsByScope.value = {
+        ...searchResultsByScope.value,
+        [scope]: response.results
+      }
+      return response.results
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Cannot search document'
+      throw err
+    }
+  }
+
+  const searchOrganization = async (slug: string, query: string) => {
+    const scope = `organization:${slug}`
+    if (!query.trim()) {
+      searchResultsByScope.value = { ...searchResultsByScope.value, [scope]: [] }
+      return []
+    }
+
+    try {
+      const response = await api.searchOrganization(slug, query.trim())
+      searchResultsByScope.value = {
+        ...searchResultsByScope.value,
+        [scope]: response.results
+      }
+      return response.results
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Cannot search organization'
+      throw err
+    }
+  }
+
   return {
     documentsByOrg,
     pipelineByOrg,
+    graphByDocumentId,
+    graphByOrg,
+    searchResultsByScope,
     isLoading,
     error,
     getDocuments,
     getPipeline,
+    getDocumentGraph,
+    getOrganizationGraph,
+    getSearchResults,
     loadDocuments,
     loadPublicDocuments,
     loadPipeline,
     uploadDocument,
     startAnalysis,
-    stopAnalysis
+    stopAnalysis,
+    loadDocumentGraph,
+    loadOrganizationGraph,
+    searchDocument,
+    searchOrganization
   }
 })

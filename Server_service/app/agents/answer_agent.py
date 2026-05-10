@@ -37,8 +37,8 @@ class AnswerAgent(BaseAgent):
                 "Act as a product guide that helps the user understand how to use the system, which workspace to open, and what their current access allows. "
                 "Use the trusted context for product-specific and access-specific claims. "
                 "You may also use the visible chat history when the user asks to summarize or continue an earlier personal conversation. "
-                "Do not pretend that personal workspace searched Elasticsearch or internal company documents. "
-                "If the user asks about internal policies, procedures, reports, or organization-specific facts, explain that they should switch to the relevant organization workspace for document-grounded answers. "
+                "Do not pretend that personal workspace searched the organization knowledge graph or internal company documents. "
+                "If the user asks about internal policies, procedures, reports, or organization-specific facts, explain that they should switch to the relevant organization workspace for grounded answers from the organization's knowledge graph. "
                 "Prefer short, actionable guidance with concrete next steps and page labels when helpful. "
                 "Do not generate report artifacts, citations, or PDF-style output in personal workspace mode. "
             )
@@ -87,7 +87,7 @@ class AnswerAgent(BaseAgent):
         return self._extract_answer_text(response_text)
 
     def run(self, state: AgentWorkflowState) -> AgentWorkflowState:
-        if state.organization_id and not state.contexts:
+        if state.organization_id and state.needs_document_search and not state.contexts:
             state.metadata["answerer_failure_reason"] = "no_retrieved_context"
             state.draft_answer = ""
             return state

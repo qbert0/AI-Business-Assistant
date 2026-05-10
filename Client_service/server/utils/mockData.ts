@@ -51,6 +51,7 @@ export const mockOrganizations: OrganizationSummary[] = [
     name: 'Acme Holdings',
     industry: 'Finance',
     description: 'Internal knowledge workspace for financial advisory operations.',
+    searchKeywords: ['acme', 'finance'],
     role: 'admin',
     employeesCount: 42,
     documentsCount: 126,
@@ -63,6 +64,7 @@ export const mockOrganizations: OrganizationSummary[] = [
     name: 'Northstar Retail',
     industry: 'Retail',
     description: 'SOP, sales policy, and store support chatbot for frontline employees.',
+    searchKeywords: ['northstar', 'retail'],
     role: 'user',
     employeesCount: 18,
     documentsCount: 64,
@@ -75,6 +77,7 @@ export const mockOrganizations: OrganizationSummary[] = [
     name: 'Zenith Logistics',
     industry: 'Logistics',
     description: 'Workspace invitation is waiting for confirmation.',
+    searchKeywords: ['zenith', 'logistics'],
     role: 'user',
     employeesCount: 0,
     documentsCount: 0,
@@ -214,7 +217,10 @@ export const mockMessagesBySession: Record<string, ChatMessage[]> = {
       id: 'c-2',
       role: 'assistant',
       content: 'Based on the 2026 benefits policy, taxable income includes base salary, performance bonus, and allowances that are not tax-exempt.',
-      citations: ['Benefits Policy 2026.pdf', 'Internal Payroll FAQ']
+      citations: [
+        { documentId: 'doc-1', fileName: 'Benefits Policy 2026.pdf', sourceUrl: '/documents/doc-1' },
+        { documentId: 'doc-2', fileName: 'Internal Payroll FAQ', sourceUrl: '/documents/doc-2' }
+      ]
     }
   ],
   'session-2': [
@@ -223,7 +229,9 @@ export const mockMessagesBySession: Record<string, ChatMessage[]> = {
       id: 'c-4',
       role: 'assistant',
       content: 'Part-time KPIs are normalized by actual working hours and the store target group for the registered shift.',
-      citations: ['Store Playbook.md']
+      citations: [
+        { documentId: 'doc-3', fileName: 'Store Playbook.md', sourceUrl: '/documents/doc-3' }
+      ]
     }
   ]
 }

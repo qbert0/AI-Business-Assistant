@@ -1,11 +1,11 @@
 import { getClientAuthToken } from '@/utils/auth-token'
 
-type StreamEventHandler = (event: Record<string, any>) => void
+type StreamEventHandler<TEvent extends Record<string, any> = Record<string, any>> = (event: TEvent) => void
 
-export const streamChatAnswer = async (
+export const streamChatAnswer = async <TEvent extends Record<string, any> = Record<string, any>>(
   slug: string,
   body: { question: string, sessionId?: string | null, userId: string },
-  onEvent: StreamEventHandler,
+  onEvent: StreamEventHandler<TEvent>,
 ) => {
   const token = getClientAuthToken()
   const response = await fetch(`/api/chat/${slug}/stream`, {
@@ -45,12 +45,12 @@ export const streamChatAnswer = async (
       if (!raw) {
         continue
       }
-      onEvent(JSON.parse(raw))
+      onEvent(JSON.parse(raw) as TEvent)
     }
   }
 
   const tail = buffer.trim()
   if (tail) {
-    onEvent(JSON.parse(tail))
+    onEvent(JSON.parse(tail) as TEvent)
   }
 }

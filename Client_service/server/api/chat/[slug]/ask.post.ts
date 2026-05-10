@@ -29,7 +29,10 @@ export default defineEventHandler(async (event) => {
         searchHits: (response.search_hits || []).map((item: any) => ({
           documentId: item.document_id,
           fileName: item.file_name,
+          documentName: item.document_name ?? item.file_name,
           sourceUrl: item.source_url,
+          chunkId: item.chunk_id ?? null,
+          hitType: item.hit_type ?? null,
           score: item.score ?? null
         }))
       }

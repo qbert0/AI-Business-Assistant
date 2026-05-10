@@ -191,7 +191,7 @@ export const renderMarkdownToHtml = (markdown: string) => {
         index += 1
       }
 
-      if (language === 'chart') {
+      if (language === 'chart' || language === 'mermaid') {
         const chartHtml = renderChartSpecToHtml(codeLines.join('\n'))
         if (chartHtml) {
           htmlParts.push(chartHtml)

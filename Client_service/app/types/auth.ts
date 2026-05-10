@@ -1,1 +1,1 @@
-export type { UserRole, AuthUser } from './auth'
+export type { UserRole, AuthUser } from './auth/index'

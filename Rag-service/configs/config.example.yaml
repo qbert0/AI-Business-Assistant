@@ -20,6 +20,9 @@ model_service:
   reranker_model_id: null
   inference_use_case: graphiti_extraction
   embedding_use_case: embeddings
+  timeout_seconds: 360
+  max_retries: 1
+  retry_backoff_seconds: 2
 
 redis:
   host: redis
@@ -34,6 +37,9 @@ ingest_queue:
   concurrent: 1
   batch_size: 1
   block_ms: 5000
+
+graphiti:
+  ingest_bulk_size: 25
 
 server_service:
   url: http://server_service:8000

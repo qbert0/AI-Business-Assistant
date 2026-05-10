@@ -116,8 +116,11 @@ def to_chat_answer_model(entity: ChatAnswerEntity) -> models.ChatAnswer:
         search_hits=[
             models.DocumentSearchHit(
                 document_id=hit.document_id,
-                file_name=hit.document.get("file_name") or hit.document_id,
+                file_name=hit.document.get("file_name") or hit.document.get("document_name") or hit.document_id,
+                document_name=hit.document.get("document_name") or hit.document.get("file_name") or hit.document_id,
                 source_url=hit.document.get("source_url") or "",
+                chunk_id=hit.document.get("chunk_id"),
+                hit_type=hit.document.get("hit_type"),
                 score=hit.score,
                 document=hit.document,
             )

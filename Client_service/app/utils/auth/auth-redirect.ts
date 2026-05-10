@@ -16,7 +16,7 @@ export const getAuthRedirectTarget = (redirect?: unknown, fallback = APP_ROUTES.
     return fallback
   }
 
-  if ([APP_ROUTES.authLogin, APP_ROUTES.authRegister].includes(target)) {
+  if (([APP_ROUTES.authLogin, APP_ROUTES.authRegister] as string[]).includes(target)) {
     return fallback
   }
 

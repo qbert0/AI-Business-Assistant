@@ -27,6 +27,7 @@ class MetricsRepository:
         request_increment = 1
         success_increment = 1 if success else 0
         error_increment = 0 if success else 1
+        cost_increment = round(float(estimated_cost), 6)
 
         stmt = insert(db_models.MetricRollup).values(
             model_id=model_id,
@@ -40,7 +41,7 @@ class MetricsRepository:
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             total_tokens=total_tokens,
-            estimated_cost=estimated_cost,
+            estimated_cost=cost_increment,
         )
         rollup = db_models.MetricRollup
         next_request_count = rollup.request_count + request_increment
@@ -55,7 +56,7 @@ class MetricsRepository:
                 prompt_tokens=rollup.prompt_tokens + prompt_tokens,
                 completion_tokens=rollup.completion_tokens + completion_tokens,
                 total_tokens=rollup.total_tokens + total_tokens,
-                estimated_cost=rollup.estimated_cost + estimated_cost,
+                estimated_cost=rollup.estimated_cost + cost_increment,
             )
         )
 

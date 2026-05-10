@@ -163,7 +163,7 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
     const localUserMessageId = `local-user-${Date.now()}`
 
     try {
-      await streamChatAnswer(
+      await streamChatAnswer<StreamEventPayload>(
         slug,
         {
           question: prompt,
@@ -210,14 +210,15 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
             return
           }
 
-          const messages = context.messagesBySession[activeSessionId] ?? []
+          const currentSessionId = activeSessionId
+          const messages = context.messagesBySession[currentSessionId] ?? []
           const assistantIndex = messages.findIndex((item) => item.id === tempAssistantMessage?.id)
-          const ensureAssistant = () => {
+          const ensureAssistant = (): ChatMessage => {
             if (assistantIndex >= 0) {
-              return messages[assistantIndex]
+              return messages[assistantIndex] as ChatMessage
             }
             const created: ChatMessage = {
-              id: `stream-${activeSessionId}`,
+              id: `stream-${currentSessionId}`,
               role: 'assistant',
               content: '',
               citations: [],
@@ -226,7 +227,7 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
               status: 'thinking',
               activity: context.streamingStatus
             }
-            context.messagesBySession[activeSessionId] = [...messages, created]
+            context.messagesBySession[currentSessionId] = [...messages, created]
             tempAssistantMessage = created
             return created
           }

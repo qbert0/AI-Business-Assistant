@@ -8,7 +8,7 @@ const getBrowserLocale = () => {
     return undefined
   }
 
-  const browserLocale = window.navigator.language.split('-')[0]
+  const browserLocale = window.navigator.language.split('-')[0] || ''
   return isAppLocale(browserLocale) ? browserLocale : undefined
 }
 

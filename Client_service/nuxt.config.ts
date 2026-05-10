@@ -1,5 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
+const nodeEnv = (globalThis as typeof globalThis & { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {}
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   components: [
@@ -14,28 +16,6 @@ export default defineNuxtConfig({
     '@nuxtjs/google-fonts',
     '@pinia/nuxt'
   ],
-  imports: {
-    dirs: [
-      '~/composables',
-      '~/composables/**',
-      '~/stores',
-      '~/stores/**',
-      '~/utils',
-      '~/utils/**',
-      'composables',
-      'composables/**',
-      'stores',
-      'stores/**',
-      'utils',
-      'utils/**',
-      'app/composables',
-      'app/composables/**',
-      'app/stores',
-      'app/stores/**',
-      'app/utils',
-      'app/utils/**'
-    ]
-  },
   devtools: { enabled: true },
   imports: {
     // `srcDir` mặc định là thư mục `app/`. Tiền tố `app/` sai → chỉ utils (hoặc mặc định khác)
@@ -50,10 +30,11 @@ export default defineNuxtConfig({
     ]
   },
   runtimeConfig: {
-    backendApiBaseUrl: process.env.NUXT_BACKEND_API_BASE_URL || 'http://localhost:8000',
+    backendApiBaseUrl: nodeEnv.NUXT_BACKEND_API_BASE_URL || 'http://localhost:8000',
+    ragServiceBaseUrl: nodeEnv.NUXT_RAG_SERVICE_BASE_URL || 'http://localhost:8000/rag',
     public: {
-      backendApiBaseUrl: process.env.NUXT_PUBLIC_BACKEND_API_BASE_URL || 'http://localhost:8000',
-      googleClientId: process.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID || ''
+      backendApiBaseUrl: nodeEnv.NUXT_PUBLIC_BACKEND_API_BASE_URL || 'http://localhost:8000',
+      googleClientId: nodeEnv.NUXT_PUBLIC_GOOGLE_CLIENT_ID || nodeEnv.GOOGLE_OAUTH_CLIENT_ID || ''
     }
   },
   tailwindcss: {

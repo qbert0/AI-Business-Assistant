@@ -5,7 +5,7 @@ import { hasClientAuthToken } from '@/utils/auth-token'
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const auth = useAuthStore()
-  const publicRoutes = [APP_ROUTES.home, APP_ROUTES.authLogin, APP_ROUTES.authRegister, APP_ROUTES.authGoogleCallback]
+  const publicRoutes = [APP_ROUTES.home, APP_ROUTES.authLogin, APP_ROUTES.authRegister, APP_ROUTES.authGoogleCallback] as string[]
   const isOrganizationPublicRoute = /^\/org\/[^/]+\/public\/?$/.test(to.path)
   const isOrganizationDashboardRoute = /^\/org\/[^/]+\/dashboard\/?$/.test(to.path)
   const isOrganizationGuestChatRoute = /^\/org\/[^/]+\/chat\/?$/.test(to.path)
@@ -26,7 +26,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     })
   }
 
-  if (auth.isAuthenticated && [APP_ROUTES.authLogin, APP_ROUTES.authRegister].includes(to.path)) {
+  if (auth.isAuthenticated && ([APP_ROUTES.authLogin, APP_ROUTES.authRegister] as string[]).includes(to.path)) {
     return navigateTo(getAuthRedirectTarget(to.query[AUTH_REDIRECT_QUERY]))
   }
 })

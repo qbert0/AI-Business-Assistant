@@ -1,6 +1,16 @@
 ﻿import { VI_MESSAGES } from './vi'
 
-export const EN_MESSAGES: typeof VI_MESSAGES = {
+type WidenLocaleValue<T> = T extends string
+  ? string
+  : T extends readonly (infer U)[]
+    ? readonly WidenLocaleValue<U>[]
+    : T extends object
+      ? { readonly [K in keyof T]: WidenLocaleValue<T[K]> }
+      : T
+
+type WidenLocaleMessages<T> = { readonly [K in keyof T]: WidenLocaleValue<T[K]> }
+
+export const EN_MESSAGES: WidenLocaleMessages<typeof VI_MESSAGES> = {
   ...VI_MESSAGES,
   common: {
     ...VI_MESSAGES.common,
