@@ -28,6 +28,13 @@ CORS_ALLOWED_ORIGINS = [
     if origin.strip()
 ]
 
+SMTP_HOST = os.getenv("SMTP_HOST", "").strip()
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME", "").strip()
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "").strip()
+SMTP_SENDER = os.getenv("SMTP_SENDER", SMTP_USERNAME or "noreply@business-assistant.local").strip()
+SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").lower() != "false"
+
 
 def _config_section(name: str) -> dict:
     value = CONFIG.get(name, {}) if isinstance(CONFIG, dict) else {}

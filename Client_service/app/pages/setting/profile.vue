@@ -17,7 +17,6 @@
     <section class="settings-panel">
       <div class="settings-panel-heading">
         <h2 class="panel-title">{{ text.settingsProfile.publicPreviewTitle }}</h2>
-        <NuxtLink class="btn-secondary" :to="APP_ROUTES.profile">{{ text.settingsProfile.viewPublicProfile }}</NuxtLink>
       </div>
 
       <div class="grid gap-3 md:grid-cols-2">
@@ -35,7 +34,7 @@
         </label>
       </div>
       <p v-if="profileErrors" class="text-caption text-orange">{{ profileErrors }}</p>
-      <button class="btn-primary" @click="saveProfile">{{ text.common.openPage }}</button>
+      <button class="btn-primary" @click="saveProfile">{{ text.common.saveChanges }}</button>
     </section>
 
     <!-- Block 3: visibility toggles -->
@@ -50,8 +49,6 @@
 </template>
 
 <script setup lang="ts">
-import { APP_ROUTES } from '@/constants/navigation'
-
 definePageMeta({
   layout: 'settings'
 })

@@ -11,6 +11,7 @@ export const APP_ROUTES = {
   dashboard: '/dashboard',
   legacyWorkspace: '/workspace',
   organizations: '/org',
+  organizationSearch: '/org/search',
   organizationCreate: '/org/create',
   profile: '/profile',
   settings: '/setting',
@@ -83,10 +84,8 @@ export const getSettingNavigation = (text: AppMessages): NavigationItem[] => [
 
 export const getOrganizationNavigation = (text: AppMessages) => [
   { label: text.common.overview, to: (slug: string) => getOrganizationRoute(slug, 'dashboard') },
-  { label: text.navigation.workspace, to: (slug: string) => getOrganizationRoute(slug, 'workspace') },
   { label: text.common.employees, to: (slug: string) => getOrganizationRoute(slug, 'employees') },
   { label: text.common.documents, to: (slug: string) => getOrganizationRoute(slug, 'documents') },
-  { label: text.common.pipeline, to: (slug: string) => getOrganizationRoute(slug, 'pipeline') },
   { label: text.common.analytics, to: (slug: string) => getOrganizationRoute(slug, 'analytics') },
   { label: text.common.settings, to: (slug: string) => getOrganizationRoute(slug, 'settings') }
 ]

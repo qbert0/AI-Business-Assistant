@@ -7,6 +7,7 @@ export interface OrganizationSummary {
   name: string
   industry: string
   description: string
+  searchKeywords: string[]
   role: UserRole
   employeesCount: number
   documentsCount: number
@@ -21,7 +22,7 @@ export interface OrganizationMember {
   department: string
   title: string
   role: string
-  status: 'active' | 'invited'
+  status: 'active' | 'pending_response' | 'invited'
   permissions: OrganizationPermission[]
 }
 
@@ -49,6 +50,24 @@ export interface KnowledgeDocument {
   vectorIndex: string
   sourceStorage: string
   status: 'uploaded' | 'chunked' | 'embedded' | 'indexed'
+}
+
+export interface OrganizationDocumentTreeNode {
+  id: string
+  type: 'folder' | 'file'
+  name: string
+  parentId: string | null
+  documentId?: string | null
+  children?: OrganizationDocumentTreeNode[]
+}
+
+export interface OrganizationSettingsData {
+  identityKeywords: string[]
+  suggestedQuestions: string[]
+  allowJoinRequests: boolean
+  allowGuestChat: boolean
+  allowGuestDocumentAccess: boolean
+  documentTree: OrganizationDocumentTreeNode[]
 }
 
 export interface PipelineStep {

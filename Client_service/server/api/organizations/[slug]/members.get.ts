@@ -4,9 +4,9 @@ interface BackendMember {
   id: string
   user_id: string
   organization_id: string
-  role: 'admin' | 'user'
+  role: string
   permissions: any[]
-  status: 'active' | 'invited' | 'disabled'
+  status: 'active' | 'pending_response' | 'invited' | 'disabled'
   user: {
     id: string
     email: string

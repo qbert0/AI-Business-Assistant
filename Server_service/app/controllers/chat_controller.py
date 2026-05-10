@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app import models
@@ -17,6 +17,11 @@ def chat_suggestions(org_id: str, acting_user_id: str, db: Session = Depends(get
 @router.get("/chat/personal/suggestions", response_model=list[str], tags=["Chat"], summary="Lay goi y cau hoi theo workspace ca nhan")
 def personal_chat_suggestions(acting_user_id: str, db: Session = Depends(get_db)) -> list[str]:
     return ChatService(db).personal_chat_suggestions(acting_user_id)
+
+
+@router.get("/organizations/{org_id}/public/chat/suggestions", response_model=list[str], tags=["Chat"], summary="Lay goi y cau hoi cong khai cho khach")
+def public_chat_suggestions(org_id: str, db: Session = Depends(get_db)) -> list[str]:
+    return ChatService(db).public_chat_suggestions(org_id)
 
 
 @router.get("/organizations/{org_id}/chat/sessions", response_model=list[models.ChatSessionRead], tags=["Chat"], summary="Lay chat history theo context to chuc")
@@ -61,6 +66,14 @@ def ask_chat(org_id: str, payload: models.ChatAsk, db: Session = Depends(get_db)
 def ask_personal_chat(payload: models.ChatAsk, db: Session = Depends(get_db)) -> models.ChatAnswer:
     result = ChatService(db).ask_personal_chat(payload)
     return chat_dto.to_chat_answer_model(result)
+
+
+@router.post("/organizations/{org_id}/public/chat/ask", tags=["Chat"], summary="Hoi dap cong khai cho khach")
+def public_ask_chat(org_id: str, payload: dict, db: Session = Depends(get_db)):
+    question = str(payload.get("question") or "").strip()
+    if not question:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Question is required.")
+    return ChatService(db).public_ask_chat(org_id, question)
 
 
 @router.post("/organizations/{org_id}/chat/ask/stream", tags=["Chat"], summary="Hoi dap theo tai lieu noi bo to chuc voi stream")

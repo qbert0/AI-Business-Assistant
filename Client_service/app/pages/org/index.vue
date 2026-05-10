@@ -73,7 +73,7 @@
                 <NuxtLink class="btn-secondary" :to="getOrganizationPublicRoute(organization.slug)">
                   {{ text.organizationPublic.openPublicPage }}
                 </NuxtLink>
-                <NuxtLink class="btn-dark" :to="getOrganizationRoute(organization.slug, 'workspace')">{{ text.navigation.workspace }}</NuxtLink>
+                <NuxtLink class="btn-dark" :to="getOrganizationRoute(organization.slug, 'settings')">{{ text.common.settings }}</NuxtLink>
               </div>
             </article>
           </div>

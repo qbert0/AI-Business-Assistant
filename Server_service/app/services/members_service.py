@@ -7,6 +7,8 @@ from app import messages, models
 from app.entities import database as db_entities
 from app.repositories import members_repository
 from app.repositories.common import parse_json_list
+from app.repositories.notifications_repository import create_notification
+from app.services.email_service import send_email
 from app.services.security import permissions_for_role
 
 
@@ -36,12 +38,12 @@ class MembersService:
         return membership
 
     def add_member(self, org_id: str, payload: models.MemberCreate, acting_user_id: str) -> db_entities.OrganizationMember:
-        self._get_org_or_404(org_id)
-        self._get_user_or_404(payload.user_id)
+        org = self._get_org_or_404(org_id)
+        user = self._get_user_or_404(payload.user_id)
         self._require_permission(org_id, acting_user_id, "access_org_settings")
         if members_repository.get_membership(org_id, payload.user_id, self.db):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=messages.MEMBER_ALREADY_EXISTS)
-        return members_repository.create_member(
+        member = members_repository.create_member(
             org_id=org_id,
             user_id=payload.user_id,
             role=payload.role,
@@ -49,6 +51,27 @@ class MembersService:
             status_value=payload.status,
             db=self.db,
         )
+        create_notification(
+            models.NotificationCreate(
+                user_id=user.id,
+                organization_id=org.id,
+                notification_type="organization",
+                title=f"Ban co loi moi tham gia {org.name}",
+                content=f"Vai tro duoc gan: {payload.role}. Trang thai hien tai: {payload.status}.",
+                action_url=f"/org/{org.id}/dashboard",
+            ),
+            self.db,
+        )
+        send_email(
+            to_email=user.email,
+            subject=f"Loi moi tham gia to chuc {org.name}",
+            body=(
+                f"Xin chao {user.full_name},\n\n"
+                f"Ban vua duoc moi vao to chuc {org.name} voi vai tro {payload.role}.\n"
+                "Dang nhap vao he thong de chap nhan loi moi va bat dau su dung workspace.\n"
+            ),
+        )
+        return member
 
     def list_members(
         self,
@@ -90,6 +113,17 @@ class MembersService:
         if not member:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.MEMBER_NOT_FOUND)
         members_repository.delete_member(member, self.db)
+
+    def accept_membership(self, org_id: str, acting_user_id: str) -> db_entities.OrganizationMember:
+        self._get_org_or_404(org_id)
+        member = members_repository.get_membership(org_id, acting_user_id, self.db)
+        if not member:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.USER_NOT_IN_ORGANIZATION)
+        if member.status == "disabled":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=messages.USER_DISABLED)
+        member.status = "active"
+        members_repository.save_member(self.db)
+        return members_repository.refresh_member(member, self.db)
 
     def leave_organization(self, org_id: str, acting_user_id: str) -> None:
         member = members_repository.get_membership(org_id, acting_user_id, self.db)

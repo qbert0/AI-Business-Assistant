@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.constants.permissions import ADMIN_PERMISSIONS
 from app.entities import database as db_entities
 from app.entities.api import OrganizationDashboardEntity
+from app.repositories.common import parse_json_dict
 
 
 def create_organization(
@@ -50,6 +51,7 @@ def list_organizations(
                 db_entities.Organization.name.like(like),
                 db_entities.Organization.industry.like(like),
                 db_entities.Organization.description.like(like),
+                db_entities.Organization.settings_json.like(like),
             )
         )
     return query.order_by(db_entities.Organization.created_at.desc()).offset(skip).limit(limit).all()
@@ -83,6 +85,13 @@ def refresh_organization(org: db_entities.Organization, db: Session) -> db_entit
 def build_dashboard(org: db_entities.Organization, db: Session) -> OrganizationDashboardEntity:
     org_id = org.id
     document_count = db.query(db_entities.Document).filter(db_entities.Document.organization_id == org_id).count()
+    settings = parse_json_dict(org.settings_json)
+    configured_questions = settings.get("suggested_questions")
+    suggested_questions = (
+        [str(item).strip() for item in configured_questions if str(item).strip()][:3]
+        if isinstance(configured_questions, list)
+        else []
+    )
     return OrganizationDashboardEntity(
         organization=org,
         employee_count=db.query(db_entities.OrganizationMember).filter(db_entities.OrganizationMember.organization_id == org_id).count(),
@@ -91,7 +100,7 @@ def build_dashboard(org: db_entities.Organization, db: Session) -> OrganizationD
         .filter(db_entities.Document.organization_id == org_id, db_entities.Document.status == "completed")
         .count(),
         chat_session_count=db.query(db_entities.ChatSession).filter(db_entities.ChatSession.organization_id == org_id).count(),
-        suggested_questions=[
+        suggested_questions=suggested_questions or [
             "Chinh sach nghi phep cua cong ty la gi?",
             "Quy trinh phe duyet chi phi noi bo nhu the nao?",
             "Nhan vien moi can doc tai lieu nao dau tien?",

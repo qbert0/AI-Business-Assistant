@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { backendFetch, getBackendUser, mapMember } from '../../../../utils/backend'
 
 const patchMemberSchema = z.object({
-  role: z.enum(['admin', 'user']).optional(),
+  role: z.string().trim().min(1).optional(),
   permissions: z.array(z.string()).optional()
 })
 

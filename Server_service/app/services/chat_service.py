@@ -10,7 +10,7 @@ from app import messages, models
 from app.dtos import chat_dto
 from app.entities import database as db_entities
 from app.repositories import chat_repository
-from app.repositories.common import parse_json_list
+from app.repositories.common import parse_json_dict, parse_json_list
 from app.config import AGENT_SETTINGS
 from app.services.agent_orchestrator_service import AgentOrchestratorService
 from app.services.chat_artifacts import extract_report_artifacts
@@ -47,12 +47,22 @@ class ChatService:
             "Toi nen bat dau voi workspace nao de quan ly tai lieu?",
         ]
 
-    def _organization_suggestions(self) -> list[str]:
+    def _default_organization_suggestions(self) -> list[str]:
         return [
             "Thu nhap va phuc loi hien tai gom nhung gi?",
             "Chinh sach nghi phep ap dung ra sao?",
             "Quy trinh noi bo nao lien quan den nhan vien moi?",
         ]
+
+    def _organization_suggestions(self, org_id: str) -> list[str]:
+        org = self.db.get(db_entities.Organization, org_id)
+        settings = parse_json_dict(org.settings_json if org else "{}")
+        configured = settings.get("suggested_questions")
+        if isinstance(configured, list):
+            suggestions = [str(item).strip() for item in configured if str(item).strip()]
+            if suggestions:
+                return suggestions[:3]
+        return self._default_organization_suggestions()
 
     def _get_or_create_session(self, org_id: str | None, payload: models.ChatAsk) -> db_entities.ChatSession:
         if payload.session_id:
@@ -139,10 +149,60 @@ class ChatService:
 
     def chat_suggestions(self, org_id: str, acting_user_id: str) -> list[str]:
         self._require_permission(org_id, acting_user_id, "chat_advisory")
-        return self._organization_suggestions()
+        return self._organization_suggestions(org_id)
 
     def personal_chat_suggestions(self, acting_user_id: str) -> list[str]:
         return self._personal_suggestions()
+
+    def _get_public_chat_settings(self, org_id: str) -> tuple[db_entities.Organization, dict]:
+        org = self.db.get(db_entities.Organization, org_id)
+        if not org:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.ORGANIZATION_NOT_FOUND)
+        settings = parse_json_dict(org.settings_json)
+        return org, settings
+
+    def public_chat_suggestions(self, org_id: str) -> list[str]:
+        _org, settings = self._get_public_chat_settings(org_id)
+        if settings.get("allow_guest_chat") is not True:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="To chuc chua mo chat cong khai.")
+        return self._organization_suggestions(org_id)
+
+    def public_ask_chat(self, org_id: str, question: str) -> dict:
+        org, settings = self._get_public_chat_settings(org_id)
+        if settings.get("allow_guest_chat") is not True:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="To chuc chua mo chat cong khai.")
+
+        if settings.get("allow_guest_document_access") is not True:
+            answer = (
+                f"{org.name}: {org.description or 'To chuc nay da mo chat cong khai, nhung khach khong duoc dung tai lieu noi bo.'} "
+                "Ban co the xem trang cong khai hoac gui yeu cau tham gia de duoc cap quyen sau."
+            )
+            return {
+                "answer": answer,
+                "citations": [],
+                "guest_document_access": False,
+            }
+
+        state = AgentOrchestratorService(self.db).run_ephemeral(
+            org_id=org_id,
+            session_id=f"public-{org_id}",
+            user_id=f"guest:{org_id}",
+            question=question,
+            history=[],
+            feedback_contexts=[],
+        )
+        return {
+            "answer": state.answer,
+            "citations": [
+                {
+                    "document_id": citation.document_id,
+                    "file_name": citation.file_name,
+                    "source_url": citation.source_url,
+                }
+                for citation in state.citations
+            ],
+            "guest_document_access": True,
+        }
 
     def list_chat_sessions(self, org_id: str, acting_user_id: str) -> list[db_entities.ChatSession]:
         self._require_permission(org_id, acting_user_id, "chat_advisory")

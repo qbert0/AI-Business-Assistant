@@ -9,7 +9,7 @@
         <div class="flex flex-wrap gap-2.5">
           <NuxtLink class="btn-primary" :to="getOrganizationRoute(organization.slug, 'employees')">{{ text.organizationDetail.manageEmployees }}</NuxtLink>
           <NuxtLink class="btn-secondary" :to="getOrganizationRoute(organization.slug, 'documents')">{{ text.organizationDetail.documentStore }}</NuxtLink>
-          <NuxtLink class="btn-dark" :to="getOrganizationRoute(organization.slug, 'workspace')">{{ text.navigation.workspace }}</NuxtLink>
+          <NuxtLink class="btn-dark" :to="getOrganizationRoute(organization.slug, 'settings')">{{ text.common.settings }}</NuxtLink>
         </div>
       </div>
 
@@ -103,10 +103,10 @@ const shortcuts = computed<ActionCardItem[]>(() => [
     link: getOrganizationRoute(slug.value, 'documents')
   },
   {
-    title: text.common.pipeline,
-    description: 'Multi-agent orchestration, retrieval và rerank.',
-    icon: 'lucide:git-branch-plus',
-    link: getOrganizationRoute(slug.value, 'pipeline')
+    title: text.common.analytics,
+    description: 'Theo dõi lượt dùng, tài liệu và bộ câu hỏi gợi ý của tổ chức.',
+    icon: 'lucide:chart-column-big',
+    link: getOrganizationRoute(slug.value, 'analytics')
   }
 ])
 

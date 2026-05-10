@@ -6,7 +6,7 @@
           <Icon name="lucide:menu" />
         </button>
 
-        <NuxtLink to="/" class="brand">
+        <NuxtLink :to="APP_ROUTES.dashboard" class="brand">
           <span class="brand-mark">{{ text.header.brandMark }}</span>
           <span class="brand-title">{{ text.header.brand }}</span>
         </NuxtLink>
@@ -16,7 +16,6 @@
 
       <div class=" flex items-center justify-end ">
         <AppPopup
-          v-if="isAuthenticated"
           v-model:open="isSearchOpen"
           :root-class="`header-search ${isSearchOpen || organizationSearch ? 'active' : ''}`"
           content-class="header-search-popover"
@@ -123,23 +122,25 @@
 </template>
 
 <script setup lang="ts">
-import { APP_ROUTES, getOrganizationRoute } from '@/constants/navigation'
+import { APP_ROUTES, getOrganizationPublicRoute } from '@/constants/navigation'
 import type { AppLocale } from '@/locales'
+import type { OrganizationSummary } from '@/types/organization'
 import { createInitials, getAvatarToneClass } from '@/utils/avatar'
 
 const { text, locale, supportedLocales, setLocale, hydrateLocale } = useAppLocale()
 
 const route = useRoute()
 const router = useRouter()
+const apiFetch = useApiFetch()
 const { toggleAppDrawer } = useUiState()
 const { isAuthenticated, user, logout } = useAuth()
-const { searchOrganizations, organizations } = useOrganization()
 
-const organizationSearch = ref(typeof route.query.q === 'string' ? route.query.q : '')
+const organizationSearch = ref(typeof route.query.id === 'string' ? route.query.id : '')
 const isUserMenuOpen = ref(false)
 const isSearchOpen = ref(false)
 const searchInput = ref<HTMLInputElement | null>(null)
 const selectedLocale = ref(locale.value)
+const publicOrganizations = ref<OrganizationSummary[]>([])
 
 const initials = computed(() => createInitials(user.value.name))
 const avatarToneClass = computed(() => getAvatarToneClass(user.value.name))
@@ -153,13 +154,14 @@ const pageTitle = computed(() => {
   if (path.startsWith(APP_ROUTES.organizations)) return text.navigation.organizations
   return text.header.brand
 })
-const searchSuggestions = computed(() => {
-  const results = organizationSearch.value.trim()
-    ? searchOrganizations(organizationSearch.value)
-    : organizations.value
+const searchSuggestions = computed(() => publicOrganizations.value.slice(0, 4))
 
-  return results.slice(0, 5)
-})
+const loadPublicOrganizations = async () => {
+  const response = await apiFetch<{ organizations: OrganizationSummary[] }>('/api/public/organizations', {
+    query: { q: organizationSearch.value }
+  })
+  publicOrganizations.value = response.organizations
+}
 
 const openSearch = async (toggle: () => void) => {
   if (isSearchOpen.value && !organizationSearch.value) {
@@ -179,14 +181,14 @@ const closeSearch = () => {
 
 const submitSearch = () => {
   router.push({
-    path: APP_ROUTES.organizations,
-    query: organizationSearch.value ? { q: organizationSearch.value } : {}
+    path: APP_ROUTES.organizationSearch,
+    query: organizationSearch.value ? { id: organizationSearch.value } : {}
   })
   isSearchOpen.value = false
 }
 
 const goToOrganization = (slug: string) => {
-  router.push(getOrganizationRoute(slug, 'dashboard'))
+  router.push(getOrganizationPublicRoute(slug))
   isSearchOpen.value = false
 }
 
@@ -213,11 +215,15 @@ watch(locale, (value: AppLocale) => {
 })
 
 watch(
-  () => route.query.q,
+  () => route.query.id,
   (value: unknown) => {
     organizationSearch.value = typeof value === 'string' ? value : ''
   }
 )
+
+watch(organizationSearch, () => {
+  void loadPublicOrganizations()
+}, { immediate: true })
 
 watch(
   () => route.fullPath,

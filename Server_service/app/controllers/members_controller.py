@@ -62,6 +62,21 @@ def delete_member(
     MembersService(db).delete_member(org_id, member_id, acting_user_id)
 
 
+@router.post(
+    "/organizations/{org_id}/membership/accept",
+    response_model=models.MemberRead,
+    tags=["Members & RBAC"],
+    summary="Nhan vien chap nhan loi moi vao to chuc",
+)
+def accept_membership(
+    org_id: str,
+    acting_user_id: str = Query(..., description="User chap nhan loi moi cua chinh minh."),
+    db: Session = Depends(get_db),
+) -> models.MemberRead:
+    member = MembersService(db).accept_membership(org_id, acting_user_id)
+    return common_dto.to_member_model(member)
+
+
 @router.delete("/organizations/{org_id}/membership", status_code=status.HTTP_204_NO_CONTENT, tags=["Members & RBAC"], summary="Roi khoi to chuc")
 def leave_organization(
     org_id: str,

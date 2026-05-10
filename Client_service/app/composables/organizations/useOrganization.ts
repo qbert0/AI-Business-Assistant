@@ -1,5 +1,5 @@
 import type { OrganizationPermission } from '@/constants/rbac'
-import type { CompanyForm, OrganizationMember } from '@/types/organization'
+import type { CompanyForm } from '@/types/organization'
 
 import { useOrganizationStore } from '@/stores/organizations/useOrganizationStore'
 
@@ -18,8 +18,8 @@ export const useOrganization = () => {
     getOrganizationBySlug: store.getOrganizationBySlug,
     getMembers: store.getMembers,
     searchOrganizations: store.searchOrganizations,
-    searchRegisteredUsersByEmail: store.searchRegisteredUsersByEmail,
-    addEmployee: (slug: string, payload: Omit<OrganizationMember, 'id' | 'status'>) => store.addEmployee(slug, payload),
+    addEmployees: (slug: string, payload: { emails: string[], role: string, permissions: OrganizationPermission[] }) =>
+      store.addEmployees(slug, payload),
     removeEmployee: store.removeEmployee,
     updateEmployeeRole: store.updateEmployeeRole,
     updateEmployeeDetails: store.updateEmployeeDetails,

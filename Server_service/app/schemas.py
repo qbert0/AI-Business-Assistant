@@ -68,6 +68,7 @@ class OrganizationRead(BaseModel):
     sensitive_restrictions: str | None
     billing_plan: str
     billing_status: str
+    settings: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
 
     class Config:
@@ -85,15 +86,15 @@ class OrganizationDashboard(BaseModel):
 
 class MemberCreate(BaseModel):
     user_id: str = Field(..., description="User da ton tai trong he thong.")
-    role: Literal["admin", "user"] = "user"
+    role: str = Field("user", min_length=1, max_length=100)
     permissions: list[Permission] | None = Field(None, description="Neu bo trong, server dung permission mac dinh theo role.")
-    status: Literal["invited", "active"] = "active"
+    status: Literal["pending_response", "invited", "active"] = "pending_response"
 
 
 class MemberPatch(BaseModel):
-    role: Literal["admin", "user"] | None = None
+    role: str | None = Field(None, min_length=1, max_length=100)
     permissions: list[Permission] | None = None
-    status: Literal["invited", "active", "disabled"] | None = None
+    status: Literal["pending_response", "invited", "active", "disabled"] | None = None
 
 
 class MemberRead(BaseModel):

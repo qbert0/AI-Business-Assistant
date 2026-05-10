@@ -1,3 +1,4 @@
+import type { OrganizationPermission } from '@/constants/rbac'
 import type { CompanyForm, JoinRequest, OrganizationMember, OrganizationSummary } from '@/types/organization'
 
 export const useApiOrganizations = () => {
@@ -16,8 +17,8 @@ export const useApiOrganizations = () => {
   const members = (slug: string) =>
     apiFetch<{ members: OrganizationMember[] }>(`/api/organizations/${slug}/members`)
 
-  const addMember = (slug: string, payload: Omit<OrganizationMember, 'id' | 'status'>) =>
-    apiFetch<{ member: OrganizationMember }>(`/api/organizations/${slug}/members`, {
+  const addMembers = (slug: string, payload: { emails: string[], role: string, permissions: OrganizationPermission[] }) =>
+    apiFetch<{ members: OrganizationMember[] }>(`/api/organizations/${slug}/members`, {
       method: 'POST',
       body: payload
     })
@@ -42,7 +43,7 @@ export const useApiOrganizations = () => {
     create,
     get,
     members,
-    addMember,
+    addMembers,
     patchMember,
     removeMember
   }

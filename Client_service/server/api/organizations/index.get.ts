@@ -7,6 +7,9 @@ interface BackendOrganization {
   industry?: string | null
   description?: string | null
   billing_status?: string | null
+  settings?: {
+    identity_keywords?: string[]
+  }
 }
 
 interface BackendDashboard {
@@ -17,7 +20,7 @@ interface BackendDashboard {
 
 interface BackendMember {
   user_id: string
-  role: 'admin' | 'user'
+  role: string
   permissions: OrganizationPermission[]
 }
 
@@ -51,7 +54,7 @@ export default defineEventHandler(async (event) => {
         event,
         `/organizations/${organization.id}/members?acting_user_id=${encodeURIComponent(user.id)}&limit=100`
       )
-      role = members.find((member) => member.user_id === user.id)?.role ?? role
+      role = members.find((member) => member.user_id === user.id)?.role === 'admin' ? 'admin' : role
     } catch {
       // Non-admin users may not have view_employees; their organization role stays user.
     }

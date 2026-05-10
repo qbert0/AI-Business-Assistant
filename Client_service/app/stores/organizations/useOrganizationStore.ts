@@ -1,7 +1,6 @@
-import { REGISTERED_DIRECTORY_USERS } from '@/constants/mock-data'
 import { getDefaultPermissionsByRole, type OrganizationPermission } from '@/constants/rbac'
 import type { CompanyForm, JoinRequest, OrganizationMember, OrganizationSummary } from '@/types/organization'
-import { includesSearchTerm } from '@/utils/search'
+import { includesSearchTerm, scoreSearchMatch } from '@/utils/search'
 
 export const useOrganizationStore = defineStore('organizations', () => {
   const organizations = ref<OrganizationSummary[]>([])
@@ -46,17 +45,35 @@ export const useOrganizationStore = defineStore('organizations', () => {
       return organizations.value
     }
 
-    return organizations.value.filter((organization) =>
-      includesSearchTerm(`${organization.id} ${organization.name} ${organization.industry} ${organization.description}`, query)
-    )
-  }
+    return organizations.value
+      .map((organization) => {
+        const searchableText = [
+          organization.id,
+          organization.name,
+          organization.industry,
+          organization.description,
+          ...(organization.searchKeywords ?? [])
+        ].join(' ')
 
-  const searchRegisteredUsersByEmail = (emailQuery: string) => {
-    if (!emailQuery.trim()) {
-      return []
-    }
-
-    return REGISTERED_DIRECTORY_USERS.filter((user) => includesSearchTerm(user.email, emailQuery))
+        return {
+          organization,
+          score: scoreSearchMatch(searchableText, query)
+        }
+      })
+      .filter(({ organization, score }) =>
+        score > 0 || includesSearchTerm(
+          [
+            organization.id,
+            organization.name,
+            organization.industry,
+            organization.description,
+            ...(organization.searchKeywords ?? [])
+          ].join(' '),
+          query
+        )
+      )
+      .sort((left, right) => right.score - left.score || left.organization.name.localeCompare(right.organization.name))
+      .map(({ organization }) => organization)
   }
 
   const createOrganization = async (payload: CompanyForm) => {
@@ -66,12 +83,15 @@ export const useOrganizationStore = defineStore('organizations', () => {
     return response.organization.slug
   }
 
-  const addEmployee = async (slug: string, payload: Omit<OrganizationMember, 'id' | 'status'>) => {
+  const addEmployees = async (
+    slug: string,
+    payload: { emails: string[], role: string, permissions: OrganizationPermission[] }
+  ) => {
     const api = useApiOrganizations()
-    const response = await api.addMember(slug, payload)
+    const response = await api.addMembers(slug, payload)
     membersByOrg.value = {
       ...membersByOrg.value,
-      [slug]: [response.member, ...getMembers(slug)]
+      [slug]: [...response.members, ...getMembers(slug)]
     }
   }
 
@@ -142,9 +162,8 @@ export const useOrganizationStore = defineStore('organizations', () => {
     getOrganizationBySlug,
     getMembers,
     searchOrganizations,
-    searchRegisteredUsersByEmail,
     createOrganization,
-    addEmployee,
+    addEmployees,
     removeEmployee,
     updateEmployeeRole,
     updateEmployeeDetails,

@@ -8,17 +8,17 @@
 
       <div class="employee-toolbar">
         <input v-model="memberSearch" class="app-input employee-search" :placeholder="text.employeesPage.searchPlaceholder" />
-        <div class="pill">{{ text.employeesPage.rbac }}</div>
+        <div class="pill">{{ text.employeesPage.roleHint }}</div>
       </div>
     </section>
 
     <section class="surface-card org-table-panel">
-      <div class="org-table-scroll">
+      <div class="org-table-scroll overflow-y-visible">
         <table class="app-table mt-3">
           <thead>
             <tr>
-              <th>{{ text.employeesPage.employeeColumn }}</th>
-              <th>{{ text.employeesPage.departmentColumn }}</th>
+              <th>{{ text.employeesPage.nameColumn }}</th>
+              <th>{{ text.employeesPage.emailColumn }}</th>
               <th>{{ text.employeesPage.roleColumn }}</th>
               <th>{{ text.employeesPage.statusColumn }}</th>
               <th>{{ text.employeesPage.actionColumn }}</th>
@@ -29,21 +29,14 @@
               <td>
                 <div>
                   <strong>{{ member.name }}</strong>
-                  <p class="table-copy">{{ member.email }}</p>
                 </div>
               </td>
               <td>
-                {{ member.department }}
-                <p class="table-copy">{{ member.title }}</p>
+                <span class="table-copy text-near">{{ member.email }}</span>
               </td>
               <td>
                 <div class="employee-role-cell">
                   <span class="status-badge status-info">{{ roleLabel(member.role) }}</span>
-                  <div class="permission-list">
-                    <span v-for="permission in getRolePermissions(member.role)" :key="permission.id" class="permission-chip active">
-                      {{ permission.label }}
-                    </span>
-                  </div>
                 </div>
               </td>
               <td>
@@ -55,7 +48,7 @@
                 <AppPopup
                   :open="activeActionMemberId === member.id"
                   root-class="relative inline-block"
-                  content-class="row-action-menu"
+                  content-class="row-action-menu z-[30]"
                   @update:open="handleRowMenuUpdate(member.id, $event)"
                 >
                   <template #trigger="{ toggle }">
@@ -126,12 +119,9 @@
 
     <EmployeeModal
       :open="isAddModalOpen"
-      :matched-directory-users="matchedDirectoryUsers"
-      :empty-members-message="UI_MESSAGES.emptyMembers"
       :role-options="roles"
       @close="closeAddModal"
-      @search="handleEmailSearch"
-      @submit="handleAddEmployee"
+      @submit="handleAddEmployees"
     />
 
     <AppPopup
@@ -153,14 +143,6 @@
           </div>
 
           <div class="grid gap-3 md:grid-cols-2">
-            <div class="space-y-2">
-              <label class="field-label">{{ text.employeeModal.department }}</label>
-              <input v-model="employeeForm.department" class="app-input" />
-            </div>
-            <div class="space-y-2">
-              <label class="field-label">{{ text.employeeModal.titleLabel }}</label>
-              <input v-model="employeeForm.title" class="app-input" />
-            </div>
             <div class="space-y-2 md:col-span-2">
               <label class="field-label">{{ text.employeeModal.role }}</label>
               <select v-model="employeeForm.role" class="app-select">
@@ -224,7 +206,6 @@
 
 <script setup lang="ts">
 import EmployeeModal from '@/components/form/organization/EmployeeModal.vue'
-import { UI_MESSAGES } from '@/constants/messages'
 import {
   DEFAULT_ORGANIZATION_ROLES,
   PERMISSION_OPTIONS,
@@ -246,10 +227,9 @@ const {
   loadMembers,
   getOrganizationBySlug,
   getMembers,
-  addEmployee,
+  addEmployees,
   removeEmployee,
-  updateEmployeeDetails,
-  searchRegisteredUsersByEmail
+  updateEmployeeDetails
 } = useOrganization()
 
 const slug = computed(() => (route.params.slug ?? route.params.id) as string)
@@ -257,19 +237,16 @@ const organization = computed(() => getOrganizationBySlug(slug.value))
 const isOrganizationAdmin = computed(() => organization.value?.role === 'admin')
 const members = computed(() => getMembers(slug.value))
 const memberSearch = ref('')
-const emailSearch = ref('')
 const isAddModalOpen = ref(false)
 const activeActionMemberId = ref<string | null>(null)
 const currentPage = ref(1)
-const pageSize = 5
+const pageSize = 20
 const roles = ref<OrganizationRoleDefinition[]>(DEFAULT_ORGANIZATION_ROLES.map((role: OrganizationRoleDefinition) => ({
   name: role.name,
   permissions: [...role.permissions]
 })))
 const editingMember = ref<OrganizationMember | null>(null)
 const employeeForm = reactive({
-  department: '',
-  title: '',
   role: 'user'
 })
 const isRoleModalOpen = ref(false)
@@ -279,10 +256,9 @@ const roleForm = reactive({
   permissions: [] as OrganizationPermission[]
 })
 
-const matchedDirectoryUsers = computed(() => searchRegisteredUsersByEmail(emailSearch.value))
 const filteredMembers = computed(() =>
   members.value.filter((member: OrganizationMember) =>
-    `${member.name} ${member.email} ${member.department} ${member.role}`.toLowerCase().includes(memberSearch.value.trim().toLowerCase())
+    `${member.name} ${member.email} ${member.role} ${member.status}`.toLowerCase().includes(memberSearch.value.trim().toLowerCase())
   )
 )
 const totalPages = computed(() => Math.max(1, Math.ceil(filteredMembers.value.length / pageSize)))
@@ -297,12 +273,10 @@ const roleLabel = (role: string) => {
   if (role === 'user') return text.common.employee
   return role
 }
-const statusLabel = (status: OrganizationMember['status']) => (status === 'active' ? text.common.active : text.common.invited)
+const statusLabel = (status: OrganizationMember['status']) => (status === 'active' ? text.common.active : text.common.awaitingResponse)
 const isBuiltInRole = (roleName: string) => ['admin', 'user'].includes(roleName)
 const getPermissionOptions = (permissions: OrganizationPermission[]) =>
   PERMISSION_OPTIONS.filter((permission: { id: OrganizationPermission, label: string }) => permissions.includes(permission.id))
-const getRolePermissions = (roleName: string) =>
-  getPermissionOptions(roles.value.find((role: OrganizationRoleDefinition) => role.name === roleName)?.permissions ?? [])
 
 watch(filteredMembers, () => {
   if (currentPage.value > totalPages.value) {
@@ -319,20 +293,13 @@ onMounted(async () => {
   await loadMembers(slug.value)
 })
 
-const handleEmailSearch = (value: string) => {
-  emailSearch.value = value
-}
-
-const handleAddEmployee = async (payload: {
-  name: string
-  email: string
-  department: string
-  title: string
+const handleAddEmployees = async (payload: {
+  emails: string[]
   role: string
   permissions: OrganizationPermission[]
 }) => {
   const role = roles.value.find((item: OrganizationRoleDefinition) => item.name === payload.role)
-  await addEmployee(slug.value, {
+  await addEmployees(slug.value, {
     ...payload,
     permissions: [...(role?.permissions ?? payload.permissions)]
   })
@@ -341,7 +308,6 @@ const handleAddEmployee = async (payload: {
 
 const closeAddModal = () => {
   isAddModalOpen.value = false
-  emailSearch.value = ''
 }
 
 const deleteMember = async (memberId: string) => {
@@ -375,8 +341,6 @@ const handleRoleModalUpdate = (open: boolean) => {
 
 const openEditEmployee = (member: OrganizationMember) => {
   editingMember.value = member
-  employeeForm.department = member.department
-  employeeForm.title = member.title
   employeeForm.role = member.role
   activeActionMemberId.value = null
 }
@@ -392,8 +356,8 @@ const saveEmployeeEdit = async () => {
 
   const role = roles.value.find((item: OrganizationRoleDefinition) => item.name === employeeForm.role)
   await updateEmployeeDetails(slug.value, editingMember.value.id, {
-    department: employeeForm.department,
-    title: employeeForm.title,
+    department: editingMember.value.department,
+    title: editingMember.value.title,
     role: employeeForm.role,
     permissions: [...(role?.permissions ?? [])]
   })

@@ -231,6 +231,40 @@ class AgentOrchestratorService:
             )
             raise
 
+    def run_ephemeral(
+        self,
+        *,
+        org_id: str | None,
+        session_id: str,
+        user_id: str,
+        question: str,
+        history: list[dict],
+        feedback_contexts: list[dict],
+    ) -> AgentWorkflowState:
+        self._step_order = 0
+        state = self._build_state(
+            org_id=org_id,
+            session_id=session_id,
+            user_id=user_id,
+            question=question,
+            history=history,
+            feedback_contexts=feedback_contexts,
+        )
+        state = self.planner.run(state)
+        if state.organization_id and state.needs_document_search:
+            total_attempts = AGENT_SETTINGS.retrieval.no_hit_retries + 1
+            for _ in range(total_attempts):
+                state = self.questioner.run(state)
+                state = self.retriever.run(state)
+                if state.search_hits:
+                    break
+        state = self.answerer.run(state)
+        state = self.verifier.run(state)
+        state = self.synthesizer.run(state)
+        state = self._export_report_if_needed(state)
+        state = self._apply_fallback(state)
+        return state
+
     def iter_run(
         self,
         *,

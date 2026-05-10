@@ -36,7 +36,8 @@ def _update_user_settings(user: db_entities.User, payload: models.UserSettingsUp
 
 def get_organization_settings(org_id: str, acting_user_id: str, db: Session) -> OrganizationSettingsEntity:
     org = get_org_or_404(db, org_id)
-    require_permission(db, org_id, acting_user_id, "access_org_settings")
+    if not get_membership(db, org_id, acting_user_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=messages.USER_NOT_IN_ORGANIZATION)
     return OrganizationSettingsEntity(organization=org, settings=parse_json_dict(org.settings_json))
 
 

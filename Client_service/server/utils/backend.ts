@@ -25,15 +25,18 @@ interface BackendOrganization {
   industry?: string | null
   description?: string | null
   billing_status?: string | null
+  settings?: {
+    identity_keywords?: string[]
+  } | null
 }
 
 interface BackendMember {
   id: string
   user_id: string
   organization_id: string
-  role: 'admin' | 'user'
+  role: string
   permissions: OrganizationPermission[]
-  status: 'active' | 'invited' | 'disabled'
+  status: 'active' | 'pending_response' | 'invited' | 'disabled'
   user: BackendUser
 }
 
@@ -122,6 +125,9 @@ export const mapOrganization = (
   name: organization.name,
   industry: organization.industry || 'General',
   description: organization.description || '',
+  searchKeywords: Array.isArray(organization.settings?.identity_keywords)
+    ? organization.settings?.identity_keywords.filter((item): item is string => typeof item === 'string')
+    : [],
   role,
   employeesCount: counts.employeesCount ?? 0,
   documentsCount: counts.documentsCount ?? 0,
@@ -136,7 +142,7 @@ export const mapMember = (member: BackendMember): OrganizationMember => ({
   department: 'Organization',
   title: member.user.public_profile || 'Employee',
   role: member.role,
-  status: member.status === 'disabled' ? 'invited' : member.status,
+  status: member.status === 'active' ? 'active' : 'pending_response',
   permissions: member.permissions
 })
 

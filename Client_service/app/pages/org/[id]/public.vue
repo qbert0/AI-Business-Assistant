@@ -46,6 +46,32 @@
 
       <p v-else class="table-copy">{{ text.organizationPublic.joinDisabled }}</p>
     </AppPanel>
+
+    <AppPanel v-if="organization">
+      <template #header-left>
+        <h2 class="panel-title">{{ text.organizationPublic.guestChatTitle }}</h2>
+      </template>
+
+      <div v-if="allowGuestChat" class="space-y-4">
+        <p class="table-copy">{{ text.organizationPublic.guestChatDescription }}</p>
+        <div class="flex flex-wrap gap-2">
+          <button v-for="item in suggestions" :key="item" class="question-chip" type="button" @click="prompt = item">
+            {{ item }}
+          </button>
+        </div>
+        <textarea v-model="prompt" class="app-textarea" rows="4" :placeholder="text.organizationPublic.guestChatPlaceholder" />
+        <p v-if="!allowGuestDocumentAccess" class="text-caption text-olive">{{ text.organizationPublic.guestDocumentDisabled }}</p>
+        <button class="btn-primary" type="button" :disabled="isAsking || !prompt.trim()" @click="askPublicQuestion">
+          {{ text.chatPage.send }}
+        </button>
+
+        <article v-if="answer" class="rounded-2xl bg-white p-4">
+          <p class="muted-copy whitespace-pre-line">{{ answer }}</p>
+        </article>
+      </div>
+
+      <p v-else class="table-copy">{{ text.organizationPublic.guestChatDisabled }}</p>
+    </AppPanel>
   </main>
 </template>
 
@@ -64,14 +90,20 @@ const { isAuthenticated } = useAuth()
 const { requestJoinOrganization } = useOrganization()
 
 const note = ref('')
+const prompt = ref('')
+const answer = ref('')
+const suggestions = ref<string[]>([])
+const isAsking = ref(false)
 const slug = computed(() => route.params.id as string)
 
-const { data } = await useFetch<{ organization: OrganizationSummary, allowJoinRequests: boolean }>(
+const { data } = await useFetch<{ organization: OrganizationSummary, allowJoinRequests: boolean, allowGuestChat: boolean, allowGuestDocumentAccess: boolean }>(
   () => `/api/public/organizations/${slug.value}`
 )
 
 const organization = computed(() => data.value?.organization)
 const allowJoinRequests = computed(() => data.value?.allowJoinRequests ?? false)
+const allowGuestChat = computed(() => data.value?.allowGuestChat ?? false)
+const allowGuestDocumentAccess = computed(() => data.value?.allowGuestDocumentAccess ?? false)
 
 const submitJoinRequest = async () => {
   if (!organization.value) {
@@ -82,4 +114,30 @@ const submitJoinRequest = async () => {
   note.value = ''
   await navigateTo(APP_ROUTES.organizations)
 }
+
+const askPublicQuestion = async () => {
+  if (!prompt.value.trim()) {
+    return
+  }
+
+  isAsking.value = true
+  try {
+    const response = await $fetch<{ answer: string }>(`/api/public/organizations/${slug.value}/chat/ask`, {
+      method: 'POST',
+      body: { question: prompt.value }
+    })
+    answer.value = response.answer
+  } finally {
+    isAsking.value = false
+  }
+}
+
+onMounted(async () => {
+  if (!allowGuestChat.value) {
+    return
+  }
+
+  const response = await $fetch<{ suggestions: string[] }>(`/api/public/organizations/${slug.value}/chat/suggestions`)
+  suggestions.value = response.suggestions
+})
 </script>

@@ -27,6 +27,7 @@ def to_organization_model(org: db_entities.Organization) -> models.OrganizationR
         sensitive_restrictions=org.sensitive_restrictions,
         billing_plan=org.billing_plan,
         billing_status=org.billing_status,
+        settings=parse_json_dict(org.settings_json),
         created_at=org.created_at,
     )
 

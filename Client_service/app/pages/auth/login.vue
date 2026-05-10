@@ -11,7 +11,7 @@ definePageMeta({
   layout: 'auth'
 })
 
-const { login, error, isLoading } = useAuth()
+const { error, isLoading } = useAuth()
 const form = reactive({
   email: 'chau@example.com',
   password: 'demo123456'
@@ -34,10 +34,6 @@ if (rawRedirect.value !== undefined && rawRedirect.value !== sanitizedRedirect.v
       ? {}
       : { [AUTH_REDIRECT_QUERY]: sanitizedRedirect.value }
   }, { replace: true })
-}
-
-const loginWithSocial = () => {
-  login()
 }
 
 const loginWithPassword = async () => {
@@ -63,10 +59,6 @@ const loginWithPassword = async () => {
       <a :href="googleAuthHref" class="btn-secondary block w-full text-center">
         {{ text.auth.google }}
       </a>
-
-      <button class="w-full rounded-lg bg-[#1877F2] px-3 py-2 text-body font-semibold text-white hover:bg-[#166FE5]" @click="loginWithSocial">
-        {{ text.auth.facebook }}
-      </button>
     </div>
 
     <div class="mb-5 text-center text-caption font-medium text-olive">{{ text.auth.emailDivider }}</div>

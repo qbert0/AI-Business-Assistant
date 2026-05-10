@@ -1,121 +1,123 @@
 <template>
-  <main v-if="organization" class="document-reader-page">
-    <aside class="document-explorer">
-      <div class="document-explorer-toolbar">
-        <h1>{{ text.documents.treeTitle }}</h1>
-        <button class="document-upload-trigger" type="button" @click="isUploadOpen = true">
-          <Icon name="lucide:upload" />
-          <span>{{ text.documents.upload }}</span>
-        </button>
+  <div v-if="organization" class="org-content-page">
+    <section class="surface-card org-hero-card space-y-4">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">{{ text.documents.eyebrow }}</p>
+          <h1 class="page-title">{{ organization.name }}</h1>
+          <p class="muted-copy">{{ text.documents.description }}</p>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <button class="btn-secondary" type="button" @click="promptCreateFolder(null)">{{ text.documents.addFolder }}</button>
+          <button class="btn-primary" type="button" @click="openUploadModal(null)">{{ text.documents.addFile }}</button>
+        </div>
       </div>
+    </section>
 
-      <div class="document-tree">
-        <div v-for="folder in documentTree" :key="folder.id" class="document-folder">
-          <button
-            class="document-tree-item"
-            type="button"
-            :aria-expanded="expandedFolders.has(folder.id)"
-            @click="toggleFolder(folder.id)"
+    <section class="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+      <article class="surface-card space-y-4">
+        <div class="section-heading">
+          <h2 class="panel-title">{{ text.documents.treeTitle }}</h2>
+          <span class="text-caption text-olive">{{ treeNodeCount }}</span>
+        </div>
+
+        <div class="space-y-2">
+          <DocumentTreeNode
+            v-for="node in documentTree"
+            :key="node.id"
+            :node="node"
+            :depth="0"
+            :selected-document-id="selectedDocumentId"
+            :expanded-ids="expandedIds"
+            @toggle="toggleFolder"
+            @open-file="openDocumentNode"
+            @add-folder="promptCreateFolder"
+            @add-file="openUploadModal"
+            @rename="renameNode"
+          />
+
+          <p v-if="!documentTree.length" class="rounded-2xl border border-dashed border-cream bg-white px-4 py-5 text-sm text-olive">
+            {{ text.documents.emptyTree }}
+          </p>
+        </div>
+      </article>
+
+      <section class="surface-card space-y-4">
+        <div v-if="openDocuments.length" class="document-tabs">
+          <div
+            v-for="document in openDocuments"
+            :key="document.id"
+            :class="['document-tab', selectedDocumentId === document.id && 'active']"
           >
-            <Icon :name="expandedFolders.has(folder.id) ? 'lucide:folder-open' : 'lucide:folder'" />
-            <span>{{ folder.name }}</span>
-            <Icon class="document-tree-chevron" :name="expandedFolders.has(folder.id) ? 'lucide:chevron-down' : 'lucide:chevron-right'" />
-          </button>
-
-          <div v-if="expandedFolders.has(folder.id)" class="document-folder-children">
-            <button
-              v-for="document in folder.documents"
-              :key="document.id"
-              :class="['document-tree-item file', selectedDocumentId === document.id && 'active']"
-              type="button"
-              @click="openDocument(document)"
-            >
+            <button class="document-tab-select" type="button" @click="selectDocumentInStore(slug, document)">
               <Icon :name="getDocumentIcon(document.title)" />
               <span>{{ document.title }}</span>
             </button>
-
-            <p v-if="!folder.documents.length" class="document-empty-tree">
-              {{ text.documents.emptyFolder }}
-            </p>
+            <button class="document-tab-close" type="button" @click.stop="closeDocument(document.id)">
+              <Icon name="lucide:x" />
+            </button>
           </div>
-        </div>
-      </div>
-    </aside>
 
-    <section class="document-viewer">
-      <div v-if="openDocuments.length" class="document-tabs">
-        <div
-          v-for="document in openDocuments"
-          :key="document.id"
-          :class="['document-tab', selectedDocumentId === document.id && 'active']"
-        >
-          <button class="document-tab-select" type="button" @click="selectDocumentInStore(slug.value, document)">
-            <Icon :name="getDocumentIcon(document.title)" />
-            <span>{{ document.title }}</span>
-          </button>
-          <button class="document-tab-close" type="button" @click.stop="closeDocument(document.id)">
-            <Icon name="lucide:x" />
+          <button class="document-tabs-close-all" type="button" @click="closeAllDocuments">
+            {{ text.documents.closeAll }}
           </button>
         </div>
 
-        <button class="document-tabs-close-all" type="button" @click="closeAllDocuments">
-          {{ text.documents.closeAll }}
-        </button>
-      </div>
-
-      <div v-if="selectedDocument" class="document-content">
-        <div class="document-content-header">
-          <div class="min-w-0">
-            <p class="section-kicker">{{ selectedDocument.status }}</p>
-            <h2>{{ selectedDocument.title }}</h2>
+        <div v-if="selectedDocument" class="space-y-4">
+          <div class="document-content-header">
+            <div class="min-w-0">
+              <p class="section-kicker">{{ selectedDocument.status }}</p>
+              <h2>{{ selectedDocument.title }}</h2>
+            </div>
+            <span :class="statusClass(selectedDocument.status)">{{ selectedDocument.status }}</span>
           </div>
-          <span :class="statusClass(selectedDocument.status)">{{ selectedDocument.status }}</span>
+
+          <div class="document-meta-grid">
+            <div>
+              <span>{{ text.documents.chunkColumn }}</span>
+              <strong>{{ selectedDocument.chunkCount }}</strong>
+            </div>
+            <div>
+              <span>{{ text.documents.embeddingColumn }}</span>
+              <strong>{{ selectedDocument.embeddingModel }}</strong>
+            </div>
+            <div>
+              <span>{{ text.documents.sourceColumn }}</span>
+              <strong>{{ selectedDocument.sourceStorage }}</strong>
+            </div>
+            <div>
+              <span>{{ text.documents.uploadedBy }}</span>
+              <strong>{{ selectedDocument.uploadedBy }}</strong>
+            </div>
+          </div>
+
+          <article class="document-preview">
+            <p>{{ text.documents.previewLead }}</p>
+            <iframe
+              v-if="isPdfDocument(selectedDocument)"
+              :src="getDocumentContentUrl(selectedDocument)"
+              class="document-preview-frame"
+              :title="selectedDocument.title"
+            />
+            <img
+              v-else-if="isImageDocument(selectedDocument)"
+              :src="getDocumentContentUrl(selectedDocument)"
+              :alt="selectedDocument.title"
+              class="document-preview-image"
+            />
+            <pre v-else-if="selectedDocumentPreview?.kind === 'text'" class="document-preview-text">{{ selectedDocumentPreview.content }}</pre>
+            <p v-else-if="selectedDocumentPreview?.message">{{ selectedDocumentPreview.message }}</p>
+            <p v-else>{{ getDocumentPreview(selectedDocument) }}</p>
+          </article>
         </div>
 
-        <div class="document-meta-grid">
-          <div>
-            <span>{{ text.documents.chunkColumn }}</span>
-            <strong>{{ selectedDocument.chunkCount }}</strong>
-          </div>
-          <div>
-            <span>{{ text.documents.embeddingColumn }}</span>
-            <strong>{{ selectedDocument.embeddingModel }}</strong>
-          </div>
-          <div>
-            <span>{{ text.documents.sourceColumn }}</span>
-            <strong>{{ selectedDocument.sourceStorage }}</strong>
-          </div>
-          <div>
-            <span>{{ text.documents.uploadedBy }}</span>
-            <strong>{{ selectedDocument.uploadedBy }}</strong>
-          </div>
+        <div v-else class="document-empty-viewer">
+          <Icon name="lucide:file-search" />
+          <h2>{{ text.documents.emptyViewerTitle }}</h2>
+          <p>{{ text.documents.emptyViewerDescription }}</p>
         </div>
-
-        <article class="document-preview">
-          <p>{{ text.documents.previewLead }}</p>
-          <iframe
-            v-if="isPdfDocument(selectedDocument)"
-            :src="getDocumentContentUrl(selectedDocument)"
-            class="document-preview-frame"
-            :title="selectedDocument.title"
-          />
-          <img
-            v-else-if="isImageDocument(selectedDocument)"
-            :src="getDocumentContentUrl(selectedDocument)"
-            :alt="selectedDocument.title"
-            class="document-preview-image"
-          />
-          <pre v-else-if="selectedDocumentPreview?.kind === 'text'" class="document-preview-text">{{ selectedDocumentPreview.content }}</pre>
-          <p v-else-if="selectedDocumentPreview?.message">{{ selectedDocumentPreview.message }}</p>
-          <p v-else>{{ getDocumentPreview(selectedDocument) }}</p>
-        </article>
-      </div>
-
-      <div v-else class="document-empty-viewer">
-        <Icon name="lucide:file-search" />
-        <h2>{{ text.documents.emptyViewerTitle }}</h2>
-        <p>{{ text.documents.emptyViewerDescription }}</p>
-      </div>
+      </section>
     </section>
 
     <AppPopup
@@ -134,12 +136,13 @@
             <p class="section-kicker">{{ text.documents.uploadEyebrow }}</p>
             <h2 class="panel-title">{{ text.documents.uploadTitle }}</h2>
           </div>
-          <button class="icon-action-light" type="button" @click="isUploadOpen = false">
+          <button class="icon-action-light" type="button" @click="clearUploadModal">
             <Icon name="lucide:x" />
           </button>
         </header>
 
         <label
+          v-if="!pendingUploads.length"
           class="upload-dropzone"
           @dragover.prevent="isDragging = true"
           @dragleave.prevent="isDragging = false"
@@ -151,7 +154,7 @@
           <span>{{ text.documents.dropzoneDescription }}</span>
         </label>
 
-        <div v-if="pendingUploads.length" class="upload-file-list">
+        <div v-else class="upload-file-list">
           <div v-for="file in pendingUploads" :key="`${file.name}-${file.size}`" class="upload-file-row">
             <Icon :name="getDocumentIcon(file.name)" />
             <span>{{ file.name }}</span>
@@ -159,35 +162,31 @@
         </div>
 
         <footer class="modal-footer">
+          <button v-if="pendingUploads.length" class="btn-secondary" type="button" @click="pendingUploads = []">{{ text.documents.changeFiles }}</button>
           <button class="btn-secondary" type="button" @click="clearUploadModal">{{ text.common.cancel }}</button>
-          <button class="btn-primary" type="button" :disabled="!pendingUploads.length" @click="handleUpload">
+          <button class="btn-primary" type="button" :disabled="!pendingUploads.length || isSavingTree" @click="handleUpload">
             {{ text.documents.upload }}
           </button>
         </footer>
       </div>
     </AppPopup>
-  </main>
+  </div>
 </template>
 
 <script setup lang="ts">
-import type { KnowledgeDocument } from '@/types/organization'
-import { DOCUMENT_FOLDER_IDS, DOCUMENT_FOLDER_KEYWORDS } from '@/constants/documents'
+import DocumentTreeNode from '@/components/documents/DocumentTreeNode.vue'
+import type { KnowledgeDocument, OrganizationDocumentTreeNode } from '@/types/organization'
 
 definePageMeta({
   layout: 'org',
   orgFullBleed: true
 })
 
-interface DocumentFolder {
-  id: string
-  name: string
-  documents: KnowledgeDocument[]
-}
-
 const { text } = useAppLocale()
 
 const route = useRoute()
 const { loadOrganizations, getOrganizationBySlug } = useOrganization()
+const settingsApi = useApiOrganizationSettings()
 const {
   getDocuments,
   getOpenDocumentIds,
@@ -201,119 +200,214 @@ const {
   closeAllDocuments: closeAllDocumentsInStore
 } = useDocuments()
 
-const slug = computed(() => (route.params.slug ?? route.params.id) as string)
+const slug = computed(() => String(route.params.slug ?? route.params.id ?? ''))
 const organization = computed(() => getOrganizationBySlug(slug.value))
 const documents = computed(() => getDocuments(slug.value))
+const documentsById = computed(() => new Map(documents.value.map((item) => [item.id, item])))
 const openDocumentIds = computed(() => getOpenDocumentIds(slug.value))
 const selectedDocumentId = computed(() => getSelectedDocumentId(slug.value))
+const selectedDocument = computed(() => documents.value.find((document) => document.id === selectedDocumentId.value) ?? null)
+const selectedDocumentPreview = computed(() => (selectedDocument.value ? getPreview(slug.value, selectedDocument.value.id) : null))
 
+const treeState = ref<OrganizationDocumentTreeNode[]>([])
 const expandedFolders = ref(new Set<string>())
 const isUploadOpen = ref(false)
 const isDragging = ref(false)
 const pendingUploads = ref<File[]>([])
+const uploadParentId = ref<string | null>(null)
+const isSavingTree = ref(false)
 
-const folderDefinitions = computed(() => [
-  { id: DOCUMENT_FOLDER_IDS.people, name: text.documents.peopleFolder },
-  { id: DOCUMENT_FOLDER_IDS.operations, name: text.documents.operationsFolder },
-  { id: DOCUMENT_FOLDER_IDS.finance, name: text.documents.financeFolder },
-  { id: DOCUMENT_FOLDER_IDS.faq, name: text.documents.faqFolder }
-])
+const normalizeNode = (node: OrganizationDocumentTreeNode, parentId: string | null = null): OrganizationDocumentTreeNode => ({
+  id: node.id,
+  type: node.type,
+  name: node.name,
+  parentId,
+  documentId: node.documentId ?? null,
+  children: node.type === 'folder' ? (node.children ?? []).map((child) => normalizeNode(child, node.id)) : undefined
+})
 
-const getDocumentFolderId = (document: KnowledgeDocument) => {
-  const title = document.title.toLowerCase()
+const cloneTree = (nodes: OrganizationDocumentTreeNode[]) => nodes.map((node) => normalizeNode(node, node.parentId ?? null))
 
-  if (DOCUMENT_FOLDER_KEYWORDS.people.some((keyword) => title.includes(keyword))) {
-    return DOCUMENT_FOLDER_IDS.people
-  }
-
-  if (DOCUMENT_FOLDER_KEYWORDS.operations.some((keyword) => title.includes(keyword))) {
-    return DOCUMENT_FOLDER_IDS.operations
-  }
-
-  if (DOCUMENT_FOLDER_KEYWORDS.finance.some((keyword) => title.includes(keyword))) {
-    return DOCUMENT_FOLDER_IDS.finance
-  }
-
-  return DOCUMENT_FOLDER_IDS.faq
-}
-
-const documentTree = computed<DocumentFolder[]>(() => {
-  const grouped = new Map<string, KnowledgeDocument[]>()
-
-  for (const folder of folderDefinitions.value) {
-    grouped.set(folder.id, [])
-  }
-
-  for (const document of documents.value) {
-    const folderId = getDocumentFolderId(document)
-    grouped.set(folderId, [...(grouped.get(folderId) ?? []), document])
-  }
-
-  return folderDefinitions.value.map((folder: { id: string, name: string }) => ({
-    ...folder,
-    documents: grouped.get(folder.id) ?? []
+const buildFallbackTree = () =>
+  documents.value.map<OrganizationDocumentTreeNode>((document) => ({
+    id: `document-${document.id}`,
+    type: 'file',
+    name: document.title,
+    parentId: null,
+    documentId: document.id
   }))
+
+const documentTree = computed(() => (treeState.value.length ? treeState.value : buildFallbackTree()))
+const expandedIds = computed(() => [...expandedFolders.value])
+const treeNodeCount = computed(() => {
+  const walk = (nodes: OrganizationDocumentTreeNode[]): number =>
+    nodes.reduce((count, node) => count + 1 + (node.children ? walk(node.children) : 0), 0)
+  return walk(documentTree.value)
 })
 
 const openDocuments = computed(() =>
   openDocumentIds.value
-    .map((id: string) => documents.value.find((document: KnowledgeDocument) => document.id === id))
+    .map((id) => documents.value.find((document) => document.id === id))
     .filter((document): document is KnowledgeDocument => Boolean(document))
 )
 
-const selectedDocument = computed(() => documents.value.find((document: KnowledgeDocument) => document.id === selectedDocumentId.value) ?? null)
-const selectedDocumentPreview = computed(() => (selectedDocument.value ? getPreview(slug.value, selectedDocument.value.id) : null))
+const persistTree = async (nextTree: OrganizationDocumentTreeNode[]) => {
+  isSavingTree.value = true
+  try {
+    treeState.value = cloneTree(nextTree)
+    await settingsApi.update(slug.value, {
+      settings: {
+        documentTree: treeState.value
+      }
+    })
+  } finally {
+    isSavingTree.value = false
+  }
+}
+
+const loadTree = async () => {
+  const response = await settingsApi.get(slug.value)
+  treeState.value = Array.isArray(response.settings.documentTree)
+    ? response.settings.documentTree.map((node) => normalizeNode(node))
+    : []
+
+  const seedFolders = new Set<string>()
+  const collectFolders = (nodes: OrganizationDocumentTreeNode[]) => {
+    for (const node of nodes) {
+      if (node.type === 'folder') {
+        seedFolders.add(node.id)
+        collectFolders(node.children ?? [])
+      }
+    }
+  }
+  collectFolders(treeState.value)
+  expandedFolders.value = seedFolders
+}
+
+const withTreeMutation = (
+  nodes: OrganizationDocumentTreeNode[],
+  targetId: string,
+  updater: (node: OrganizationDocumentTreeNode) => OrganizationDocumentTreeNode
+): OrganizationDocumentTreeNode[] =>
+  nodes.map((node) => {
+    if (node.id === targetId) {
+      return updater(node)
+    }
+
+    if (node.children?.length) {
+      return {
+        ...node,
+        children: withTreeMutation(node.children, targetId, updater)
+      }
+    }
+
+    return node
+  })
+
+const appendNode = (nodes: OrganizationDocumentTreeNode[], parentId: string | null, nextNode: OrganizationDocumentTreeNode) => {
+  if (!parentId) {
+    return [...nodes, nextNode]
+  }
+
+  return withTreeMutation(nodes, parentId, (node) => ({
+    ...node,
+    children: [...(node.children ?? []), nextNode]
+  }))
+}
+
+const promptCreateFolder = async (parentId: string | null) => {
+  const name = window.prompt(text.documents.folderPrompt)
+  if (!name?.trim()) {
+    return
+  }
+
+  const nextNode: OrganizationDocumentTreeNode = {
+    id: `folder-${Date.now()}`,
+    type: 'folder',
+    name: name.trim(),
+    parentId,
+    children: []
+  }
+  expandedFolders.value = new Set([...expandedFolders.value, nextNode.id, ...(parentId ? [parentId] : [])])
+  await persistTree(appendNode(documentTree.value, parentId, nextNode))
+}
+
+const renameNode = async (nodeId: string) => {
+  const currentNode = findNode(documentTree.value, nodeId)
+  if (!currentNode) {
+    return
+  }
+
+  const name = window.prompt(text.documents.renamePrompt, currentNode.name)
+  if (!name?.trim()) {
+    return
+  }
+
+  await persistTree(withTreeMutation(documentTree.value, nodeId, (node) => ({ ...node, name: name.trim() })))
+}
+
+const findNode = (nodes: OrganizationDocumentTreeNode[], targetId: string): OrganizationDocumentTreeNode | null => {
+  for (const node of nodes) {
+    if (node.id === targetId) {
+      return node
+    }
+    if (node.children?.length) {
+      const found = findNode(node.children, targetId)
+      if (found) {
+        return found
+      }
+    }
+  }
+  return null
+}
 
 const toggleFolder = (folderId: string) => {
   const next = new Set(expandedFolders.value)
-
   if (next.has(folderId)) {
     next.delete(folderId)
   } else {
     next.add(folderId)
   }
-
   expandedFolders.value = next
 }
 
-const openDocument = (document: KnowledgeDocument) => openDocumentInStore(slug.value, document)
-
-const closeDocument = (documentId: string) => {
-  closeDocumentInStore(slug.value, documentId)
+const openDocumentNode = (node: OrganizationDocumentTreeNode) => {
+  if (!node.documentId) {
+    return
+  }
+  const document = documentsById.value.get(node.documentId)
+  if (document) {
+    openDocumentInStore(slug.value, document)
+  }
 }
 
-const closeAllDocuments = () => {
-  closeAllDocumentsInStore(slug.value)
+const openUploadModal = (parentId: string | null) => {
+  uploadParentId.value = parentId
+  isUploadOpen.value = true
 }
+
+const closeDocument = (documentId: string) => closeDocumentInStore(slug.value, documentId)
+const closeAllDocuments = () => closeAllDocumentsInStore(slug.value)
 
 const getDocumentIcon = (title: string) => {
   const extension = title.split('.').pop()?.toLowerCase()
-
-  if (extension === 'pdf') {
-    return 'lucide:file-text'
-  }
-
-  if (extension === 'md' || extension === 'txt') {
-    return 'lucide:file-type'
-  }
-
+  if (extension === 'pdf') return 'lucide:file-text'
+  if (extension === 'md' || extension === 'txt') return 'lucide:file-type'
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(extension || '')) return 'lucide:image'
   return 'lucide:file'
 }
 
 const syncPendingFiles = (files: FileList | File[]) => {
   const nextFiles = Array.from(files)
-  const byKey = new Map(pendingUploads.value.map((file: File) => [`${file.name}-${file.size}`, file] as const))
-
+  const byKey = new Map(pendingUploads.value.map((file) => [`${file.name}-${file.size}`, file] as const))
   for (const file of nextFiles) {
     byKey.set(`${file.name}-${file.size}`, file)
   }
-
   pendingUploads.value = [...byKey.values()]
 }
 
 const handleDrop = (event: DragEvent) => {
   isDragging.value = false
-
   if (event.dataTransfer?.files.length) {
     syncPendingFiles(event.dataTransfer.files)
   }
@@ -321,37 +415,61 @@ const handleDrop = (event: DragEvent) => {
 
 const handleFileInput = (event: Event) => {
   const target = event.target as HTMLInputElement
-
   if (target.files?.length) {
     syncPendingFiles(target.files)
   }
-
   target.value = ''
 }
 
 const clearUploadModal = () => {
   pendingUploads.value = []
+  uploadParentId.value = null
   isDragging.value = false
   isUploadOpen.value = false
 }
 
 const handleUpload = async () => {
+  const createdNodes: OrganizationDocumentTreeNode[] = []
+  const hadPersistedTree = treeState.value.length > 0
+
   for (const file of pendingUploads.value) {
     await uploadDocument(slug.value, file)
   }
 
+  await loadDocuments(slug.value)
+
+  if (!hadPersistedTree && !uploadParentId.value) {
+    await persistTree(buildFallbackTree())
+    clearUploadModal()
+    return
+  }
+
+  for (const file of pendingUploads.value) {
+    const matched = documents.value.find((document) => document.title === file.name)
+    if (!matched) {
+      continue
+    }
+    createdNodes.push({
+      id: `document-${matched.id}`,
+      type: 'file',
+      name: matched.title,
+      parentId: uploadParentId.value,
+      documentId: matched.id
+    })
+  }
+
+  let nextTree = documentTree.value
+  for (const node of createdNodes) {
+    nextTree = appendNode(nextTree, uploadParentId.value, node)
+  }
+
+  await persistTree(nextTree)
   clearUploadModal()
 }
 
 const statusClass = (status: string) => {
-  if (status === 'indexed') {
-    return 'status-badge status-success'
-  }
-
-  if (status === 'embedded' || status === 'chunked') {
-    return 'status-badge status-info'
-  }
-
+  if (status === 'indexed') return 'status-badge status-success'
+  if (status === 'embedded' || status === 'chunked') return 'status-badge status-info'
   return 'status-badge status-warning'
 }
 
@@ -371,13 +489,6 @@ const getDocumentContentUrl = (document: KnowledgeDocument) =>
 onMounted(async () => {
   await loadOrganizations()
   await loadDocuments(slug.value)
-
-  expandedFolders.value = new Set(folderDefinitions.value.map((folder: DocumentFolder) => folder.id))
-})
-
-watch(selectedDocument, (document: KnowledgeDocument | null) => {
-  if (document) {
-    selectDocumentInStore(slug.value, document)
-  }
+  await loadTree()
 })
 </script>
