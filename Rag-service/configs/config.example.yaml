@@ -38,5 +38,8 @@ ingest_queue:
   batch_size: 1
   block_ms: 5000
 
+graphiti:
+  ingest_bulk_size: 25
+
 server_service:
   url: http://server_service:8000

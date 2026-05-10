@@ -26,6 +26,7 @@ MODEL_SERVICE_CONFIG = config.get("model_service", {})
 REDIS_CONFIG = config.get("redis", {})
 INGEST_QUEUE_CONFIG = config.get("ingest_queue", {})
 SERVER_SERVICE_CONFIG = config.get("server_service", {})
+GRAPHITI_CONFIG = config.get("graphiti", {})
 
 LLM_STREAM_LOG = config.get("llm_config", {}).get("stream_log", False)
 LLM_RESPONSE_LOG = config.get("llm_config", {}).get("response_log", True)
@@ -66,6 +67,7 @@ INGEST_CONSUMER_NAME = INGEST_QUEUE_CONFIG.get("consumer_name")
 INGEST_CONCURRENT = int(INGEST_QUEUE_CONFIG.get("concurrent", 1))
 INGEST_BATCH_SIZE = int(INGEST_QUEUE_CONFIG.get("batch_size", 1))
 INGEST_BLOCK_MS = int(INGEST_QUEUE_CONFIG.get("block_ms", 5000))
+GRAPHITI_INGEST_BULK_SIZE = int(GRAPHITI_CONFIG.get("ingest_bulk_size", 25))
 
 HEALTH_ROUTE_PREFIX = "/health"
 COMPAT_ROUTE_PREFIX = "/compat"
