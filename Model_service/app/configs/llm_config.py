@@ -85,7 +85,7 @@ class LLMConfig(YamlModel):
     reasoning_effort: Optional[str] = None  # low, medium, high
 
     # For Chat Completion
-    max_token: int = 4096
+    max_token: int = 40000
     temperature: float = 0.0
     top_p: float = 1.0
     top_k: int = 0

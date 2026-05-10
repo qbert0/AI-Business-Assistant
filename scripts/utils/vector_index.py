@@ -139,3 +139,32 @@ def index_elasticsearch(
         print(f"elasticsearch bulk batch {batch_index}: rows={success}")
     client.indices.refresh(index=index_name)
     print(f"vector index complete: index={index_name} rows={len(actions)} dim={dimension}")
+
+
+def delete_elasticsearch_index(
+    *,
+    url: str,
+    username: str | None,
+    password: str | None,
+    verify_certs: bool,
+    index_name: str,
+) -> bool:
+    try:
+        from elasticsearch import Elasticsearch  # type: ignore
+    except ImportError as exc:
+        raise RuntimeError("Missing elasticsearch. Install with: pip install -r scripts/requirements.txt") from exc
+
+    client_kwargs: dict[str, Any] = {
+        "hosts": [url],
+        "verify_certs": verify_certs,
+        "request_timeout": 120,
+    }
+    if username and password:
+        client_kwargs["basic_auth"] = (username, password)
+    client = Elasticsearch(**client_kwargs)
+    if not client.indices.exists(index=index_name):
+        print(f"elasticsearch index not found: {index_name}")
+        return False
+    client.indices.delete(index=index_name)
+    print(f"elasticsearch index deleted: {index_name}")
+    return True

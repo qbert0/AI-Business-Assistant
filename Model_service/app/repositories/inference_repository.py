@@ -242,7 +242,7 @@ class InferenceRepository:
         resolved_max_tokens = (
             payload.max_tokens
             if payload.max_tokens is not None
-            else int(model_parameters.get("max_tokens") or 4096)
+            else int(model_parameters.get("max_tokens") or 40000)
         )
         resolved_system_prompt = payload.system_prompt
 

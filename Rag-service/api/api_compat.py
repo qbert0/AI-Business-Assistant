@@ -37,7 +37,7 @@ async def model_service_smoke_test(
             "Khong duoc them giai thich ngoai JSON."
         ),
         history=[{"role": "user", "content": sample_text}],
-        max_tokens=800,
+        max_tokens=40000,
         temperature=0.0,
         metadata={"source": "rag-service-compat-smoke"},
     )

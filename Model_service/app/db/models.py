@@ -82,7 +82,7 @@ class ModelPolicy(Base):
     default_model_id = Column(String(36), ForeignKey("registered_models.id", ondelete="RESTRICT"), nullable=False)
     fallback_model_id = Column(String(36), ForeignKey("registered_models.id", ondelete="SET NULL"), nullable=True)
     temperature = Column(Float, nullable=False, default=0.2, server_default="0.2")
-    max_tokens = Column(Integer, nullable=False, default=4096, server_default="4096")
+    max_tokens = Column(Integer, nullable=False, default=40000, server_default="40000")
     system_prompt = Column(Text, nullable=True)
     metadata_json = Column(Text, nullable=False, default="{}", server_default="{}")
     is_active = Column(Boolean, nullable=False, default=True, server_default=text("1"))

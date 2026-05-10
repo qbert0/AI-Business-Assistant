@@ -441,13 +441,7 @@ class GraphitiModelServiceLLMClient(LLMClient):  # type: ignore[misc]
 
     @staticmethod
     def _normalize_max_tokens(value: Any) -> int | None:
-        if value is None:
-            return None
-        try:
-            numeric_value = int(value)
-        except (TypeError, ValueError):
-            return None
-        return max(1, min(numeric_value, 8192))
+        return 40000
 
 class GraphitiModelServiceEmbedder(EmbedderClient):  # type: ignore[misc]
     def __init__(
