@@ -14,7 +14,7 @@
         @click="$emit('toggle', node.id)"
       >
         <Icon :name="isExpanded ? 'lucide:folder-open' : 'lucide:folder'" />
-        <span class="truncate">{{ node.name }}</span>
+        <span class="truncate" :title="node.name">{{ node.name }}</span>
       </button>
 
       <button
@@ -24,32 +24,45 @@
         @click="$emit('open-file', node)"
       >
         <Icon name="lucide:file-text" />
-        <span class="truncate">{{ node.name }}</span>
+        <span class="truncate" :title="node.name">{{ node.name }}</span>
       </button>
 
-      <div class="flex items-center gap-1">
-        <button
-          v-if="node.type === 'folder'"
-          class="icon-action-light"
-          type="button"
-          :aria-label="text.documents.addFolder"
-          @click="$emit('add-folder', node.id)"
-        >
-          <Icon name="lucide:folder-plus" />
-        </button>
-        <button
-          v-if="node.type === 'folder'"
-          class="icon-action-light"
-          type="button"
-          :aria-label="text.documents.addFile"
-          @click="$emit('add-file', node.id)"
-        >
-          <Icon name="lucide:file-plus" />
-        </button>
-        <button class="icon-action-light" type="button" :aria-label="text.common.rename" @click="$emit('rename', node.id)">
-          <Icon name="lucide:pencil" />
-        </button>
-      </div>
+      <AppPopup v-if="!readOnly" root-class="relative" content-class="document-node-menu" match-trigger-position teleport>
+        <template #trigger="{ toggle }">
+          <button class="icon-action-light" type="button" :aria-label="text.chatSidebar.actions" @click.stop="toggle">
+            <Icon name="lucide:more-horizontal" />
+          </button>
+        </template>
+
+        <template #default="{ close }">
+          <button
+            v-if="node.type === 'folder'"
+            class="document-node-menu-item"
+            type="button"
+            @click="emitNodeAction('add-folder', close)"
+          >
+            <Icon name="lucide:folder-plus" />
+            <span>{{ text.documents.addFolder }}</span>
+          </button>
+          <button
+            v-if="node.type === 'folder'"
+            class="document-node-menu-item"
+            type="button"
+            @click="emitNodeAction('add-file', close)"
+          >
+            <Icon name="lucide:file-plus" />
+            <span>{{ text.documents.addFile }}</span>
+          </button>
+          <button class="document-node-menu-item" type="button" @click="emitNodeAction('download', close)">
+            <Icon name="lucide:download" />
+            <span>Download</span>
+          </button>
+          <button class="document-node-menu-item" type="button" @click="emitNodeAction('rename', close)">
+            <Icon name="lucide:pencil" />
+            <span>{{ text.common.rename }}</span>
+          </button>
+        </template>
+      </AppPopup>
     </div>
 
     <div v-if="node.type === 'folder' && isExpanded" class="space-y-2">
@@ -64,10 +77,12 @@
         :depth="depth + 1"
         :selected-document-id="selectedDocumentId"
         :expanded-ids="expandedIds"
+        :read-only="readOnly"
         @toggle="$emit('toggle', $event)"
         @open-file="$emit('open-file', $event)"
         @add-folder="$emit('add-folder', $event)"
         @add-file="$emit('add-file', $event)"
+        @download="$emit('download', $event)"
         @rename="$emit('rename', $event)"
       />
     </div>
@@ -88,16 +103,35 @@ const props = defineProps<{
   depth: number
   selectedDocumentId: string | null
   expandedIds: string[]
+  readOnly?: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   toggle: [nodeId: string]
   'open-file': [node: OrganizationDocumentTreeNode]
   'add-folder': [parentId: string]
   'add-file': [parentId: string]
+  download: [node: OrganizationDocumentTreeNode]
   rename: [nodeId: string]
 }>()
 
 const childNodes = computed(() => props.node.children ?? [])
 const isExpanded = computed(() => props.expandedIds.includes(props.node.id))
+
+const emitNodeAction = (action: 'add-folder' | 'add-file' | 'download' | 'rename', close: () => void) => {
+  close()
+  if (action === 'add-folder') {
+    emit('add-folder', props.node.id)
+    return
+  }
+  if (action === 'add-file') {
+    emit('add-file', props.node.id)
+    return
+  }
+  if (action === 'download') {
+    emit('download', props.node)
+    return
+  }
+  emit('rename', props.node.id)
+}
 </script>

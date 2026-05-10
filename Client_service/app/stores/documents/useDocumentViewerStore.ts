@@ -13,6 +13,10 @@ interface DocumentViewerState {
   previewsByDocumentId: Record<string, DocumentPreviewPayload>
 }
 
+interface DocumentViewerOptions {
+  public?: boolean
+}
+
 const createViewerState = (): DocumentViewerState => ({
   openDocumentIds: [],
   selectedDocumentId: null,
@@ -39,19 +43,19 @@ export const useDocumentViewerStore = defineStore('document-viewer', () => {
   const getSelectedDocumentId = (slug: string) => ensureState(slug).selectedDocumentId
   const getPreview = (slug: string, documentId: string) => ensureState(slug).previewsByDocumentId[documentId] ?? null
 
-  const openDocument = async (slug: string, document: KnowledgeDocument) => {
+  const openDocument = async (slug: string, document: KnowledgeDocument, options: DocumentViewerOptions = {}) => {
     const state = ensureState(slug)
     if (!state.openDocumentIds.includes(document.id)) {
       state.openDocumentIds = [...state.openDocumentIds, document.id]
     }
 
     state.selectedDocumentId = document.id
-    await loadPreview(slug, document)
+    await loadPreview(slug, document, options)
   }
 
-  const selectDocument = async (slug: string, document: KnowledgeDocument) => {
+  const selectDocument = async (slug: string, document: KnowledgeDocument, options: DocumentViewerOptions = {}) => {
     ensureState(slug).selectedDocumentId = document.id
-    await loadPreview(slug, document)
+    await loadPreview(slug, document, options)
   }
 
   const closeDocument = (slug: string, documentId: string) => {
@@ -76,7 +80,7 @@ export const useDocumentViewerStore = defineStore('document-viewer', () => {
     state.previewsByDocumentId = {}
   }
 
-  const loadPreview = async (slug: string, document: KnowledgeDocument) => {
+  const loadPreview = async (slug: string, document: KnowledgeDocument, options: DocumentViewerOptions = {}) => {
     const state = ensureState(slug)
     const lowerTitle = document.title.toLowerCase()
     const isPdf = lowerTitle.endsWith('.pdf')
@@ -90,7 +94,9 @@ export const useDocumentViewerStore = defineStore('document-viewer', () => {
     error.value = null
 
     try {
-      const preview = isPdf || isImage
+      const preview = options.public
+        ? await api.publicPreview(document.id)
+        : isPdf || isImage
         ? await api.downloadUrl(slug, document.id).then((response) => ({
             kind: isPdf ? 'pdf' : 'image',
             url: response.download_url

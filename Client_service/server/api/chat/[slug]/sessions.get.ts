@@ -4,18 +4,18 @@ export default defineEventHandler(async (event) => {
   const user = await getBackendUser(event)
   const orgId = getRouterParam(event, 'slug') || ''
   const cursor = Number(getQuery(event).cursor ?? 0)
-  const limit = Number(getQuery(event).limit ?? 8)
+  const limit = Number(getQuery(event).limit ?? 10)
   const backendPath = orgId === 'personal'
-    ? `/chat/personal/sessions?acting_user_id=${encodeURIComponent(user.id)}`
-    : `/organizations/${orgId}/chat/sessions?acting_user_id=${encodeURIComponent(user.id)}`
+    ? `/chat/personal/sessions?acting_user_id=${encodeURIComponent(user.id)}&skip=${cursor}&limit=${limit + 1}`
+    : `/organizations/${orgId}/chat/sessions?acting_user_id=${encodeURIComponent(user.id)}&skip=${cursor}&limit=${limit + 1}`
   const sessions = await backendFetch<any[]>(
     event,
     backendPath
   )
-  const mapped = sessions.map(mapChatSession)
+  const mapped = sessions.slice(0, limit).map(mapChatSession)
 
   return {
-    sessions: mapped.slice(cursor, cursor + limit),
-    nextCursor: cursor + limit < mapped.length ? cursor + limit : null
+    sessions: mapped,
+    nextCursor: sessions.length > limit ? cursor + limit : null
   }
 })

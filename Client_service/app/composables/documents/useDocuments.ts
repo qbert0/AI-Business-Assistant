@@ -12,6 +12,7 @@ export const useDocuments = () => {
     getSelectedDocumentId: store.getSelectedDocumentId,
     getPreview: store.getPreview,
     loadDocuments: store.loadDocuments,
+    loadPublicDocuments: store.loadPublicDocuments,
     loadPipeline: store.loadPipeline,
     uploadDocument: store.uploadDocument,
     startAnalysis: store.startAnalysis,

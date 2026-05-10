@@ -8,6 +8,7 @@ export const useChatbot = () => {
     loadMoreSessions: store.loadMoreSessions,
     loadMessages: store.loadMessages,
     loadOlderMessages: store.loadOlderMessages,
+    getHasMoreSessions: store.getHasMoreSessions,
     getSuggestions: store.getSuggestions,
     getPopularQuestions: store.getPopularQuestions,
     getMessages: store.getMessages,

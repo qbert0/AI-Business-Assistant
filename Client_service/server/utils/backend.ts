@@ -36,7 +36,7 @@ interface BackendMember {
   organization_id: string
   role: string
   permissions: OrganizationPermission[]
-  status: 'active' | 'pending_response' | 'invited' | 'disabled'
+  status: 'active' | 'pending_response' | 'invited' | 'declined' | 'disabled'
   user: BackendUser
 }
 
@@ -142,7 +142,7 @@ export const mapMember = (member: BackendMember): OrganizationMember => ({
   department: 'Organization',
   title: member.user.public_profile || 'Employee',
   role: member.role,
-  status: member.status === 'active' ? 'active' : 'pending_response',
+  status: member.status === 'active' ? 'active' : member.status === 'declined' ? 'declined' : 'pending_response',
   permissions: member.permissions
 })
 

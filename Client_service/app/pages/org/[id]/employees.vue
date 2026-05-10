@@ -47,8 +47,10 @@
               <td>
                 <AppPopup
                   :open="activeActionMemberId === member.id"
+                  teleport
+                  match-trigger-position
                   root-class="relative inline-block"
-                  content-class="row-action-menu z-[30]"
+                  content-class="row-action-menu z-[60]"
                   @update:open="handleRowMenuUpdate(member.id, $event)"
                 >
                   <template #trigger="{ toggle }">
@@ -275,7 +277,11 @@ const roleLabel = (role: string) => {
   if (role === 'user') return text.common.employee
   return role
 }
-const statusLabel = (status: OrganizationMember['status']) => (status === 'active' ? text.common.active : text.common.awaitingResponse)
+const statusLabel = (status: OrganizationMember['status']) => {
+  if (status === 'active') return text.common.active
+  if (status === 'declined') return 'Đã từ chối'
+  return text.common.awaitingResponse
+}
 const isBuiltInRole = (roleName: string) => ['admin', 'user'].includes(roleName)
 const getPermissionOptions = (permissions: OrganizationPermission[]) =>
   PERMISSION_OPTIONS.filter((permission: { id: OrganizationPermission, label: string }) => permissions.includes(permission.id))

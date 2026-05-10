@@ -1,28 +1,28 @@
 <template>
   <div v-if="organization" class="org-content-page">
-    <section class="surface-card org-hero-card space-y-4">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">{{ text.documents.eyebrow }}</p>
-          <h1 class="page-title">{{ organization.name }}</h1>
-          <p class="muted-copy">{{ text.documents.description }}</p>
-        </div>
-
-        <div class="flex flex-wrap gap-2">
-          <button class="btn-secondary" type="button" @click="promptCreateFolder(null)">{{ text.documents.addFolder }}</button>
-          <button class="btn-primary" type="button" @click="openUploadModal(null)">{{ text.documents.addFile }}</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-      <article class="surface-card space-y-4">
+    <section class="document-flex-layout" :style="{ '--document-tree-width': `${treePanelWidth}px` }">
+      <article class="surface-card document-tree-panel">
         <div class="section-heading">
-          <h2 class="panel-title">{{ text.documents.treeTitle }}</h2>
-          <span class="text-caption text-olive">{{ treeNodeCount }}</span>
+          <h2 class="document-tree-heading">{{ text.documents.treeTitle }}</h2>
+          <div class="flex flex-wrap items-center justify-end gap-2">
+            <span class="text-caption text-olive">{{ treeNodeCount }}</span>
+            <button v-if="!isPublicReadOnly" class="icon-action-light" type="button" :aria-label="text.documents.addFolder" @click="promptCreateFolder(null)">
+              <Icon name="lucide:folder-plus" />
+            </button>
+            <button v-if="!isPublicReadOnly" class="icon-action-light" type="button" :aria-label="text.documents.addFile" @click="openUploadModal(null)">
+              <Icon name="lucide:file-plus" />
+            </button>
+            <button v-if="!isPublicReadOnly" class="icon-action-light" type="button" aria-label="Download all" @click="downloadAllDocuments">
+              <Icon name="lucide:archive" />
+            </button>
+          </div>
         </div>
 
-        <div class="space-y-2">
+        <div class="document-tree-scroll">
+          <p v-if="isPublicReadOnly && !allowGuestDocumentAccess" class="rounded-2xl border border-dashed border-cream bg-white px-4 py-5 text-sm text-olive">
+            {{ text.organizationPublic.guestDocumentDisabled }}
+          </p>
+
           <DocumentTreeNode
             v-for="node in documentTree"
             :key="node.id"
@@ -30,27 +30,31 @@
             :depth="0"
             :selected-document-id="selectedDocumentId"
             :expanded-ids="expandedIds"
+            :read-only="isPublicReadOnly"
             @toggle="toggleFolder"
             @open-file="openDocumentNode"
             @add-folder="promptCreateFolder"
             @add-file="openUploadModal"
+            @download="downloadNode"
             @rename="renameNode"
           />
 
-          <p v-if="!documentTree.length" class="rounded-2xl border border-dashed border-cream bg-white px-4 py-5 text-sm text-olive">
+          <p v-if="!documentTree.length && (!isPublicReadOnly || allowGuestDocumentAccess)" class="rounded-2xl border border-dashed border-cream bg-white px-4 py-5 text-sm text-olive">
             {{ text.documents.emptyTree }}
           </p>
         </div>
       </article>
 
-      <section class="surface-card space-y-4">
+      <div class="document-resize-handle" role="separator" aria-orientation="vertical" @pointerdown="startTreeResize" />
+
+      <section class="surface-card document-view-panel">
         <div v-if="openDocuments.length" class="document-tabs">
           <div
             v-for="document in openDocuments"
             :key="document.id"
             :class="['document-tab', selectedDocumentId === document.id && 'active']"
           >
-            <button class="document-tab-select" type="button" @click="selectDocumentInStore(slug, document)">
+            <button class="document-tab-select" type="button" @click="selectDocument(document)">
               <Icon :name="getDocumentIcon(document.title)" />
               <span>{{ document.title }}</span>
             </button>
@@ -66,12 +70,7 @@
 
         <div v-if="selectedDocument" class="space-y-4">
           <div class="document-content-header">
-            <div class="min-w-0">
-              <p class="section-kicker">{{ selectedDocument.status }}</p>
-              <h2>{{ selectedDocument.title }}</h2>
-            </div>
-
-            <div class="document-analysis-actions">
+            <div v-if="!isPublicReadOnly" class="document-analysis-actions">
               <span :class="statusClass(selectedDocument.status)">{{ selectedDocument.status }}</span>
               <button
                 v-if="isAnalysisRunning(selectedDocument)"
@@ -91,31 +90,20 @@
                 <Icon name="lucide:play" />
                 <span>Bắt đầu phân tích</span>
               </button>
+              <div class="analysis-ring-grid">
+                <div class="analysis-ring" :style="getAnalysisRingStyle(selectedDocument, 'parse')">
+                  <span>{{ getAnalysisProgress(selectedDocument, 'parse') }}%</span>
+                </div>
+                <div class="analysis-ring" :style="getAnalysisRingStyle(selectedDocument, 'graph')">
+                  <span>{{ getAnalysisProgress(selectedDocument, 'graph') }}%</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="document-meta-grid">
-            <div>
-              <span>{{ text.documents.chunkColumn }}</span>
-              <strong>{{ selectedDocument.chunkCount }}</strong>
-            </div>
-            <div>
-              <span>{{ text.documents.embeddingColumn }}</span>
-              <strong>{{ selectedDocument.embeddingModel }}</strong>
-            </div>
-            <div>
-              <span>{{ text.documents.sourceColumn }}</span>
-              <strong>{{ selectedDocument.sourceStorage }}</strong>
-            </div>
-            <div>
-              <span>{{ text.documents.uploadedBy }}</span>
-              <strong>{{ selectedDocument.uploadedBy }}</strong>
-            </div>
-          </div>
-
-          <section class="document-analysis-panel" aria-label="Document analysis progress">
-            <p v-if="analysisActionError || error" class="document-analysis-error">
-              {{ analysisActionError || error }}
+          <section v-if="!isPublicReadOnly" class="document-analysis-panel" aria-label="Document analysis progress">
+            <p v-if="analysisActionError || downloadError || error" class="document-analysis-error">
+              {{ analysisActionError || downloadError || error }}
             </p>
             <div class="document-analysis-summary">
               <div>
@@ -125,38 +113,18 @@
               <span v-if="selectedDocument.analysis?.locked" class="status-badge status-warning">Đang khóa xử lý</span>
               <span v-else class="status-badge status-info">Có thể xử lý</span>
             </div>
-            <div class="analysis-progress-grid">
-              <div class="analysis-progress">
-                <div class="analysis-progress-label">
-                  <span>Parse / Chunking Worker</span>
-                  <strong>{{ getAnalysisProgress(selectedDocument, 'parse') }}%</strong>
-                </div>
-                <div class="analysis-progress-track">
-                  <span :style="{ width: `${getAnalysisProgress(selectedDocument, 'parse')}%` }" />
-                </div>
-              </div>
-              <div class="analysis-progress">
-                <div class="analysis-progress-label">
-                  <span>Graph / Search RAG</span>
-                  <strong>{{ getAnalysisProgress(selectedDocument, 'graph') }}%</strong>
-                </div>
-                <div class="analysis-progress-track">
-                  <span :style="{ width: `${getAnalysisProgress(selectedDocument, 'graph')}%` }" />
-                </div>
-              </div>
-            </div>
           </section>
 
           <article :class="['document-preview', selectedDocumentPreview?.kind === 'text' && 'text-preview-mode']">
             <p>{{ text.documents.previewLead }}</p>
             <iframe
-              v-if="isPdfDocument(selectedDocument)"
+              v-if="isPdfDocument(selectedDocument) && getDocumentContentUrl(selectedDocument)"
               :src="getDocumentContentUrl(selectedDocument)"
               class="document-preview-frame"
               :title="selectedDocument.title"
             />
             <img
-              v-else-if="isImageDocument(selectedDocument)"
+              v-else-if="isImageDocument(selectedDocument) && getDocumentContentUrl(selectedDocument)"
               :src="getDocumentContentUrl(selectedDocument)"
               :alt="selectedDocument.title"
               class="document-preview-image"
@@ -178,6 +146,7 @@
     </section>
 
     <AppPopup
+      v-if="!isPublicReadOnly"
       v-model:open="isUploadOpen"
       teleport
       root-class="contents"
@@ -236,7 +205,7 @@
 
 <script setup lang="ts">
 import DocumentTreeNode from '@/components/documents/DocumentTreeNode.vue'
-import type { KnowledgeDocument, OrganizationDocumentTreeNode } from '@/types/organization'
+import type { KnowledgeDocument, OrganizationDocumentTreeNode, OrganizationSummary } from '@/types/organization'
 
 definePageMeta({
   layout: 'org',
@@ -246,8 +215,10 @@ definePageMeta({
 const { text } = useAppLocale()
 
 const route = useRoute()
+const { isAuthenticated } = useAuth()
 const { loadOrganizations, getOrganizationBySlug } = useOrganization()
 const settingsApi = useApiOrganizationSettings()
+const documentsApi = useApiDocuments()
 const {
   error,
   getDocuments,
@@ -255,6 +226,7 @@ const {
   getSelectedDocumentId,
   getPreview,
   loadDocuments,
+  loadPublicDocuments,
   uploadDocument,
   startAnalysis,
   stopAnalysis,
@@ -265,7 +237,15 @@ const {
 } = useDocuments()
 
 const slug = computed(() => String(route.params.slug ?? route.params.id ?? ''))
-const organization = computed(() => getOrganizationBySlug(slug.value))
+const { data: publicData } = await useFetch<{
+  organization: OrganizationSummary
+  allowGuestDocumentAccess: boolean
+  documentTree: OrganizationDocumentTreeNode[]
+}>(() => `/api/public/organizations/${slug.value}`)
+const memberOrganization = computed(() => getOrganizationBySlug(slug.value))
+const organization = computed(() => memberOrganization.value ?? publicData.value?.organization)
+const allowGuestDocumentAccess = computed(() => publicData.value?.allowGuestDocumentAccess ?? false)
+const isPublicReadOnly = computed(() => !memberOrganization.value)
 const documents = computed(() => getDocuments(slug.value))
 const documentsById = computed(() => new Map(documents.value.map((item) => [item.id, item] as const)))
 const openDocumentIds = computed(() => getOpenDocumentIds(slug.value))
@@ -281,7 +261,9 @@ const pendingUploads = ref<File[]>([])
 const uploadParentId = ref<string | null>(null)
 const uploadValidationError = ref<string | null>(null)
 const analysisActionError = ref<string | null>(null)
+const downloadError = ref<string | null>(null)
 const isSavingTree = ref(false)
+const treePanelWidth = ref(380)
 let analysisPollTimer: ReturnType<typeof setInterval> | null = null
 
 const SUPPORTED_UPLOAD_EXTENSIONS = new Set(['pdf', 'docx', 'xlsx', 'csv', 'txt'])
@@ -321,7 +303,31 @@ const openDocuments = computed(() =>
     .filter((document): document is KnowledgeDocument => Boolean(document))
 )
 
+const seedExpandedFolders = (nodes: OrganizationDocumentTreeNode[]) => {
+  const seedFolders = new Set<string>()
+  const collectFolders = (nextNodes: OrganizationDocumentTreeNode[]) => {
+    for (const node of nextNodes) {
+      if (node.type === 'folder') {
+        seedFolders.add(node.id)
+        collectFolders(node.children ?? [])
+      }
+    }
+  }
+
+  collectFolders(nodes)
+  expandedFolders.value = seedFolders
+}
+
+const setTreeState = (nodes: OrganizationDocumentTreeNode[]) => {
+  treeState.value = nodes.map((node) => normalizeNode(node))
+  seedExpandedFolders(treeState.value)
+}
+
 const persistTree = async (nextTree: OrganizationDocumentTreeNode[]) => {
+  if (isPublicReadOnly.value) {
+    return
+  }
+
   isSavingTree.value = true
   try {
     treeState.value = cloneTree(nextTree)
@@ -337,22 +343,11 @@ const persistTree = async (nextTree: OrganizationDocumentTreeNode[]) => {
 
 const loadTree = async () => {
   const response = await settingsApi.get(slug.value)
-  treeState.value = Array.isArray(response.settings.documentTree)
-    ? response.settings.documentTree.map((node) => normalizeNode(node))
-    : []
+  setTreeState(Array.isArray(response.settings.documentTree) ? response.settings.documentTree : [])
+}
 
-  const seedFolders = new Set<string>()
-  const collectFolders = (nodes: OrganizationDocumentTreeNode[]) => {
-    for (const node of nodes) {
-      if (node.type === 'folder') {
-        seedFolders.add(node.id)
-        collectFolders(node.children ?? [])
-      }
-    }
-  }
-
-  collectFolders(treeState.value)
-  expandedFolders.value = seedFolders
+const loadPublicTree = () => {
+  setTreeState(Array.isArray(publicData.value?.documentTree) ? publicData.value.documentTree : [])
 }
 
 const withTreeMutation = (
@@ -402,6 +397,10 @@ const findNode = (nodes: OrganizationDocumentTreeNode[], targetId: string): Orga
 }
 
 const promptCreateFolder = async (parentId: string | null) => {
+  if (isPublicReadOnly.value) {
+    return
+  }
+
   const name = window.prompt(text.documents.folderPrompt)
   if (!name?.trim()) {
     return
@@ -420,6 +419,10 @@ const promptCreateFolder = async (parentId: string | null) => {
 }
 
 const renameNode = async (nodeId: string) => {
+  if (isPublicReadOnly.value) {
+    return
+  }
+
   const currentNode = findNode(documentTree.value, nodeId)
   if (!currentNode) {
     return
@@ -450,11 +453,202 @@ const openDocumentNode = async (node: OrganizationDocumentTreeNode) => {
 
   const document = documentsById.value.get(node.documentId)
   if (document) {
-    await openDocumentInStore(slug.value, document)
+    await openDocumentInStore(slug.value, document, { public: isPublicReadOnly.value })
   }
 }
 
+const selectDocument = async (document: KnowledgeDocument) => {
+  await selectDocumentInStore(slug.value, document, { public: isPublicReadOnly.value })
+}
+
+const sanitizeFileName = (value: string) =>
+  value.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').replace(/\s+/g, ' ').trim() || 'download'
+
+const triggerDownload = (blob: Blob, fileName: string) => {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = sanitizeFileName(fileName)
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+const crcTable = (() => {
+  const table = new Uint32Array(256)
+  for (let index = 0; index < 256; index += 1) {
+    let value = index
+    for (let bit = 0; bit < 8; bit += 1) {
+      value = (value & 1) ? (0xEDB88320 ^ (value >>> 1)) : (value >>> 1)
+    }
+    table[index] = value >>> 0
+  }
+  return table
+})()
+
+const crc32 = (bytes: Uint8Array) => {
+  let crc = 0xFFFFFFFF
+  for (const byte of bytes) {
+    crc = crcTable[(crc ^ byte) & 0xFF] ^ (crc >>> 8)
+  }
+  return (crc ^ 0xFFFFFFFF) >>> 0
+}
+
+const writeUInt16 = (target: number[], value: number) => {
+  target.push(value & 0xFF, (value >>> 8) & 0xFF)
+}
+
+const writeUInt32 = (target: number[], value: number) => {
+  target.push(value & 0xFF, (value >>> 8) & 0xFF, (value >>> 16) & 0xFF, (value >>> 24) & 0xFF)
+}
+
+const createZipBlob = (files: Array<{ name: string, data: Uint8Array }>) => {
+  const encoder = new TextEncoder()
+  const chunks: Uint8Array[] = []
+  const centralDirectory: number[] = []
+  let offset = 0
+
+  for (const file of files) {
+    const nameBytes = encoder.encode(file.name)
+    const checksum = crc32(file.data)
+    const localHeader: number[] = []
+
+    writeUInt32(localHeader, 0x04034B50)
+    writeUInt16(localHeader, 20)
+    writeUInt16(localHeader, 0)
+    writeUInt16(localHeader, 0)
+    writeUInt16(localHeader, 0)
+    writeUInt16(localHeader, 0)
+    writeUInt32(localHeader, checksum)
+    writeUInt32(localHeader, file.data.length)
+    writeUInt32(localHeader, file.data.length)
+    writeUInt16(localHeader, nameBytes.length)
+    writeUInt16(localHeader, 0)
+
+    chunks.push(new Uint8Array(localHeader), nameBytes, file.data)
+
+    writeUInt32(centralDirectory, 0x02014B50)
+    writeUInt16(centralDirectory, 20)
+    writeUInt16(centralDirectory, 20)
+    writeUInt16(centralDirectory, 0)
+    writeUInt16(centralDirectory, 0)
+    writeUInt16(centralDirectory, 0)
+    writeUInt16(centralDirectory, 0)
+    writeUInt32(centralDirectory, checksum)
+    writeUInt32(centralDirectory, file.data.length)
+    writeUInt32(centralDirectory, file.data.length)
+    writeUInt16(centralDirectory, nameBytes.length)
+    writeUInt16(centralDirectory, 0)
+    writeUInt16(centralDirectory, 0)
+    writeUInt16(centralDirectory, 0)
+    writeUInt16(centralDirectory, 0)
+    writeUInt32(centralDirectory, 0)
+    writeUInt32(centralDirectory, offset)
+    centralDirectory.push(...nameBytes)
+
+    offset += localHeader.length + nameBytes.length + file.data.length
+  }
+
+  const centralOffset = offset
+  const centralBytes = new Uint8Array(centralDirectory)
+  const endRecord: number[] = []
+  writeUInt32(endRecord, 0x06054B50)
+  writeUInt16(endRecord, 0)
+  writeUInt16(endRecord, 0)
+  writeUInt16(endRecord, files.length)
+  writeUInt16(endRecord, files.length)
+  writeUInt32(endRecord, centralBytes.length)
+  writeUInt32(endRecord, centralOffset)
+  writeUInt16(endRecord, 0)
+
+  return new Blob([...chunks, centralBytes, new Uint8Array(endRecord)], { type: 'application/zip' })
+}
+
+const downloadDocument = async (document: KnowledgeDocument) => {
+  if (isPublicReadOnly.value) {
+    return
+  }
+
+  downloadError.value = null
+  try {
+    const response = await documentsApi.downloadUrl(slug.value, document.id)
+    const fileResponse = await fetch(response.download_url)
+    if (!fileResponse.ok) {
+      throw new Error(fileResponse.statusText)
+    }
+    triggerDownload(await fileResponse.blob(), document.title)
+  } catch (err) {
+    downloadError.value = getActionErrorMessage(err, 'Không tải được tài liệu.')
+  }
+}
+
+const collectFileNodes = (node: OrganizationDocumentTreeNode): OrganizationDocumentTreeNode[] => {
+  if (node.type === 'file') {
+    return node.documentId ? [node] : []
+  }
+  return (node.children ?? []).flatMap(collectFileNodes)
+}
+
+const downloadNode = async (node: OrganizationDocumentTreeNode) => {
+  if (isPublicReadOnly.value) {
+    return
+  }
+
+  if (node.type === 'file') {
+    const document = node.documentId ? documentsById.value.get(node.documentId) : null
+    if (document) {
+      await downloadDocument(document)
+    }
+    return
+  }
+
+  const fileNodes = collectFileNodes(node)
+  if (!fileNodes.length) {
+    downloadError.value = 'Folder không có file để tải.'
+    return
+  }
+
+  downloadError.value = null
+  try {
+    const files = []
+    for (const fileNode of fileNodes) {
+      const document = fileNode.documentId ? documentsById.value.get(fileNode.documentId) : null
+      if (!document) {
+        continue
+      }
+      const response = await documentsApi.downloadUrl(slug.value, document.id)
+      const fileResponse = await fetch(response.download_url)
+      if (!fileResponse.ok) {
+        throw new Error(fileResponse.statusText)
+      }
+      files.push({
+        name: sanitizeFileName(fileNode.name || document.title),
+        data: new Uint8Array(await fileResponse.arrayBuffer())
+      })
+    }
+
+    triggerDownload(createZipBlob(files), `${node.name}.zip`)
+  } catch (err) {
+    downloadError.value = getActionErrorMessage(err, 'Không tải được folder.')
+  }
+}
+
+const downloadAllDocuments = async () => {
+  await downloadNode({
+    id: 'all-documents',
+    type: 'folder',
+    name: organization.value?.name || 'documents',
+    parentId: null,
+    children: documentTree.value
+  })
+}
+
 const openUploadModal = (parentId: string | null) => {
+  if (isPublicReadOnly.value) {
+    return
+  }
+
   uploadParentId.value = parentId
   uploadValidationError.value = null
   isUploadOpen.value = true
@@ -516,6 +710,10 @@ const clearUploadModal = () => {
 }
 
 const handleUpload = async () => {
+  if (isPublicReadOnly.value) {
+    return
+  }
+
   const hadPersistedTree = treeState.value.length > 0
 
   for (const file of pendingUploads.value) {
@@ -560,6 +758,10 @@ const getActionErrorMessage = (err: unknown, fallback: string) => {
 }
 
 const handleStartAnalysis = async (document: KnowledgeDocument) => {
+  if (isPublicReadOnly.value) {
+    return
+  }
+
   analysisActionError.value = null
 
   try {
@@ -570,6 +772,10 @@ const handleStartAnalysis = async (document: KnowledgeDocument) => {
 }
 
 const handleStopAnalysis = async (document: KnowledgeDocument) => {
+  if (isPublicReadOnly.value) {
+    return
+  }
+
   analysisActionError.value = null
 
   try {
@@ -595,6 +801,25 @@ const getAnalysisProgress = (document: KnowledgeDocument, key: 'parse' | 'graph'
   const rawValue = document.analysis?.progress?.[key]
   const numericValue = typeof rawValue === 'number' ? rawValue : 0
   return Math.max(0, Math.min(100, Math.round(numericValue)))
+}
+
+const getAnalysisRingStyle = (document: KnowledgeDocument, key: 'parse' | 'graph') => ({
+  background: `conic-gradient(#2f5f9f ${getAnalysisProgress(document, key)}%, rgba(0,0,0,0.08) 0)`
+})
+
+const startTreeResize = (event: PointerEvent) => {
+  const startX = event.clientX
+  const startWidth = treePanelWidth.value
+  const handlePointerMove = (moveEvent: PointerEvent) => {
+    treePanelWidth.value = Math.min(620, Math.max(280, startWidth + moveEvent.clientX - startX))
+  }
+  const handlePointerUp = () => {
+    window.removeEventListener('pointermove', handlePointerMove)
+    window.removeEventListener('pointerup', handlePointerUp)
+  }
+
+  window.addEventListener('pointermove', handlePointerMove)
+  window.addEventListener('pointerup', handlePointerUp)
 }
 
 const isAnalysisRunning = (document: KnowledgeDocument) =>
@@ -633,15 +858,26 @@ const isImageDocument = (document: KnowledgeDocument) =>
 const getDocumentContentUrl = (document: KnowledgeDocument) => getPreview(slug.value, document.id)?.url || ''
 
 onMounted(async () => {
-  await loadOrganizations()
-  await loadDocuments(slug.value)
-  await loadTree()
+  if (isAuthenticated.value) {
+    await loadOrganizations()
+  }
 
-  analysisPollTimer = setInterval(() => {
-    if (documents.value.some(isAnalysisRunning)) {
-      void loadDocuments(slug.value)
-    }
-  }, 3000)
+  if (memberOrganization.value) {
+    await loadDocuments(slug.value)
+    await loadTree()
+
+    analysisPollTimer = setInterval(() => {
+      if (documents.value.some(isAnalysisRunning)) {
+        void loadDocuments(slug.value)
+      }
+    }, 3000)
+    return
+  }
+
+  if (allowGuestDocumentAccess.value) {
+    await loadPublicDocuments(slug.value)
+    loadPublicTree()
+  }
 })
 
 onBeforeUnmount(() => {

@@ -77,6 +77,21 @@ def accept_membership(
     return common_dto.to_member_model(member)
 
 
+@router.post(
+    "/organizations/{org_id}/membership/decline",
+    response_model=models.MemberRead,
+    tags=["Members & RBAC"],
+    summary="Nhan vien tu choi loi moi vao to chuc",
+)
+def decline_membership(
+    org_id: str,
+    acting_user_id: str = Query(..., description="User tu choi loi moi cua chinh minh."),
+    db: Session = Depends(get_db),
+) -> models.MemberRead:
+    member = MembersService(db).decline_membership(org_id, acting_user_id)
+    return common_dto.to_member_model(member)
+
+
 @router.delete("/organizations/{org_id}/membership", status_code=status.HTTP_204_NO_CONTENT, tags=["Members & RBAC"], summary="Roi khoi to chuc")
 def leave_organization(
     org_id: str,

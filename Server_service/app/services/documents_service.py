@@ -78,6 +78,17 @@ class DocumentsService:
         if not documents_repository.get_organization(org_id, self.db):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.ORGANIZATION_NOT_FOUND)
 
+    def _require_public_document_access(self, org_id: str) -> db_entities.Organization:
+        organization = documents_repository.get_organization(org_id, self.db)
+        if not organization:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.ORGANIZATION_NOT_FOUND)
+
+        settings = parse_json_dict(organization.settings_json)
+        if settings.get("allow_guest_document_access") is not True:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=messages.USER_NOT_IN_ORGANIZATION)
+
+        return organization
+
     @staticmethod
     def _analysis_metadata_patch(
         *,
@@ -412,6 +423,17 @@ class DocumentsService:
         self._require_permission(org_id, acting_user_id, "read_documents")
         return documents_repository.list_documents(org_id, status_filter, skip, limit, self.db)
 
+    def list_public_documents(
+        self,
+        org_id: str,
+        *,
+        status_filter: str | None,
+        skip: int,
+        limit: int,
+    ) -> list[db_entities.Document]:
+        self._require_public_document_access(org_id)
+        return documents_repository.list_documents(org_id, status_filter, skip, limit, self.db)
+
     def search_documents(self, org_id: str, payload: models.DocumentSearchRequest) -> DocumentSearchResultEntity:
         self._require_permission(org_id, payload.user_id, "read_documents")
         try:
@@ -505,6 +527,14 @@ class DocumentsService:
     def get_document_preview(self, document_id: str, acting_user_id: str) -> DocumentPreviewEntity:
         document = self._get_document_or_404(document_id)
         self._require_permission(document.organization_id, acting_user_id, "read_documents")
+        return self._build_document_preview(document)
+
+    def get_public_document_preview(self, document_id: str) -> DocumentPreviewEntity:
+        document = self._get_document_or_404(document_id)
+        self._require_public_document_access(document.organization_id)
+        return self._build_document_preview(document)
+
+    def _build_document_preview(self, document: db_entities.Document) -> DocumentPreviewEntity:
         metadata = parse_json_dict(document.metadata_json)
         bucket = metadata.get("bucket")
         object_key = metadata.get("object_key")

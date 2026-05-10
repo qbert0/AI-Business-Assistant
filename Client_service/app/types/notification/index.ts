@@ -4,5 +4,8 @@ export interface AppNotificationItem {
   description: string
   to: string
   tone: 'info' | 'success' | 'warning'
+  isRead?: boolean
+  organizationId?: string | null
+  actionType?: 'organization_invitation'
 }
 

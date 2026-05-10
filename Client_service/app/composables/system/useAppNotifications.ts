@@ -45,10 +45,32 @@ export const useAppNotifications = () => {
   )
 
   const notificationSummary = computed(() => notifications.value.slice(0, 3))
+  const unreadCount = computed(() => notifications.value.filter((item) => item.isRead === false).length)
+
+  const respondToInvitation = async (notification: AppNotificationItem, action: 'accept' | 'decline') => {
+    if (!notification.organizationId) {
+      return
+    }
+
+    await apiFetch(`/api/organizations/${notification.organizationId}/membership/${action}`, {
+      method: 'POST'
+    })
+    await apiFetch(`/api/notifications/${notification.id}/read`, {
+      method: 'PATCH'
+    })
+    items.value = items.value.map((item) =>
+      item.id === notification.id
+        ? { ...item, isRead: true, actionType: undefined, tone: action === 'accept' ? 'success' : 'info' }
+        : item
+    )
+    await loadNotifications()
+  }
 
   return {
     notifications,
     notificationSummary,
-    loadNotifications
+    unreadCount,
+    loadNotifications,
+    respondToInvitation
   }
 }

@@ -44,7 +44,10 @@ def list_organizations(
 ) -> list[db_entities.Organization]:
     query = db.query(db_entities.Organization)
     if user_id:
-        query = query.join(db_entities.OrganizationMember).filter(db_entities.OrganizationMember.user_id == user_id)
+        query = query.join(db_entities.OrganizationMember).filter(
+            db_entities.OrganizationMember.user_id == user_id,
+            db_entities.OrganizationMember.status == "active",
+        )
     if search:
         like = f"%{search}%"
         query = query.filter(

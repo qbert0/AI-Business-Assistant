@@ -28,17 +28,21 @@ def public_chat_suggestions(org_id: str, db: Session = Depends(get_db)) -> list[
 def list_chat_sessions(
     org_id: str,
     acting_user_id: str = Query(..., description="Can quyen chat_advisory."),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=50),
     db: Session = Depends(get_db),
 ) -> list[models.ChatSessionRead]:
-    return chat_dto.to_chat_session_models(ChatService(db).list_chat_sessions(org_id, acting_user_id))
+    return chat_dto.to_chat_session_models(ChatService(db).list_chat_sessions(org_id, acting_user_id, skip=skip, limit=limit))
 
 
 @router.get("/chat/personal/sessions", response_model=list[models.ChatSessionRead], tags=["Chat"], summary="Lay chat history theo workspace ca nhan")
 def list_personal_chat_sessions(
     acting_user_id: str = Query(..., description="User dang xem workspace ca nhan."),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=50),
     db: Session = Depends(get_db),
 ) -> list[models.ChatSessionRead]:
-    return chat_dto.to_chat_session_models(ChatService(db).list_personal_chat_sessions(acting_user_id))
+    return chat_dto.to_chat_session_models(ChatService(db).list_personal_chat_sessions(acting_user_id, skip=skip, limit=limit))
 
 
 @router.post("/organizations/{org_id}/chat/sessions", response_model=models.ChatSessionRead, status_code=status.HTTP_201_CREATED, tags=["Chat"], summary="Tao chat session rong")

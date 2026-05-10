@@ -24,9 +24,9 @@ const parseOrganizationRoute = (path: string) => {
   const slug = parts[1]
   const segment = parts[2] || 'dashboard'
 
-  if (!slug || slug === 'create') {
-    return null
-  }
+    if (!slug || slug === 'create' || slug === 'search') {
+      return null
+    }
 
   return { slug, segment }
 }
@@ -38,6 +38,10 @@ export const useRbac = () => {
   const resolveRouteAccess = async (path: string) => {
     const route = parseOrganizationRoute(path)
     if (!route) {
+      return { allowed: true, reason: null as string | null }
+    }
+
+    if (['dashboard', 'public', 'chat', 'documents'].includes(route.segment)) {
       return { allowed: true, reason: null as string | null }
     }
 

@@ -70,6 +70,21 @@ const mapStreamSession = (session: StreamSessionPayload): ChatSession => ({
   isPinned: Boolean(session.is_pinned)
 })
 
+const mergeFinalTurn = (
+  currentMessages: ChatMessage[],
+  localUserMessageId: string,
+  tempAssistantMessageId: string | null,
+  finalMessages: ChatMessage[]
+) => [
+  ...currentMessages.filter(
+    (item) =>
+      item.id !== localUserMessageId
+      && item.id !== tempAssistantMessageId
+      && !finalMessages.some((finalMessage) => finalMessage.id === item.id)
+  ),
+  ...finalMessages
+]
+
 export const useChatMessageStore = defineStore('chat-messages', () => {
   const api = useApiChat()
   const contexts = ref<Record<string, ChatMessageContextState>>({})
@@ -301,12 +316,12 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
               }
             ]
             sessions.upsertSession(slug, finalSession)
-            context.messagesBySession[finalSession.id] = [
-              ...(context.messagesBySession[finalSession.id] ?? []).filter(
-                (item) => item.id !== tempAssistantMessage?.id && item.id !== localUserMessageId
-              ),
-              ...finalMessages
-            ]
+            context.messagesBySession[finalSession.id] = mergeFinalTurn(
+              context.messagesBySession[finalSession.id] ?? [],
+              localUserMessageId,
+              tempAssistantMessage?.id ?? null,
+              finalMessages
+            )
             activeSessionId = finalSession.id
           }
         }

@@ -58,7 +58,7 @@ class MembersService:
                 notification_type="organization",
                 title=f"Ban co loi moi tham gia {org.name}",
                 content=f"Vai tro duoc gan: {payload.role}. Trang thai hien tai: {payload.status}.",
-                action_url=f"/org/{org.id}/dashboard",
+                action_url="/notifications",
             ),
             self.db,
         )
@@ -122,6 +122,19 @@ class MembersService:
         if member.status == "disabled":
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=messages.USER_DISABLED)
         member.status = "active"
+        members_repository.save_member(self.db)
+        return members_repository.refresh_member(member, self.db)
+
+    def decline_membership(self, org_id: str, acting_user_id: str) -> db_entities.OrganizationMember:
+        self._get_org_or_404(org_id)
+        member = members_repository.get_membership(org_id, acting_user_id, self.db)
+        if not member:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.USER_NOT_IN_ORGANIZATION)
+        if member.status == "active":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Thanh vien da kich hoat.")
+        if member.status == "disabled":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=messages.USER_DISABLED)
+        member.status = "declined"
         members_repository.save_member(self.db)
         return members_repository.refresh_member(member, self.db)
 

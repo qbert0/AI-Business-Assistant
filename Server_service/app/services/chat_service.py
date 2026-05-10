@@ -315,12 +315,12 @@ class ChatService:
             "guest_document_access": True,
         }
 
-    def list_chat_sessions(self, org_id: str, acting_user_id: str) -> list[db_entities.ChatSession]:
+    def list_chat_sessions(self, org_id: str, acting_user_id: str, *, skip: int = 0, limit: int = 10) -> list[db_entities.ChatSession]:
         self._require_permission(org_id, acting_user_id, "chat_advisory")
-        return chat_repository.list_chat_sessions(org_id, acting_user_id, self.db)
+        return chat_repository.list_chat_sessions(org_id, acting_user_id, self.db, skip=skip, limit=limit)
 
-    def list_personal_chat_sessions(self, acting_user_id: str) -> list[db_entities.ChatSession]:
-        return chat_repository.list_personal_chat_sessions(acting_user_id, self.db)
+    def list_personal_chat_sessions(self, acting_user_id: str, *, skip: int = 0, limit: int = 10) -> list[db_entities.ChatSession]:
+        return chat_repository.list_personal_chat_sessions(acting_user_id, self.db, skip=skip, limit=limit)
 
     def create_chat_session(self, org_id: str, payload: models.ChatSessionCreate) -> db_entities.ChatSession:
         self._require_permission(org_id, payload.user_id, "chat_advisory")

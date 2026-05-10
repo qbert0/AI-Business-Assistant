@@ -13,6 +13,7 @@ export const useDocumentStore = defineStore('documents', () => {
     getDocuments: library.getDocuments,
     getPipeline: library.getPipeline,
     loadDocuments: library.loadDocuments,
+    loadPublicDocuments: library.loadPublicDocuments,
     loadPipeline: library.loadPipeline,
     uploadDocument: library.uploadDocument,
     startAnalysis: library.startAnalysis,

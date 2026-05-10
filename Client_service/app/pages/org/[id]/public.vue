@@ -54,20 +54,40 @@
 
       <div v-if="allowGuestChat" class="space-y-4">
         <p class="table-copy">{{ text.organizationPublic.guestChatDescription }}</p>
+        <NuxtLink class="btn-primary" :to="getOrganizationRoute(slug, 'chat')">
+          {{ text.organizationPublic.guestEnterCompany }}
+        </NuxtLink>
         <div class="flex flex-wrap gap-2">
-          <button v-for="item in suggestions" :key="item" class="question-chip" type="button" @click="prompt = item">
+          <button v-for="item in suggestions" :key="item" class="question-chip" type="button" @click="useSuggestion(item)">
             {{ item }}
           </button>
         </div>
-        <textarea v-model="prompt" class="app-textarea" rows="4" :placeholder="text.organizationPublic.guestChatPlaceholder" />
-        <p v-if="!allowGuestDocumentAccess" class="text-caption text-olive">{{ text.organizationPublic.guestDocumentDisabled }}</p>
-        <button class="btn-primary" type="button" :disabled="isAsking || !prompt.trim()" @click="askPublicQuestion">
-          {{ text.chatPage.send }}
-        </button>
 
-        <article v-if="answer" class="rounded-2xl bg-white p-4">
-          <p class="muted-copy whitespace-pre-line">{{ answer }}</p>
-        </article>
+        <div class="public-chat-thread">
+          <article
+            v-for="message in guestMessages"
+            :key="message.id"
+            class="public-chat-message"
+            :class="message.role"
+          >
+            <p class="whitespace-pre-line">{{ message.content }}</p>
+          </article>
+          <p v-if="!guestMessages.length" class="table-copy">{{ text.organizationPublic.guestChatPlaceholder }}</p>
+        </div>
+
+        <form class="chat-input-shell" @submit.prevent="askPublicQuestion">
+          <textarea
+            v-model="prompt"
+            class="chat-input"
+            rows="2"
+            :placeholder="text.organizationPublic.guestChatPlaceholder"
+            @keydown.enter.exact.prevent="askPublicQuestion"
+          />
+          <button class="btn-primary" type="submit" :disabled="isAsking || !prompt.trim()">
+            {{ isAsking ? text.organizationPublic.guestChatAsking : text.chatPage.send }}
+          </button>
+        </form>
+        <p v-if="!allowGuestDocumentAccess" class="text-caption text-olive">{{ text.organizationPublic.guestDocumentDisabled }}</p>
       </div>
 
       <p v-else class="table-copy">{{ text.organizationPublic.guestChatDisabled }}</p>
@@ -79,7 +99,7 @@
 import { useAuth } from '@/composables/auth/useAuth'
 import { useOrganization } from '@/composables/organizations/useOrganization'
 import { useAppLocale } from '@/composables/system/useAppLocale'
-import { APP_ROUTES } from '@/constants/navigation'
+import { APP_ROUTES, getOrganizationRoute } from '@/constants/navigation'
 import type { OrganizationSummary } from '@/types/organization'
 
 definePageMeta({
@@ -94,10 +114,10 @@ const { requestJoinOrganization } = useOrganization()
 
 const note = ref('')
 const prompt = ref('')
-const answer = ref('')
 const suggestions = ref<string[]>([])
 const isAsking = ref(false)
 const slug = computed(() => route.params.id as string)
+const guestMessages = ref<Array<{ id: string, role: 'user' | 'assistant', content: string }>>([])
 
 const { data } = await useFetch<{ organization: OrganizationSummary, allowJoinRequests: boolean, allowGuestChat: boolean, allowGuestDocumentAccess: boolean }>(
   () => `/api/public/organizations/${slug.value}`
@@ -119,20 +139,38 @@ const submitJoinRequest = async () => {
 }
 
 const askPublicQuestion = async () => {
-  if (!prompt.value.trim()) {
+  const currentPrompt = prompt.value.trim()
+  if (!currentPrompt || isAsking.value) {
     return
   }
 
+  prompt.value = ''
+  guestMessages.value.push({
+    id: `guest-user-${Date.now()}`,
+    role: 'user',
+    content: currentPrompt
+  })
   isAsking.value = true
   try {
     const response = await $fetch<{ answer: string }>(`/api/public/organizations/${slug.value}/chat/ask`, {
       method: 'POST',
-      body: { question: prompt.value }
+      body: { question: currentPrompt }
     })
-    answer.value = response.answer
+    guestMessages.value.push({
+      id: `guest-assistant-${Date.now()}`,
+      role: 'assistant',
+      content: response.answer
+    })
+  } catch (error) {
+    prompt.value = currentPrompt
+    throw error
   } finally {
     isAsking.value = false
   }
+}
+
+const useSuggestion = (question: string) => {
+  prompt.value = question
 }
 
 onMounted(async () => {

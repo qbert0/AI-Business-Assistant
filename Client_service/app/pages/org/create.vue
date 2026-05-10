@@ -8,7 +8,7 @@
           <p class="muted-copy">{{ text.createOrganization.description }}</p>
         </div>
 
-        <div class="space-y-3">
+        <form class="space-y-3" @submit.prevent="handleCreate">
           <div class="space-y-1.5">
             <input
               v-model="form.name"
@@ -45,10 +45,10 @@
             <p class="text-caption text-stone">{{ text.createOrganization.descriptionHint }}</p>
             <p v-if="errors.description" class="text-caption font-medium text-orange">{{ errors.description }}</p>
           </div>
-        </div>
+        </form>
 
         <div class="flex flex-wrap gap-2.5">
-          <button class="btn-primary" :disabled="isSubmitting" @click="handleCreate">
+          <button class="btn-primary" type="button" :disabled="isSubmitting" @click="handleCreate">
             {{ isSubmitting ? text.createOrganization.submitting : text.createOrganization.submit }}
           </button>
           <NuxtLink class="btn-secondary" :to="APP_ROUTES.dashboard">{{ text.createOrganization.back }}</NuxtLink>

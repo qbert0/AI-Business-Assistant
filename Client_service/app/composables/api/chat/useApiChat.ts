@@ -5,7 +5,7 @@ import { useApiFetch } from '@/composables/api/core/useApiFetch'
 export const useApiChat = () => {
   const apiFetch = useApiFetch()
 
-  const sessions = (slug: string, cursor = 0, limit = 8) =>
+  const sessions = (slug: string, cursor = 0, limit = 10) =>
     apiFetch<{ sessions: ChatSession[], nextCursor: number | null }>(`/api/chat/${slug}/sessions`, {
       query: { cursor, limit }
     })

@@ -31,6 +31,9 @@ export const useApiDocuments = () => {
 
   const list = (slug: string) => apiFetch<{ documents: KnowledgeDocument[] }>(`/api/documents/${slug}`)
 
+  const publicList = (slug: string) =>
+    apiFetch<{ documents: KnowledgeDocument[] }>(`/api/public/organizations/${slug}/documents`)
+
   const upload = async (slug: string, file: string | File) => {
     if (typeof file === 'string') {
       return apiFetch<{ document: KnowledgeDocument }>(`/api/documents/${slug}`, {
@@ -92,6 +95,11 @@ export const useApiDocuments = () => {
       `/api/documents/${slug}/${documentId}/preview`
     )
 
+  const publicPreview = (documentId: string) =>
+    apiFetch<{ kind: string, content?: string | null, message?: string | null }>(
+      `/api/public/documents/${documentId}/preview`
+    )
+
   const downloadUrl = (slug: string, documentId: string) =>
     (() => {
       const token = getClientAuthToken()
@@ -123,9 +131,11 @@ export const useApiDocuments = () => {
 
   return {
     list,
+    publicList,
     upload,
     pipeline,
     preview,
+    publicPreview,
     downloadUrl,
     startAnalysis,
     stopAnalysis

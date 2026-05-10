@@ -57,7 +57,7 @@ export const useAuthStore = defineStore('auth', () => {
       isReady.value = true
       return true
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Login failed'
+      error.value = getAuthErrorMessage(err, 'Email hoặc mật khẩu không đúng.')
       user.value = null
       return false
     } finally {
@@ -82,7 +82,7 @@ export const useAuthStore = defineStore('auth', () => {
       isReady.value = true
       return true
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Register failed'
+      error.value = getAuthErrorMessage(err, 'Register failed')
       user.value = null
       return false
     } finally {
@@ -109,3 +109,16 @@ export const useAuthStore = defineStore('auth', () => {
     logout
   }
 })
+
+const getAuthErrorMessage = (err: unknown, fallback: string) => {
+  if (err && typeof err === 'object' && 'data' in err) {
+    const data = (err as { data?: { detail?: string, message?: string, statusMessage?: string } }).data
+    return data?.detail || data?.message || data?.statusMessage || fallback
+  }
+
+  if (err && typeof err === 'object' && 'statusMessage' in err) {
+    return String((err as { statusMessage?: string }).statusMessage || fallback)
+  }
+
+  return fallback
+}

@@ -25,10 +25,12 @@
           <p class="text-caption text-olive">{{ text.organizationSettings.identityKeywordsDescription }}</p>
         </div>
         <div class="settings-card-actions">
-          <button class="btn-primary" :disabled="isSaving" @click="saveSettings">
-            {{ isSaving ? text.organizationSettings.saving : text.common.saveChanges }}
+          <button class="btn-primary" :disabled="isSavingIdentity" @click="saveIdentitySettings">
+            {{ isSavingIdentity ? text.organizationSettings.saving : text.common.saveChanges }}
           </button>
-          <button class="btn-secondary" :disabled="isSaving" @click="resetForm">{{ text.common.cancel }}</button>
+          <button class="btn-secondary" :disabled="isSavingIdentity" @click="clearIdentityKeywords">
+            {{ text.organizationSettings.clearIdentityKeywords }}
+          </button>
         </div>
       </article>
 
@@ -42,6 +44,12 @@
           class="app-input"
           :placeholder="`${text.organizationSettings.questionPlaceholder} ${index + 1}`"
         />
+        <p class="text-caption text-olive">{{ suggestionSaveState }}</p>
+        <div class="settings-card-actions">
+          <button class="btn-primary" :disabled="isSavingSuggestions" @click="saveSuggestedQuestions">
+            {{ isSavingSuggestions ? text.organizationSettings.saving : text.common.saveChanges }}
+          </button>
+        </div>
       </article>
     </section>
 
@@ -56,6 +64,12 @@
           <p class="text-caption font-normal text-olive">{{ text.organizationSettings.allowJoinRequestsDescription }}</p>
         </div>
         <input v-model="allowJoinRequests" type="checkbox" />
+      </div>
+
+      <div class="settings-card-actions mt-3">
+        <button class="btn-primary" :disabled="isSavingPublicAccess" @click="savePublicAccessSettings">
+          {{ isSavingPublicAccess ? text.organizationSettings.saving : text.common.saveChanges }}
+        </button>
       </div>
     </AppPanel>
 
@@ -80,6 +94,12 @@
           </div>
           <input v-model="allowGuestDocumentAccess" type="checkbox" :disabled="!allowGuestChat" />
         </label>
+
+        <div class="settings-card-actions">
+          <button class="btn-primary" :disabled="isSavingGuestAccess" @click="saveGuestAccessSettings">
+            {{ isSavingGuestAccess ? text.organizationSettings.saving : text.common.saveChanges }}
+          </button>
+        </div>
       </div>
     </AppPanel>
 
@@ -110,7 +130,13 @@ const allowGuestChat = ref(false)
 const allowGuestDocumentAccess = ref(false)
 const identityKeywords = ref(['', '', ''])
 const suggestedQuestions = ref(['', '', ''])
-const isSaving = ref(false)
+const isSavingIdentity = ref(false)
+const isSavingPublicAccess = ref(false)
+const isSavingGuestAccess = ref(false)
+const isSavingSuggestions = ref(false)
+const isSettingsLoaded = ref(false)
+const suggestionSaveState = ref(text.organizationSettings.suggestionAutoSaveReady)
+let suggestionSaveTimer: ReturnType<typeof setTimeout> | null = null
 
 const normalizeSettings = (settings?: Partial<OrganizationSettingsData>) => ({
   allowJoinRequests: settings?.allowJoinRequests !== false,
@@ -124,6 +150,12 @@ watchEffect(() => {
   organizationName.value = organization.value?.name ?? ''
 })
 
+watch(allowGuestChat, (enabled) => {
+  if (!enabled) {
+    allowGuestDocumentAccess.value = false
+  }
+})
+
 const loadSettings = async () => {
   const response = await api.get(slug.value)
   const normalized = normalizeSettings(response.settings)
@@ -132,30 +164,80 @@ const loadSettings = async () => {
   allowGuestDocumentAccess.value = normalized.allowGuestDocumentAccess
   identityKeywords.value = normalized.identityKeywords
   suggestedQuestions.value = normalized.suggestedQuestions
+  isSettingsLoaded.value = true
 }
 
-const resetForm = () => {
-  organizationName.value = organization.value?.name ?? ''
-  void loadSettings()
+const clearIdentityKeywords = () => {
+  identityKeywords.value = ['', '', '']
 }
 
-const saveSettings = async () => {
-  isSaving.value = true
+const saveIdentitySettings = async () => {
+  isSavingIdentity.value = true
   try {
     await api.update(slug.value, {
       name: organizationName.value.trim(),
       settings: {
-        allowJoinRequests: allowJoinRequests.value,
-        allowGuestChat: allowGuestChat.value,
-        allowGuestDocumentAccess: allowGuestDocumentAccess.value,
-        identityKeywords: identityKeywords.value.map((item) => item.trim()).filter(Boolean).slice(0, 3),
-        suggestedQuestions: suggestedQuestions.value.map((item) => item.trim()).filter(Boolean).slice(0, 3)
+        identityKeywords: identityKeywords.value.map((item) => item.trim()).filter(Boolean).slice(0, 3)
       }
     })
     await loadOrganizations()
     await loadSettings()
   } finally {
-    isSaving.value = false
+    isSavingIdentity.value = false
+  }
+}
+
+const savePublicAccessSettings = async () => {
+  isSavingPublicAccess.value = true
+  try {
+    await api.update(slug.value, {
+      settings: {
+        allowJoinRequests: allowJoinRequests.value
+      }
+    })
+    await loadSettings()
+  } finally {
+    isSavingPublicAccess.value = false
+  }
+}
+
+const saveGuestAccessSettings = async () => {
+  isSavingGuestAccess.value = true
+  try {
+    await api.update(slug.value, {
+      settings: {
+        allowGuestChat: allowGuestChat.value,
+        allowGuestDocumentAccess: allowGuestChat.value && allowGuestDocumentAccess.value
+      }
+    })
+    await loadSettings()
+  } finally {
+    isSavingGuestAccess.value = false
+  }
+}
+
+const saveSuggestedQuestions = async () => {
+  if (!isSettingsLoaded.value) {
+    return
+  }
+
+  if (suggestionSaveTimer) {
+    clearTimeout(suggestionSaveTimer)
+    suggestionSaveTimer = null
+  }
+  isSavingSuggestions.value = true
+  suggestionSaveState.value = text.organizationSettings.suggestionAutoSaving
+  try {
+    await api.update(slug.value, {
+      settings: {
+        suggestedQuestions: suggestedQuestions.value.map((item) => item.trim()).filter(Boolean).slice(0, 3)
+      }
+    })
+    suggestionSaveState.value = text.organizationSettings.suggestionAutoSaved
+  } catch {
+    suggestionSaveState.value = text.organizationSettings.suggestionAutoSaveFailed
+  } finally {
+    isSavingSuggestions.value = false
   }
 }
 
@@ -166,5 +248,28 @@ const confirmDelete = () => {
 onMounted(async () => {
   await loadOrganizations()
   await loadSettings()
+})
+
+watch(
+  suggestedQuestions,
+  () => {
+    if (!isSettingsLoaded.value) {
+      return
+    }
+    if (suggestionSaveTimer) {
+      clearTimeout(suggestionSaveTimer)
+    }
+    suggestionSaveState.value = text.organizationSettings.suggestionAutoSavePending
+    suggestionSaveTimer = setTimeout(() => {
+      void saveSuggestedQuestions()
+    }, 700)
+  },
+  { deep: true }
+)
+
+onBeforeUnmount(() => {
+  if (suggestionSaveTimer) {
+    clearTimeout(suggestionSaveTimer)
+  }
 })
 </script>

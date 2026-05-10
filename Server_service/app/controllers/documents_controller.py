@@ -112,6 +112,29 @@ def list_documents(
     )
 
 
+@router.get(
+    "/organizations/{org_id}/public/documents",
+    response_model=list[models.DocumentRead],
+    tags=["Documents"],
+    summary="Lay danh sach tai lieu public cua to chuc cho guest",
+)
+def list_public_documents(
+    org_id: str,
+    status_filter: str | None = Query(None, alias="status"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> list[models.DocumentRead]:
+    return document_dto.to_document_models(
+        DocumentsService(db).list_public_documents(
+            org_id,
+            status_filter=status_filter,
+            skip=skip,
+            limit=limit,
+        )
+    )
+
+
 @router.post("/organizations/{org_id}/documents/search", response_model=list[models.DocumentSearchHit], tags=["Documents"], summary="Tim tai lieu trong Elasticsearch")
 def search_documents(
     org_id: str,
@@ -200,4 +223,13 @@ def get_document_preview(
     db: Session = Depends(get_db),
 ) -> models.DocumentPreviewRead:
     entity = DocumentsService(db).get_document_preview(document_id, acting_user_id)
+    return document_dto.to_document_preview_model(entity)
+
+
+@router.get("/documents/{document_id}/public/preview", response_model=models.DocumentPreviewRead, tags=["Documents"], summary="Lay preview tai lieu public cho guest")
+def get_public_document_preview(
+    document_id: str,
+    db: Session = Depends(get_db),
+) -> models.DocumentPreviewRead:
+    entity = DocumentsService(db).get_public_document_preview(document_id)
     return document_dto.to_document_preview_model(entity)

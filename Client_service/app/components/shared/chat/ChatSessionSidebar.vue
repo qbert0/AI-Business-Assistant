@@ -1,7 +1,7 @@
 <template>
   <aside class="chat-session-sidebar">
     <div class="chat-session-card">
-      <AppPopup v-model:open="isContextMenuOpen" root-class="context-switcher" content-class="context-switcher-menu">
+      <AppPopup v-if="allowContextSwitch" v-model:open="isContextMenuOpen" root-class="context-switcher" content-class="context-switcher-menu">
         <template #trigger="{ toggle }">
           <button class="context-switcher-trigger" type="button" @click="toggle">
             <span class="avatar-circle" :class="avatarToneClass">{{ initials }}</span>
@@ -38,6 +38,15 @@
             </NuxtLink>
         </template>
       </AppPopup>
+      <div v-else class="context-switcher">
+        <div class="context-switcher-trigger cursor-default">
+          <span class="avatar-circle" :class="avatarToneClass">{{ initials }}</span>
+          <span>
+            <small>{{ currentContextLabel }}</small>
+            <strong>{{ user.name }}</strong>
+          </span>
+        </div>
+      </div>
 
       <div class="space-y-2.5">
         <div class="chat-sidebar-heading">
@@ -110,12 +119,12 @@
       </div>
 
       <button
-        v-if="filteredSessions.length > collapsedLimit"
+        v-if="canShowMore"
         class="drawer-show-more"
         type="button"
-        @click="isExpanded = !isExpanded"
+        @click="handleShowMore"
       >
-        {{ isExpanded ? text.common.showLess : text.common.showMore }}
+        {{ showMoreLabel }}
       </button>
     </div>
   </aside>
@@ -139,15 +148,19 @@ const props = defineProps<{
   selectedSessionId?: string | null
   sessions: ChatSession[]
   organizations?: OrganizationSummary[]
+  allowContextSwitch?: boolean
+  hasMoreSessions?: boolean
+  showPersonalContext?: boolean
 }>()
 
 const emit = defineEmits<{
   'update:slug': [slug: string]
   'update:selectedSessionId': [sessionId: string | null]
+  'load-more': []
 }>()
 
 const { renameSession, togglePinSession, deleteSession } = useChatbot()
-const collapsedLimit = 8
+const collapsedLimit = 10
 const searchTerm = ref('')
 const isExpanded = ref(false)
 const isSearchVisible = ref(false)
@@ -156,14 +169,21 @@ const activeSessionMenuId = ref<string | null>(null)
 
 const initials = computed(() => createInitials(user.value.name))
 const avatarToneClass = computed(() => getAvatarToneClass(user.value.name))
-const contextOptions = computed(() => [
-  { slug: 'personal', name: user.value.name || text.navigation.workspace },
-  ...(props.organizations ?? []).map((organization: OrganizationSummary) => ({
+const organizationOptions = computed(() => (props.organizations ?? []).map((organization: OrganizationSummary) => ({
     slug: organization.slug,
     name: organization.name
-  }))
+  })))
+const contextOptions = computed(() => [
+  ...(props.showPersonalContext ? [{ slug: 'personal', name: user.value.name || text.navigation.workspace }] : []),
+  ...organizationOptions.value
 ])
-const currentContextLabel = computed(() => contextOptions.value.find((context) => context.slug === props.slug)?.name ?? text.navigation.workspace)
+const currentContextLabel = computed(() => {
+  if (props.slug === 'personal') {
+    return user.value.name || text.navigation.workspace
+  }
+
+  return organizationOptions.value.find((context) => context.slug === props.slug)?.name ?? text.navigation.workspace
+})
 
 const filteredSessions = computed(() => {
   if (!searchTerm.value.trim()) {
@@ -173,6 +193,8 @@ const filteredSessions = computed(() => {
   return props.sessions.filter((session: ChatSession) => includesSearchTerm(session.title, searchTerm.value))
 })
 const visibleSessions = computed(() => (isExpanded.value ? filteredSessions.value : filteredSessions.value.slice(0, collapsedLimit)))
+const canShowMore = computed(() => filteredSessions.value.length > collapsedLimit || Boolean(props.hasMoreSessions))
+const showMoreLabel = computed(() => props.hasMoreSessions ? text.common.showMore : isExpanded.value ? text.common.showLess : text.common.showMore)
 
 const selectContext = async (slug: string) => {
   emit('update:slug', slug)
@@ -184,11 +206,23 @@ const selectContext = async (slug: string) => {
 const selectSession = (sessionId: string) => {
   emit('update:selectedSessionId', sessionId)
   activeSessionMenuId.value = null
+  router.push(getContextChatRoute(props.slug, sessionId))
 }
 
 const startNewConversation = () => {
   emit('update:selectedSessionId', null)
   activeSessionMenuId.value = null
+  router.push(getContextChatRoute(props.slug))
+}
+
+const handleShowMore = () => {
+  if (props.hasMoreSessions) {
+    emit('load-more')
+    isExpanded.value = true
+    return
+  }
+
+  isExpanded.value = !isExpanded.value
 }
 
 const updateSessionMenu = (open: boolean, sessionId: string) => {

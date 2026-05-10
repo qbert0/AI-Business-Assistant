@@ -31,6 +31,7 @@ export const useChatSessionStore = defineStore('chat-sessions', () => {
   }
 
   const getSessions = (slug: string) => ensureContext(slug).sessions
+  const getHasMoreSessions = (slug: string) => ensureContext(slug).sessionCursor !== null
   const getSuggestions = (slug: string) => ensureContext(slug).suggestions
   const getPopularQuestions = (slug: string) => ensureContext(slug).popularQuestions
 
@@ -40,7 +41,7 @@ export const useChatSessionStore = defineStore('chat-sessions', () => {
 
     try {
       const [sessionResponse, suggestionResponse] = await Promise.all([
-        api.sessions(slug, 0, 8),
+        api.sessions(slug, 0, 10),
         api.suggestions(slug)
       ])
       const context = ensureContext(slug)
@@ -61,7 +62,7 @@ export const useChatSessionStore = defineStore('chat-sessions', () => {
       return
     }
 
-    const response = await api.sessions(slug, context.sessionCursor, 8)
+    const response = await api.sessions(slug, context.sessionCursor, 10)
     context.sessions = [...context.sessions, ...response.sessions]
     context.sessionCursor = response.nextCursor
   }
@@ -102,6 +103,7 @@ export const useChatSessionStore = defineStore('chat-sessions', () => {
     isLoading,
     error,
     getSessions,
+    getHasMoreSessions,
     getSuggestions,
     getPopularQuestions,
     loadContext,

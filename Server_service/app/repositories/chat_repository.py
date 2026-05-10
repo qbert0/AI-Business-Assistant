@@ -12,20 +12,24 @@ def get_chat_session(session_id: str, db: Session) -> db_entities.ChatSession | 
     return db.get(db_entities.ChatSession, session_id)
 
 
-def list_chat_sessions(org_id: str, acting_user_id: str, db: Session) -> list[db_entities.ChatSession]:
+def list_chat_sessions(org_id: str, acting_user_id: str, db: Session, *, skip: int = 0, limit: int = 10) -> list[db_entities.ChatSession]:
     return (
         db.query(db_entities.ChatSession)
         .filter(db_entities.ChatSession.organization_id == org_id, db_entities.ChatSession.user_id == acting_user_id)
         .order_by(db_entities.ChatSession.updated_at.desc())
+        .offset(skip)
+        .limit(limit)
         .all()
     )
 
 
-def list_personal_chat_sessions(acting_user_id: str, db: Session) -> list[db_entities.ChatSession]:
+def list_personal_chat_sessions(acting_user_id: str, db: Session, *, skip: int = 0, limit: int = 10) -> list[db_entities.ChatSession]:
     return (
         db.query(db_entities.ChatSession)
         .filter(db_entities.ChatSession.organization_id.is_(None), db_entities.ChatSession.user_id == acting_user_id)
         .order_by(db_entities.ChatSession.updated_at.desc())
+        .offset(skip)
+        .limit(limit)
         .all()
     )
 

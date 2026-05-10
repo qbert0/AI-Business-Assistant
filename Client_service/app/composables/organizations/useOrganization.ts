@@ -20,6 +20,7 @@ export const useOrganization = () => {
     addEmployees: (slug: string, payload: { emails: string[], role: string, permissions: OrganizationPermission[] }) =>
       store.addEmployees(slug, payload),
     removeEmployee: store.removeEmployee,
+    leaveOrganization: store.leaveOrganization,
     updateEmployeeRole: store.updateEmployeeRole,
     updateEmployeeDetails: store.updateEmployeeDetails,
     updateEmployeePermissions: (slug: string, memberId: string, permissions: OrganizationPermission[]) =>

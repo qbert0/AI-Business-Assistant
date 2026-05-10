@@ -29,6 +29,23 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
     }
   }
 
+  const loadPublicDocuments = async (slug: string) => {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      const response = await api.publicList(slug)
+      documentsByOrg.value = {
+        ...documentsByOrg.value,
+        [slug]: response.documents
+      }
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Cannot load public documents'
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   const loadPipeline = async (slug: string) => {
     const response = await api.pipeline(slug)
     pipelineByOrg.value = {
@@ -90,6 +107,7 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
     getDocuments,
     getPipeline,
     loadDocuments,
+    loadPublicDocuments,
     loadPipeline,
     uploadDocument,
     startAnalysis,

@@ -101,6 +101,13 @@ export const useOrganizationStore = defineStore('organizations', () => {
     }
   }
 
+  const leaveOrganization = async (slug: string) => {
+    await api.leaveMembership(slug)
+    organizations.value = organizations.value.filter((organization) => organization.slug !== slug)
+    const { [slug]: _removedMembers, ...remainingMembers } = membersByOrg.value
+    membersByOrg.value = remainingMembers
+  }
+
   const updateEmployeeRole = async (slug: string, memberId: string, role: string, permissions = getDefaultPermissionsByRole(role === 'admin' ? 'admin' : 'user')) => {
     await api.patchMember(slug, memberId, {
       role,
@@ -159,6 +166,7 @@ export const useOrganizationStore = defineStore('organizations', () => {
     createOrganization,
     addEmployees,
     removeEmployee,
+    leaveOrganization,
     updateEmployeeRole,
     updateEmployeeDetails,
     updateEmployeePermissions,

@@ -13,6 +13,7 @@ export const useChatStore = defineStore('chat', () => {
     isLoading: computed(() => sessions.isLoading || messages.isLoading),
     error: computed(() => sessions.error || messages.error),
     getSessions: sessions.getSessions,
+    getHasMoreSessions: sessions.getHasMoreSessions,
     getSuggestions: sessions.getSuggestions,
     getPopularQuestions: sessions.getPopularQuestions,
     getMessages: messages.getMessages,

@@ -22,7 +22,7 @@ export interface OrganizationMember {
   department: string
   title: string
   role: string
-  status: 'active' | 'pending_response' | 'invited'
+  status: 'active' | 'pending_response' | 'invited' | 'declined'
   permissions: OrganizationPermission[]
 }
 

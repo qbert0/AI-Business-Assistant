@@ -59,8 +59,9 @@
         </AppPopup>
 
         <div class="header-user">
-          <NuxtLink v-if="isAuthenticated" class="icon-button" :to="APP_ROUTES.notifications" :aria-label="text.common.notifications">
+          <NuxtLink v-if="isAuthenticated" class="icon-button relative" :to="APP_ROUTES.notifications" :aria-label="text.common.notifications">
             <Icon name="lucide:bell" />
+            <span v-if="unreadCount" class="notification-dot">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
           </NuxtLink>
 
           <select v-model="selectedLocale" class="locale-select" @change="handleLocaleChange">
@@ -122,7 +123,7 @@
 </template>
 
 <script setup lang="ts">
-import { APP_ROUTES, getOrganizationPublicRoute } from '@/constants/navigation'
+import { APP_ROUTES, getOrganizationRoute } from '@/constants/navigation'
 import type { AppLocale } from '@/locales'
 import type { OrganizationSummary } from '@/types/organization'
 import { createInitials, getAvatarToneClass } from '@/utils/avatar'
@@ -134,6 +135,7 @@ const router = useRouter()
 const apiFetch = useApiFetch()
 const { toggleAppDrawer } = useUiState()
 const { isAuthenticated, user, logout } = useAuth()
+const { unreadCount } = useAppNotifications()
 
 const organizationSearch = ref(typeof route.query.id === 'string' ? route.query.id : '')
 const isUserMenuOpen = ref(false)
@@ -188,7 +190,7 @@ const submitSearch = () => {
 }
 
 const goToOrganization = (slug: string) => {
-  router.push(getOrganizationPublicRoute(slug))
+  router.push(getOrganizationRoute(slug, 'dashboard'))
   isSearchOpen.value = false
 }
 

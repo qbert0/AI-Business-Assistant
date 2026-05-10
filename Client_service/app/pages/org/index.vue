@@ -1,17 +1,19 @@
 <template>
   <main class="org-hub-page">
-    <AppPanel class="org-hub-container">
-      <template #header-left>
+    <section class="org-hub-hero org-hub-container">
+      <div class="min-w-0">
+        <p class="eyebrow">{{ text.organizations.eyebrow }}</p>
         <h1 class="page-title">{{ text.organizations.title }}</h1>
-      </template>
+        <p class="org-hub-hero-copy">{{ text.organizations.description }}</p>
+      </div>
 
-      <template #header-right>
+      <div class="org-hub-hero-actions">
         <NuxtLink class="btn-primary" :to="APP_ROUTES.organizationCreate">
           <Icon name="lucide:plus" />
           {{ text.organizations.create }}
         </NuxtLink>
-      </template>
-    </AppPanel>
+      </div>
+    </section>
 
     <section class="org-hub-toolbar org-hub-container">
       <div class="org-filter-search">
@@ -56,24 +58,67 @@
                     </span>
                   </div>
                   <p>{{ organization.industry }}</p>
+                  <div class="org-row-metrics">
+                    <span>{{ organization.employeeCount }} {{ text.common.employees }}</span>
+                    <span>{{ organization.documentCount }} {{ text.common.documents }}</span>
+                    <span>{{ organization.visits }} {{ text.organizations.visits }}</span>
+                  </div>
                 </div>
               </div>
 
               <div class="org-row-actions">
-                <NuxtLink class="btn-secondary" :to="getOrganizationRoute(organization.slug, 'dashboard')">
+                <NuxtLink
+                  v-if="organization.status === 'active'"
+                  class="btn-primary"
+                  :to="getOrganizationRoute(organization.slug, 'dashboard')"
+                >
                   {{ text.organizations.enterWorkspace }}
                 </NuxtLink>
-                <NuxtLink
-                  v-if="organization.role === 'admin'"
-                  class="btn-secondary"
-                  :to="getOrganizationRoute(organization.slug, 'employees')"
-                >
-                  {{ text.common.employees }}
-                </NuxtLink>
-                <NuxtLink class="btn-secondary" :to="getOrganizationPublicRoute(organization.slug)">
-                  {{ text.organizationPublic.openPublicPage }}
-                </NuxtLink>
-                <NuxtLink class="btn-dark" :to="getOrganizationRoute(organization.slug, 'settings')">{{ text.common.settings }}</NuxtLink>
+                <button v-else class="btn-secondary" type="button" disabled>
+                  {{ text.common.pending }}
+                </button>
+                <AppPopup root-class="relative" content-class="org-row-action-menu" match-trigger-position teleport>
+                  <template #trigger="{ toggle }">
+                    <button class="icon-action-light" type="button" :aria-label="text.organizations.actions" @click="toggle">
+                      <Icon name="lucide:more-horizontal" />
+                    </button>
+                  </template>
+
+                  <template #default="{ close }">
+                    <NuxtLink class="org-row-menu-item" :to="getOrganizationPublicRoute(organization.slug)" @click="close">
+                      <Icon name="lucide:globe-2" />
+                      <span>{{ text.organizationPublic.openPublicPage }}</span>
+                    </NuxtLink>
+                    <NuxtLink
+                      v-if="canManageOrganization(organization)"
+                      class="org-row-menu-item"
+                      :to="getOrganizationRoute(organization.slug, 'employees')"
+                      @click="close"
+                    >
+                      <Icon name="lucide:users" />
+                      <span>{{ text.common.employees }}</span>
+                    </NuxtLink>
+                    <NuxtLink
+                      v-if="canManageOrganization(organization)"
+                      class="org-row-menu-item"
+                      :to="getOrganizationRoute(organization.slug, 'settings')"
+                      @click="close"
+                    >
+                      <Icon name="lucide:settings" />
+                      <span>{{ text.common.settings }}</span>
+                    </NuxtLink>
+                    <button
+                      v-if="canLeaveOrganization(organization)"
+                      class="org-row-menu-item danger"
+                      type="button"
+                      :disabled="leavingSlug === organization.slug"
+                      @click="handleLeaveOrganization(organization, close)"
+                    >
+                      <Icon name="lucide:log-out" />
+                      <span>{{ leavingSlug === organization.slug ? text.organizations.leaving : text.organizations.leave }}</span>
+                    </button>
+                  </template>
+                </AppPopup>
               </div>
             </article>
           </div>
@@ -134,11 +179,12 @@ type OrganizationFilter = 'all' | 'admin' | 'user' | 'pending'
 const { text } = useAppLocale()
 
 const route = useRoute()
-const { searchOrganizations } = useOrganization()
+const { searchOrganizations, leaveOrganization } = useOrganization()
 const { notificationSummary } = useAppNotifications()
 
 const activeFilter = ref<OrganizationFilter>('all')
 const localSearch = ref(typeof route.query.q === 'string' ? route.query.q : '')
+const leavingSlug = ref<string | null>(null)
 
 const searchedOrganizations = computed(() => searchOrganizations(localSearch.value))
 const filteredOrganizations = computed(() =>
@@ -172,6 +218,24 @@ const getInitials = (name: string) =>
     .toUpperCase()
 
 const roleLabel = (role: OrganizationSummary['role']) => (role === 'admin' ? text.common.admin : text.organizations.employeeStatus)
+
+const canManageOrganization = (organization: OrganizationSummary) => organization.role === 'admin' && organization.status === 'active'
+
+const canLeaveOrganization = (organization: OrganizationSummary) => organization.role !== 'admin' && organization.status === 'active'
+
+const handleLeaveOrganization = async (organization: OrganizationSummary, close: () => void) => {
+  close()
+  if (!window.confirm(text.organizations.leaveConfirm.replace('{name}', organization.name))) {
+    return
+  }
+
+  leavingSlug.value = organization.slug
+  try {
+    await leaveOrganization(organization.slug)
+  } finally {
+    leavingSlug.value = null
+  }
+}
 
 const getNotificationStatusClass = (tone: AppNotificationItem['tone']) => {
   if (tone === 'success') return 'status-success'

@@ -40,6 +40,11 @@ export const useApiOrganizations = () => {
       method: 'DELETE'
     })
 
+  const leaveMembership = (slug: string) =>
+    apiFetch<{ ok: boolean }>(`/api/organizations/${slug}/membership`, {
+      method: 'DELETE'
+    })
+
   return {
     list,
     create,
@@ -47,6 +52,7 @@ export const useApiOrganizations = () => {
     members,
     addMembers,
     patchMember,
-    removeMember
+    removeMember,
+    leaveMembership
   }
 }

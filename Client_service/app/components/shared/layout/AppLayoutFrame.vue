@@ -1,7 +1,7 @@
 <template>
-  <div class="flex h-screen flex-col overflow-hidden bg-parchment">
+  <div class="flex min-h-screen flex-col bg-parchment">
     <AppHeader />
-    <div class="flex min-h-0 flex-1 overflow-hidden">
+    <div class="flex min-h-0 flex-1">
       <AppSidebar v-if="isAuthenticated" />
       <slot />
     </div>

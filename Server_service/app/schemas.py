@@ -90,13 +90,13 @@ class MemberCreate(BaseModel):
     user_id: str = Field(..., description="User da ton tai trong he thong.")
     role: str = Field("user", min_length=1, max_length=100)
     permissions: list[Permission] | None = Field(None, description="Neu bo trong, server dung permission mac dinh theo role.")
-    status: Literal["pending_response", "invited", "active"] = "pending_response"
+    status: Literal["pending_response", "invited", "active", "declined"] = "pending_response"
 
 
 class MemberPatch(BaseModel):
     role: str | None = Field(None, min_length=1, max_length=100)
     permissions: list[Permission] | None = None
-    status: Literal["pending_response", "invited", "active", "disabled"] | None = None
+    status: Literal["pending_response", "invited", "active", "declined", "disabled"] | None = None
 
 
 class MemberRead(BaseModel):

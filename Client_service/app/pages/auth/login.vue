@@ -13,7 +13,7 @@ definePageMeta({
   layout: 'auth'
 })
 
-const { error, isLoading } = useAuth()
+const { error, isLoading, login } = useAuth()
 const form = reactive({
   email: 'chau@example.com',
   password: 'demo123456'
@@ -65,14 +65,14 @@ const loginWithPassword = async () => {
 
     <div class="mb-5 text-center text-caption font-medium text-olive">{{ text.auth.emailDivider }}</div>
 
-    <div class="space-y-3">
+    <form class="space-y-3" @submit.prevent="loginWithPassword">
       <input v-model="form.email" type="email" :placeholder="text.auth.usernamePlaceholder" class="app-input" />
       <input v-model="form.password" type="password" :placeholder="text.auth.passwordPlaceholder" class="app-input" />
       <p v-if="formError || error" class="text-caption text-orange">{{ formError || error }}</p>
-      <button class="btn-primary mt-1 w-full" :disabled="isLoading" @click="loginWithPassword">
+      <button class="btn-primary mt-1 w-full" type="submit" :disabled="isLoading">
         {{ isLoading ? text.auth.signingIn : text.auth.loginButton }}
       </button>
-    </div>
+    </form>
 
     <p class="mt-5 border-t border-cream pt-5 text-center text-caption">
       {{ text.auth.noAccount }}

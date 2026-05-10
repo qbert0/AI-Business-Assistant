@@ -11,6 +11,6 @@
 const route = useRoute()
 
 const slug = computed(() => route.params.id as string | undefined)
-const showOrganizationNav = computed(() => Boolean(slug.value) && route.name !== 'org-id-public')
+const showOrganizationNav = computed(() => Boolean(slug.value) && String(route.name) !== 'org-id-public')
 const contentShellClass = computed(() => (route.meta.orgFullBleed ? 'org-full-page-shell' : 'org-page-shell'))
 </script>

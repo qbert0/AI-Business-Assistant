@@ -7,9 +7,11 @@
         <p class="muted-copy">{{ organization.description }}</p>
 
         <div class="flex flex-wrap gap-2.5">
-          <NuxtLink class="btn-primary" :to="getOrganizationRoute(organization.slug, 'employees')">{{ text.organizationDetail.manageEmployees }}</NuxtLink>
-          <NuxtLink class="btn-secondary" :to="getOrganizationRoute(organization.slug, 'documents')">{{ text.organizationDetail.documentStore }}</NuxtLink>
-          <NuxtLink class="btn-dark" :to="getOrganizationRoute(organization.slug, 'settings')">{{ text.common.settings }}</NuxtLink>
+          <NuxtLink v-if="canChat" class="btn-primary" :to="getOrganizationRoute(organization.slug, 'workspace')">{{ text.workspace.openChat }}</NuxtLink>
+          <NuxtLink v-else-if="allowGuestChat" class="btn-primary" :to="getOrganizationRoute(organization.slug, 'chat')">{{ text.organizationPublic.guestEnterCompany }}</NuxtLink>
+          <NuxtLink v-if="canViewEmployees" class="btn-primary" :to="getOrganizationRoute(organization.slug, 'employees')">{{ text.organizationDetail.manageEmployees }}</NuxtLink>
+          <NuxtLink v-if="canReadDocuments" class="btn-secondary" :to="getOrganizationRoute(organization.slug, 'documents')">{{ text.organizationDetail.documentStore }}</NuxtLink>
+          <NuxtLink v-if="canAccessSettings" class="btn-dark" :to="getOrganizationRoute(organization.slug, 'settings')">{{ text.common.settings }}</NuxtLink>
         </div>
       </div>
 
@@ -56,13 +58,14 @@
 </template>
 
 <script setup lang="ts">
-import { useChatbot } from '@/composables/chat/useChatbot'
 import { useOrganization } from '@/composables/organizations/useOrganization'
 import { useAppLocale } from '@/composables/system/useAppLocale'
 import ActionCard from '@/components/card/ActionCard.vue'
 import StatsCard from '@/components/card/StatsCard.vue'
 import { getOrganizationRoute } from '@/constants/navigation'
+import type { OrganizationPermission } from '@/constants/rbac'
 import type { ActionCardItem, StatItem } from '@/types/dashboard'
+import type { OrganizationSummary, PopularQuestion, SuggestionQuestion } from '@/types/organization'
 
 definePageMeta({
   layout: 'org',
@@ -72,13 +75,43 @@ definePageMeta({
 const { text } = useAppLocale()
 
 const route = useRoute()
-const { loadOrganizations, getOrganizationBySlug } = useOrganization()
-const { loadContext, getPopularQuestions, getSuggestions } = useChatbot()
+const { user, isAuthenticated } = useAuth()
+const { loadOrganizations, loadMembers, getOrganizationBySlug, getMembers } = useOrganization()
 
 const slug = computed(() => (route.params.slug ?? route.params.id) as string)
-const organization = computed(() => getOrganizationBySlug(slug.value))
-const popularQuestions = computed(() => getPopularQuestions(slug.value))
-const suggestions = computed(() => getSuggestions(slug.value))
+const { data: publicData } = await useFetch<{
+  organization: OrganizationSummary
+  allowJoinRequests: boolean
+  allowGuestChat: boolean
+  allowGuestDocumentAccess: boolean
+  suggestedQuestions: string[]
+}>(() => `/api/public/organizations/${slug.value}`)
+
+const memberOrganization = computed(() => getOrganizationBySlug(slug.value))
+const organization = computed(() => memberOrganization.value ?? publicData.value?.organization)
+const publicSuggestedQuestions = computed(() => publicData.value?.suggestedQuestions ?? [])
+const popularQuestions = computed<PopularQuestion[]>(() =>
+  publicSuggestedQuestions.value.map((question, index) => ({
+    question,
+    count: Math.max(1, publicSuggestedQuestions.value.length - index)
+  }))
+)
+const suggestions = computed<SuggestionQuestion[]>(() =>
+  publicSuggestedQuestions.value.map((question, index) => ({
+    id: `public-suggestion-${index}`,
+    question,
+    category: text.organizationDetail.suggestionsTitle
+  }))
+)
+const currentMember = computed(() => getMembers(slug.value).find((member) => member.email === user.value?.email))
+const allowGuestChat = computed(() => publicData.value?.allowGuestChat ?? false)
+const allowGuestDocumentAccess = computed(() => publicData.value?.allowGuestDocumentAccess ?? false)
+const hasPermission = (permission: OrganizationPermission) =>
+  memberOrganization.value?.role === 'admin' || currentMember.value?.permissions.includes(permission)
+const canChat = computed(() => hasPermission('chat_advisory'))
+const canReadDocuments = computed(() => hasPermission('read_documents') || (!memberOrganization.value && allowGuestDocumentAccess.value))
+const canViewEmployees = computed(() => hasPermission('view_employees'))
+const canAccessSettings = computed(() => hasPermission('access_org_settings'))
 
 const stats = computed<StatItem[]>(() => {
   if (!organization.value) {
@@ -93,28 +126,40 @@ const stats = computed<StatItem[]>(() => {
 })
 
 const shortcuts = computed<ActionCardItem[]>(() => [
-  {
+  ...(canChat.value ? [{
+    title: text.workspace.openChat,
+    description: 'Hỏi đáp theo tài liệu đã index trong workspace tổ chức.',
+    icon: 'lucide:message-square-text',
+    link: getOrganizationRoute(slug.value, 'workspace')
+  }] : []),
+  ...(canViewEmployees.value ? [{
     title: text.common.employees,
     description: 'Thêm người dùng, role và trạng thái lời mời.',
     icon: 'lucide:user-plus',
     link: getOrganizationRoute(slug.value, 'employees')
-  },
-  {
+  }] : []),
+  ...(canReadDocuments.value ? [{
     title: text.common.documents,
     description: 'Upload, chunking, embedding và lưu source link.',
     icon: 'lucide:file-up',
     link: getOrganizationRoute(slug.value, 'documents')
-  },
-  {
+  }] : []),
+  ...(hasPermission('view_analytics') ? [{
     title: text.common.analytics,
     description: 'Theo dõi lượt dùng, tài liệu và bộ câu hỏi gợi ý của tổ chức.',
     icon: 'lucide:chart-column-big',
     link: getOrganizationRoute(slug.value, 'analytics')
-  }
+  }] : [])
 ])
 
 onMounted(async () => {
+  if (!isAuthenticated.value) {
+    return
+  }
+
   await loadOrganizations()
-  await loadContext(slug.value)
+  if (memberOrganization.value?.role !== 'admin' && memberOrganization.value) {
+    await loadMembers(slug.value)
+  }
 })
 </script>

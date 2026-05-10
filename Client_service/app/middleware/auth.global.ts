@@ -7,7 +7,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const auth = useAuthStore()
   const publicRoutes = [APP_ROUTES.home, APP_ROUTES.authLogin, APP_ROUTES.authRegister, APP_ROUTES.authGoogleCallback]
   const isOrganizationPublicRoute = /^\/org\/[^/]+\/public\/?$/.test(to.path)
-  const isPublicRoute = publicRoutes.includes(to.path) || isOrganizationPublicRoute
+  const isOrganizationDashboardRoute = /^\/org\/[^/]+\/dashboard\/?$/.test(to.path)
+  const isOrganizationGuestChatRoute = /^\/org\/[^/]+\/chat\/?$/.test(to.path)
+  const isOrganizationDocumentsRoute = /^\/org\/[^/]+\/documents\/?$/.test(to.path)
+  const isOrganizationSearchRoute = /^\/org\/search\/?$/.test(to.path)
+  const isPublicRoute = publicRoutes.includes(to.path) || isOrganizationPublicRoute || isOrganizationDashboardRoute || isOrganizationGuestChatRoute || isOrganizationDocumentsRoute || isOrganizationSearchRoute
 
   if (!auth.isReady && (!isPublicRoute || hasClientAuthToken())) {
     await auth.hydrate()

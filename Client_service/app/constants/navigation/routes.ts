@@ -1,4 +1,5 @@
-﻿import type { AppMessages } from '@/locales'
+import type { OrganizationPermission } from '@/constants/rbac'
+import type { AppMessages } from '@/locales'
 
 export interface NavigationItem {
   label: string
@@ -43,8 +44,14 @@ export const getOrganizationRoute = (slug: string, segment: OrganizationRouteSeg
 
 export const getOrganizationPublicRoute = (slug: string) => `${APP_ROUTES.organizations}/${slug}/public`
 
-export const getContextChatRoute = (slug: string) =>
-  slug === 'personal' ? APP_ROUTES.dashboard : getOrganizationRoute(slug, 'workspace')
+export const getContextChatRoute = (slug: string, sessionId?: string | null) => {
+  if (slug === 'personal') {
+    return sessionId ? `${APP_ROUTES.dashboard}/chat/${sessionId}` : APP_ROUTES.dashboard
+  }
+
+  const workspaceRoute = getOrganizationRoute(slug, 'workspace')
+  return sessionId ? `${workspaceRoute}/chat/${sessionId}` : workspaceRoute
+}
 
 export const getAppNavigation = (text: AppMessages): NavigationItem[] => [
   {
@@ -82,10 +89,14 @@ export const getSettingNavigation = (text: AppMessages): NavigationItem[] => [
   }
 ]
 
-export const getOrganizationNavigation = (text: AppMessages) => [
-  { label: text.common.overview, to: (slug: string) => getOrganizationRoute(slug, 'dashboard') },
-  { label: text.common.employees, to: (slug: string) => getOrganizationRoute(slug, 'employees') },
-  { label: text.common.documents, to: (slug: string) => getOrganizationRoute(slug, 'documents') },
-  { label: text.common.analytics, to: (slug: string) => getOrganizationRoute(slug, 'analytics') },
-  { label: text.common.settings, to: (slug: string) => getOrganizationRoute(slug, 'settings') }
+export const getOrganizationNavigation = (text: AppMessages): Array<{
+  label: string
+  permission: OrganizationPermission | null
+  to: (slug: string) => string
+}> => [
+  { label: text.common.overview, permission: null, to: (slug: string) => getOrganizationRoute(slug, 'dashboard') },
+  { label: text.common.employees, permission: 'view_employees', to: (slug: string) => getOrganizationRoute(slug, 'employees') },
+  { label: text.common.documents, permission: 'read_documents', to: (slug: string) => getOrganizationRoute(slug, 'documents') },
+  { label: text.common.analytics, permission: 'view_analytics', to: (slug: string) => getOrganizationRoute(slug, 'analytics') },
+  { label: text.common.settings, permission: 'access_org_settings', to: (slug: string) => getOrganizationRoute(slug, 'settings') }
 ]

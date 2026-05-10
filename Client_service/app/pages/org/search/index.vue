@@ -33,11 +33,11 @@
           </div>
 
           <div class="org-row-actions">
-            <NuxtLink class="btn-secondary" :to="getOrganizationPublicRoute(organization.slug)">
-              {{ text.organizationPublic.openPublicPage }}
+            <NuxtLink class="btn-secondary" :to="getOrganizationRoute(organization.slug, 'chat')">
+              {{ text.organizationPublic.guestChatTitle }}
             </NuxtLink>
-            <NuxtLink class="btn-primary" :to="getOrganizationPublicRoute(organization.slug)">
-              {{ text.organizationPublic.joinTitle }}
+            <NuxtLink class="btn-primary" :to="getOrganizationRoute(organization.slug, 'dashboard')">
+              {{ text.organizationPublic.guestEnterCompany }}
             </NuxtLink>
           </div>
         </article>
@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { getOrganizationPublicRoute } from '@/constants/navigation'
+import { getOrganizationRoute } from '@/constants/navigation'
 import type { OrganizationSummary } from '@/types/organization'
 
 const { text } = useAppLocale()
