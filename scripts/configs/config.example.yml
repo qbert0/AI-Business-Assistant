@@ -10,8 +10,8 @@ benchmark:
   reset_before_index: true
 
   chunking:
-    chunk_chars: 3500
-    chunk_overlap: 400
+    chunk_chars: 900
+    chunk_overlap: 120
 
   request:
     timeout_seconds: 180
@@ -40,6 +40,22 @@ benchmark:
     index_name: benchmark_vector
     batch_size: 128
     recreate: true
+
+  qa:
+    dataset_path: benchmark/dataset/benchmark_metric.xlsx
+    rag_results_path: benchmark/results/rag_results.xlsx
+    ras_results_path: benchmark/results/ras_basic_50.xlsx
+    llm_model_id:
+    llm_use_case: chat_advisory
+    temperature: 0.1
+    answer_max_tokens: 2048
+    analysis_max_tokens: 1200
+    top_k: 8
+    num_candidates: 80
+    max_rounds: 3
+    max_follow_up_queries: 3
+    query_graph_namespace: benchmark-query
+    cleanup_query_graph: true
 
   rag:
     url: http://localhost:8003

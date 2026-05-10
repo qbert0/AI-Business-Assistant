@@ -110,6 +110,16 @@ def get_neo4j_namespace_status(
                 """,
                 group_prefix=group_prefix,
             )
+            label_records = session.run(
+                """
+                MATCH (n)
+                WHERE n.group_id STARTS WITH $group_prefix
+                UNWIND labels(n) AS label
+                RETURN label, count(*) AS count
+                ORDER BY count DESC
+                """,
+                group_prefix=group_prefix,
+            )
             direct_edge_count = int(edge_record["direct_edge_count"]) if edge_record else 0
             group_edge_count = int(group_edge_record["group_edge_count"]) if group_edge_record else 0
             return {
@@ -119,6 +129,7 @@ def get_neo4j_namespace_status(
                 "edge_count": max(direct_edge_count, group_edge_count),
                 "direct_edge_count": direct_edge_count,
                 "group_edge_count": group_edge_count,
+                "label_counts": [dict(record) for record in label_records],
                 "edge_types": [dict(record) for record in edge_type_records],
                 "groups": [dict(record) for record in sample_records],
             }
@@ -145,14 +156,28 @@ def wait_for_graph_idle(
             "graph-status "
             f"stream_length={redis_status.get('stream_length')} "
             f"pending={pending} lag={lag} "
+            f"group_prefix={neo4j_status.get('group_prefix')} "
             f"neo4j_groups={neo4j_status.get('group_count')} "
             f"neo4j_nodes={neo4j_status.get('node_count')} "
             f"neo4j_edges={neo4j_status.get('edge_count')} "
             f"direct_edges={neo4j_status.get('direct_edge_count')} "
-            f"group_edges={neo4j_status.get('group_edge_count')}"
+            f"group_edges={neo4j_status.get('group_edge_count')} "
+            f"labels={_format_counts(neo4j_status.get('label_counts'), 'label')} "
+            f"edge_types={_format_counts(neo4j_status.get('edge_types'), 'type')}"
         )
         if pending == 0 and (lag in (0, None)):
             return last_status
         if time.monotonic() - started >= timeout_seconds:
             return last_status
         time.sleep(interval_seconds)
+
+
+def _format_counts(rows: Any, key: str) -> str:
+    if not rows:
+        return "none"
+    parts = []
+    for row in rows[:6]:
+        name = row.get(key) if isinstance(row, dict) else None
+        count = row.get("count") if isinstance(row, dict) else None
+        parts.append(f"{name}:{count}")
+    return ",".join(parts)

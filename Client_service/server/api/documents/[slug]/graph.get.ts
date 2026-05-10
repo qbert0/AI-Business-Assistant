@@ -1,4 +1,4 @@
-import { backendFetch, getBackendUser, mapDocumentGraph } from '../../../utils/backend'
+import { backendFetch, getBackendUser, getRagBaseUrl, mapDocumentGraph } from '../../../utils/backend'
 
 export default defineEventHandler(async (event) => {
   const user = await getBackendUser(event)
@@ -15,8 +15,7 @@ export default defineEventHandler(async (event) => {
     .filter((document) => ['indexed', 'completed'].includes(String(document.status || '').toLowerCase()))
     .map((document) => String(document.id))
 
-  const config = useRuntimeConfig()
-  const baseUrl = String(config.ragServiceBaseUrl || 'http://rag-service:8000').replace(/\/$/, '')
+  const baseUrl = getRagBaseUrl()
   const response = await $fetch<{ graph: any }>(`${baseUrl}/graph/documents`, {
     method: 'POST',
     body: {

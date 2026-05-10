@@ -103,6 +103,18 @@ export interface DocumentGraph {
   }
 }
 
+export interface DocumentSearchResult {
+  id: string
+  documentId: string
+  documentName: string
+  title: string
+  content: string
+  type: 'fact' | 'node'
+  score?: number | null
+  sourceNodeId?: string | null
+  targetNodeId?: string | null
+}
+
 export interface PipelineStep {
   id: string
   name: string
