@@ -1,4 +1,5 @@
 import { APP_ROUTES } from '@/constants/navigation'
+import { useAuthStore } from '@/stores/auth/useAuthStore'
 import { AUTH_REDIRECT_QUERY, getAuthRedirectTarget } from '@/utils/auth-redirect'
 import { hasClientAuthToken } from '@/utils/auth-token'
 

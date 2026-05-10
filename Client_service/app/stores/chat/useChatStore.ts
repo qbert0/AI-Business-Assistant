@@ -1,3 +1,6 @@
+import { useChatMessageStore } from '@/stores/chat/useChatMessageStore'
+import { useChatSessionStore } from '@/stores/chat/useChatSessionStore'
+
 export const useChatStore = defineStore('chat', () => {
   const sessions = useChatSessionStore()
   const messages = useChatMessageStore()

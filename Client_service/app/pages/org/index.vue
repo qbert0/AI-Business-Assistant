@@ -116,6 +116,9 @@
 </template>
 
 <script setup lang="ts">
+import { useOrganization } from '@/composables/organizations/useOrganization'
+import { useAppLocale } from '@/composables/system/useAppLocale'
+import { useAppNotifications } from '@/composables/system/useAppNotifications'
 import { UI_MESSAGES } from '@/constants/messages'
 import { APP_ROUTES, getOrganizationPublicRoute, getOrganizationRoute } from '@/constants/navigation'
 import type { OrganizationSummary } from '@/types/organization'

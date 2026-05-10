@@ -1,3 +1,5 @@
+import { useDocumentStore } from '@/stores/documents/useDocumentStore'
+
 export const useDocuments = () => {
   const store = useDocumentStore()
 

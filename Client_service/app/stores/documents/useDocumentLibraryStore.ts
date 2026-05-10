@@ -1,6 +1,9 @@
 import type { KnowledgeDocument, PipelineStep } from '@/types/organization'
 
+import { useApiDocuments } from '@/composables/api/documents/useApiDocuments'
+
 export const useDocumentLibraryStore = defineStore('document-library', () => {
+  const api = useApiDocuments()
   const documentsByOrg = ref<Record<string, KnowledgeDocument[]>>({})
   const pipelineByOrg = ref<Record<string, PipelineStep[]>>({})
   const isLoading = ref(false)
@@ -10,7 +13,6 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
   const getPipeline = (slug: string) => pipelineByOrg.value[slug] ?? []
 
   const loadDocuments = async (slug: string) => {
-    const api = useApiDocuments()
     isLoading.value = true
     error.value = null
 
@@ -28,7 +30,6 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
   }
 
   const loadPipeline = async (slug: string) => {
-    const api = useApiDocuments()
     const response = await api.pipeline(slug)
     pipelineByOrg.value = {
       ...pipelineByOrg.value,
@@ -37,7 +38,6 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
   }
 
   const uploadDocument = async (slug: string, file: string | File) => {
-    const api = useApiDocuments()
     const response = await api.upload(slug, file)
     documentsByOrg.value = {
       ...documentsByOrg.value,

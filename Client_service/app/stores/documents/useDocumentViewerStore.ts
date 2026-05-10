@@ -18,7 +18,10 @@ const createViewerState = (): DocumentViewerState => ({
   previewsByDocumentId: {}
 })
 
+import { useApiDocuments } from '@/composables/api/documents/useApiDocuments'
+
 export const useDocumentViewerStore = defineStore('document-viewer', () => {
+  const api = useApiDocuments()
   const stateByOrg = ref<Record<string, DocumentViewerState>>({})
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -82,7 +85,6 @@ export const useDocumentViewerStore = defineStore('document-viewer', () => {
       return
     }
 
-    const api = useApiDocuments()
     isLoading.value = true
     error.value = null
 

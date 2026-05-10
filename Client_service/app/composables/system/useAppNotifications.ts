@@ -1,31 +1,27 @@
-import { APP_ROUTES, getOrganizationRoute } from '@/constants/navigation'
-import type { AppNotificationItem } from '@/types/notification'
+import { useAppLocale } from '@/composables/system/useAppLocale'
 
 export const useAppNotifications = () => {
   const { text } = useAppLocale()
 
-  const notifications = computed<AppNotificationItem[]>(() => [
+  const notifications = computed(() => [
     {
       id: 'document-indexed',
       title: text.notifications.documentIndexedTitle,
       description: text.notifications.documentIndexedDescription,
-      to: getOrganizationRoute('acme-holdings', 'documents'),
-      tone: 'info'
+      to: '/org/acme/documents'
     },
     {
       id: 'join-approved',
       title: text.notifications.joinApprovedTitle,
       description: text.notifications.joinApprovedDescription,
-      to: APP_ROUTES.organizations,
-      tone: 'success'
+      to: '/workspace/requests'
     }
   ])
 
-  const notificationSummary = computed(() => notifications.value.slice(0, 3))
+  const notificationSummary = computed(() => `${notifications.value.length}`)
 
   return {
     notifications,
     notificationSummary
   }
 }
-

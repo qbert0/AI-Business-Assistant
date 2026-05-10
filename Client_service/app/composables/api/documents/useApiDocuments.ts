@@ -1,5 +1,7 @@
 import type { KnowledgeDocument, PipelineStep } from '@/types/organization'
 
+import { useApiFetch } from '@/composables/api/core/useApiFetch'
+
 export const useApiDocuments = () => {
   const apiFetch = useApiFetch()
 

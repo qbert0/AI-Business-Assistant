@@ -1,3 +1,5 @@
+import { useRbac } from '@/composables/security/useRbac'
+
 export default defineNuxtRouteMiddleware(async (to) => {
   const { resolveRouteAccess } = useRbac()
   const access = await resolveRouteAccess(to.path)

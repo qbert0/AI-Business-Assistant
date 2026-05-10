@@ -9,6 +9,7 @@
 
 <script setup lang="ts">
 import type { OrganizationPermission } from '@/constants/rbac'
+import { useRbac } from '@/composables/security/useRbac'
 
 const props = defineProps<{
   slug: string

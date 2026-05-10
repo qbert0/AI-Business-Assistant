@@ -34,6 +34,9 @@
 </template>
 
 <script setup lang="ts">
+import { useDocuments } from '@/composables/documents/useDocuments'
+import { useOrganization } from '@/composables/organizations/useOrganization'
+import { useAppLocale } from '@/composables/system/useAppLocale'
 definePageMeta({
   layout: 'org'
 })

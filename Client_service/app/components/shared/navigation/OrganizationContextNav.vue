@@ -17,6 +17,8 @@
 </template>
 
 <script setup lang="ts">
+import { useOrganization } from '@/composables/organizations/useOrganization'
+import { useAppLocale } from '@/composables/system/useAppLocale'
 import { getOrganizationNavigation } from '@/constants/navigation'
 
 const { text } = useAppLocale()

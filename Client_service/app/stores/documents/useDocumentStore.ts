@@ -1,3 +1,6 @@
+import { useDocumentLibraryStore } from '@/stores/documents/useDocumentLibraryStore'
+import { useDocumentViewerStore } from '@/stores/documents/useDocumentViewerStore'
+
 export const useDocumentStore = defineStore('documents', () => {
   const library = useDocumentLibraryStore()
   const viewer = useDocumentViewerStore()

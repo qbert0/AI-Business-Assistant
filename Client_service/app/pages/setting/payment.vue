@@ -38,6 +38,9 @@
 </template>
 
 <script setup lang="ts">
+import { useAppLocale } from '@/composables/system/useAppLocale'
+import { useSettingsForms } from '@/composables/settings/useSettingsForms'
+
 definePageMeta({
   layout: 'settings'
 })

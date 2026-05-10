@@ -82,6 +82,9 @@
 </template>
 
 <script setup lang="ts">
+import { useChatbot } from '@/composables/chat/useChatbot'
+import { useOrganization } from '@/composables/organizations/useOrganization'
+import { useAppLocale } from '@/composables/system/useAppLocale'
 import ChatSessionSidebar from '@/components/shared/chat/ChatSessionSidebar.vue'
 import type { ChatSession, OrganizationSummary } from '@/types/organization'
 
@@ -98,6 +101,16 @@ const streamingStatus = computed(() => getStreamingStatus(selectedSlug.value))
 const isStreaming = computed(() => getIsStreaming(selectedSlug.value))
 const prompt = ref('')
 
+const primeWorkspace = async () => {
+  try {
+    await loadContext(selectedSlug.value)
+    selectedSessionId.value = getSessions(selectedSlug.value)[0]?.id ?? null
+    await loadMessages(selectedSlug.value, selectedSessionId.value)
+  } catch {
+    selectedSessionId.value = null
+  }
+}
+
 const handleAsk = async () => {
   if (!prompt.value.trim()) {
     return
@@ -107,9 +120,8 @@ const handleAsk = async () => {
   prompt.value = ''
 }
 
-onMounted(async () => {
-  await loadContext(selectedSlug.value)
-  await loadMessages(selectedSlug.value, selectedSessionId.value)
+onMounted(() => {
+  primeWorkspace()
 })
 
 watch(organizations, (value: OrganizationSummary[]) => {

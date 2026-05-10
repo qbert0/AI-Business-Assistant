@@ -170,6 +170,9 @@
 </template>
 
 <script setup lang="ts">
+import { useDocuments } from '@/composables/documents/useDocuments'
+import { useOrganization } from '@/composables/organizations/useOrganization'
+import { useAppLocale } from '@/composables/system/useAppLocale'
 import type { KnowledgeDocument } from '@/types/organization'
 import { DOCUMENT_FOLDER_IDS, DOCUMENT_FOLDER_KEYWORDS } from '@/constants/documents'
 

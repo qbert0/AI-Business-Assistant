@@ -2,7 +2,10 @@ import type { AuthUser } from '@/types/auth'
 import { loginSchema, registerSchema, type LoginInput, type RegisterInput } from '@/schemas/auth'
 import { hasClientAuthToken } from '@/utils/auth-token'
 
+import { useApiAuth } from '@/composables/api/auth/useApiAuth'
+
 export const useAuthStore = defineStore('auth', () => {
+  const api = useApiAuth()
   const user = ref<AuthUser | null>(null)
   const isReady = ref(false)
   const isLoading = ref(false)
@@ -27,7 +30,6 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
 
     try {
-      const api = useApiAuth()
       const response = await api.me()
       user.value = response.user
     } catch {
@@ -49,7 +51,6 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
 
     try {
-      const api = useApiAuth()
       const response = await api.login(parsed.data)
       persistClientAuthToken(response.token)
       user.value = response.user
@@ -75,7 +76,6 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
 
     try {
-      const api = useApiAuth()
       const response = await api.register(parsed.data)
       persistClientAuthToken(response.token)
       user.value = response.user
@@ -91,7 +91,6 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const logout = async () => {
-    const api = useApiAuth()
     await api.logout()
     clearClientAuthToken()
     user.value = null
