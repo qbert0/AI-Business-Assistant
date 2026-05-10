@@ -24,10 +24,10 @@ export const useApiChat = () => {
   const suggestions = (slug: string) =>
     apiFetch<{ suggestions: SuggestionQuestion[], popularQuestions: PopularQuestion[] }>(`/api/chat/${slug}/suggestions`)
 
-  const feedback = (slug: string, rating: 'positive' | 'negative', comment: string) =>
+  const feedback = (slug: string, messageId: string, rating: 'positive' | 'negative', comment: string) =>
     apiFetch<{ ok: boolean }>(`/api/chat/${slug}/feedback`, {
       method: 'POST',
-      body: { rating, comment }
+      body: { messageId, rating, comment }
     })
 
   return {

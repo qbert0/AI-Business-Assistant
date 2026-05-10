@@ -3,8 +3,9 @@ import json
 from sqlalchemy.orm import Session
 
 from app.entities import database as db_entities
-from app.entities.chat import ChatAnswerEntity, CitationEntity
+from app.entities.chat import ChatAnswerEntity, CitationEntity, ReportArtifactEntity
 from app.entities.search import SearchHitEntity
+from app.services.chat_artifacts import serialize_report_artifacts
 
 
 def get_chat_session(session_id: str, db: Session) -> db_entities.ChatSession | None:
@@ -58,13 +59,33 @@ def list_chat_messages(session_id: str, db: Session) -> list[db_entities.ChatMes
 
 
 def list_chat_history(session_id: str, db: Session, limit: int = 12) -> list[db_entities.ChatMessage]:
-    return (
+    messages = (
         db.query(db_entities.ChatMessage)
         .filter(db_entities.ChatMessage.session_id == session_id)
-        .order_by(db_entities.ChatMessage.created_at.asc())
+        .order_by(db_entities.ChatMessage.created_at.desc())
         .limit(limit)
         .all()
     )
+    return list(reversed(messages))
+
+
+def list_chat_feedback_history(
+    session_id: str,
+    db: Session,
+    limit: int = 6,
+) -> list[tuple[db_entities.ChatFeedback, db_entities.ChatMessage]]:
+    rows = (
+        db.query(db_entities.ChatFeedback, db_entities.ChatMessage)
+        .join(db_entities.ChatMessage, db_entities.ChatFeedback.message_id == db_entities.ChatMessage.id)
+        .filter(
+            db_entities.ChatMessage.session_id == session_id,
+            db_entities.ChatMessage.sender_type == "ai",
+        )
+        .order_by(db_entities.ChatFeedback.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return list(reversed(rows))
 
 
 def save_chat_answer(
@@ -73,13 +94,14 @@ def save_chat_answer(
     answer: str,
     citations: list[CitationEntity],
     search_hits: list[SearchHitEntity],
+    report_artifacts: list[ReportArtifactEntity],
     db: Session,
 ) -> ChatAnswerEntity:
     user_message = db_entities.ChatMessage(session_id=session.id, sender_type="user", content=question)
     assistant_message = db_entities.ChatMessage(
         session_id=session.id,
         sender_type="ai",
-        content=answer,
+        content=serialize_report_artifacts(answer, report_artifacts),
         citations_json=json.dumps(
             [
                 {
@@ -103,6 +125,7 @@ def save_chat_answer(
         answer=answer,
         citations=citations,
         search_hits=search_hits,
+        report_artifacts=report_artifacts,
     )
 
 

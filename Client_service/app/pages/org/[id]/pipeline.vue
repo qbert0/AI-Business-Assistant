@@ -1,12 +1,12 @@
 ﻿<template>
-  <div v-if="organization" class="space-y-6">
-    <section class="surface-card space-y-3">
+  <div v-if="organization" class="org-content-page">
+    <section class="surface-card org-hero-card space-y-3">
       <p class="eyebrow">{{ text.pipelinePage.eyebrow }}</p>
       <h1 class="page-title">{{ text.pipelinePage.titlePrefix }} {{ organization.name }}</h1>
       <p class="muted-copy">{{ text.pipelinePage.description }}</p>
     </section>
 
-    <section class="grid gap-3 xl:grid-cols-2">
+    <section class="org-card-grid-2">
       <article v-for="step in pipeline" :key="step.id" class="surface-card space-y-3">
         <div class="flex items-start justify-between gap-3">
           <div>
@@ -38,7 +38,8 @@ import { useDocuments } from '@/composables/documents/useDocuments'
 import { useOrganization } from '@/composables/organizations/useOrganization'
 import { useAppLocale } from '@/composables/system/useAppLocale'
 definePageMeta({
-  layout: 'org'
+  layout: 'org',
+  orgFullBleed: true
 })
 
 const { text } = useAppLocale()
@@ -56,4 +57,3 @@ onMounted(async () => {
   await loadPipeline(slug.value)
 })
 </script>
-

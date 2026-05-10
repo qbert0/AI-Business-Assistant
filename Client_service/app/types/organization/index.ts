@@ -151,8 +151,20 @@ export interface ChatCitation {
 export interface ChatSearchHit {
   documentId: string
   fileName: string
+  documentName?: string | null
   sourceUrl: string
+  chunkId?: string | null
+  hitType?: string | null
   score?: number | null
+}
+
+export interface ChatArtifact {
+  kind: 'pdf'
+  label: string
+  fileName: string
+  sourceUrl: string
+  downloadUrl?: string | null
+  contentType?: string | null
 }
 
 export interface ChatMessage {
@@ -160,6 +172,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   citations?: ChatCitation[]
+  artifacts?: ChatArtifact[]
   searchHits?: ChatSearchHit[]
   status?: 'thinking' | 'streaming' | 'complete' | 'error'
   activity?: string | null

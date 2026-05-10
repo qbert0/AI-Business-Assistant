@@ -1,7 +1,7 @@
-import { streamChatAnswer } from '@/utils/chat-stream'
-import { useApiChat } from '@/composables/api/chat/useApiChat'
 import { useAuthStore } from '@/stores/auth/useAuthStore'
 import { useChatSessionStore } from '@/stores/chat/useChatSessionStore'
+import { streamChatAnswer } from '@/utils/chat-stream'
+import { useApiChat } from '@/composables/api/chat/useApiChat'
 import type { ChatMessage, ChatSearchHit, ChatSession } from '@/types/organization'
 
 interface StreamSessionPayload {
@@ -19,6 +19,9 @@ interface StreamCitationPayload {
 }
 
 interface StreamSearchHitPayload extends StreamCitationPayload {
+  document_name?: string | null
+  chunk_id?: string | null
+  hit_type?: string | null
   score?: number | null
 }
 
@@ -26,6 +29,7 @@ interface StreamMessagePayload {
   id: string
   content: string
   citations?: StreamCitationPayload[]
+  artifacts?: Array<{ kind?: 'pdf', label?: string, file_name?: string, source_url?: string, download_url?: string | null, content_type?: string | null }>
 }
 
 interface StreamCompletePayload {
@@ -53,6 +57,10 @@ interface ChatMessageContextState {
   isStreaming: boolean
 }
 
+interface AskQuestionOptions {
+  onSession?: (sessionId: string) => void
+}
+
 const createMessageContextState = (): ChatMessageContextState => ({
   messagesBySession: {},
   messageCursorBySession: {},
@@ -67,6 +75,52 @@ const mapStreamSession = (session: StreamSessionPayload): ChatSession => ({
   updatedAt: String(session.updated_at || '').slice(0, 16).replace('T', ' '),
   preview: session.title,
   isPinned: Boolean(session.is_pinned)
+})
+
+const isEphemeralMessage = (message: ChatMessage) =>
+  message.id.startsWith('local-user-')
+  || message.id.startsWith('stream-')
+  || message.status === 'thinking'
+  || message.status === 'streaming'
+
+const mergePersistedWithEphemeralMessages = (
+  persistedMessages: ChatMessage[],
+  existingMessages: ChatMessage[],
+) => {
+  const merged = [...persistedMessages]
+  const knownIds = new Set(persistedMessages.map((message) => message.id))
+
+  for (const message of existingMessages) {
+    if (!isEphemeralMessage(message) || knownIds.has(message.id)) {
+      continue
+    }
+    merged.push(message)
+    knownIds.add(message.id)
+  }
+
+  return merged
+}
+
+const createLocalUserMessage = (id: string, content: string): ChatMessage => ({
+  id,
+  role: 'user',
+  content,
+  citations: [],
+  artifacts: [],
+  searchHits: [],
+  status: 'complete',
+  activity: null
+})
+
+const createStreamingAssistantMessage = (sessionId: string, activity: string | null): ChatMessage => ({
+  id: `stream-${sessionId}`,
+  role: 'assistant',
+  content: '',
+  citations: [],
+  artifacts: [],
+  searchHits: [],
+  status: 'thinking',
+  activity
 })
 
 export const useChatMessageStore = defineStore('chat-messages', () => {
@@ -98,10 +152,15 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
     if (!sessionId) {
       return
     }
+    if (sessionId.startsWith('local-session-')) {
+      return
+    }
 
     const context = ensureContext(slug)
+    const existingMessages = context.messagesBySession[sessionId] ?? []
     const response = await api.messages(slug, sessionId, 0, 20)
-    context.messagesBySession[sessionId] = response.messages
+    const mergedMessages = mergePersistedWithEphemeralMessages(response.messages, existingMessages)
+    context.messagesBySession[sessionId] = mergedMessages
     context.messageCursorBySession[sessionId] = response.nextCursor
   }
 
@@ -128,7 +187,12 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
     context.messageCursorBySession = remainingCursors
   }
 
-  const askQuestion = async (slug: string, prompt: string, sessionId?: string | null) => {
+  const askQuestion = async (
+    slug: string,
+    prompt: string,
+    sessionId?: string | null,
+    options?: AskQuestionOptions,
+  ) => {
     const context = ensureContext(slug)
     const auth = useAuthStore()
     const sessions = useChatSessionStore()
@@ -142,9 +206,18 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
     context.isStreaming = true
     context.streamingStatus = 'Đang chuẩn bị câu trả lời.'
 
-    let activeSessionId = sessionId ?? null
-    let tempAssistantMessage: ChatMessage | null = null
     const localUserMessageId = `local-user-${Date.now()}`
+    const localSessionId = sessionId ?? `local-session-${Date.now()}`
+    let activeSessionId = localSessionId
+    let localMessagesSessionId = localSessionId
+    let tempAssistantMessage: ChatMessage | null = null
+    tempAssistantMessage = createStreamingAssistantMessage(localSessionId, context.streamingStatus)
+    context.messagesBySession[localSessionId] = [
+      ...(context.messagesBySession[localSessionId] ?? []),
+      createLocalUserMessage(localUserMessageId, prompt),
+      tempAssistantMessage
+    ]
+    options?.onSession?.(localSessionId)
 
     try {
       await streamChatAnswer(
@@ -160,35 +233,18 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
               return
             }
             const session = mapStreamSession(event.session)
-            activeSessionId = session.id
-            sessions.upsertSession(slug, session)
-            const existingMessages = context.messagesBySession[session.id] ?? []
-            tempAssistantMessage = {
-              id: `stream-${session.id}`,
-              role: 'assistant',
-              content: '',
-              citations: [],
-              searchHits: [],
-              status: 'thinking',
-              activity: context.streamingStatus
+            const localMessages = context.messagesBySession[localMessagesSessionId] ?? []
+            if (localMessagesSessionId !== session.id) {
+              context.messagesBySession[session.id] = mergePersistedWithEphemeralMessages(
+                context.messagesBySession[session.id] ?? [],
+                localMessages,
+              )
+              delete context.messagesBySession[localMessagesSessionId]
+              localMessagesSessionId = session.id
             }
-            context.messagesBySession[session.id] = [
-              ...existingMessages,
-              {
-                id: localUserMessageId,
-                role: 'user',
-                content: prompt,
-                citations: [],
-                searchHits: [],
-                status: 'complete',
-                activity: null
-              },
-              tempAssistantMessage
-            ]
-            return
-          }
-
-          if (!activeSessionId) {
+            activeSessionId = session.id
+            options?.onSession?.(session.id)
+            sessions.upsertSession(slug, session)
             return
           }
 
@@ -198,15 +254,7 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
             if (assistantIndex >= 0) {
               return messages[assistantIndex]
             }
-            const created: ChatMessage = {
-              id: `stream-${activeSessionId}`,
-              role: 'assistant',
-              content: '',
-              citations: [],
-              searchHits: [],
-              status: 'thinking',
-              activity: context.streamingStatus
-            }
+            const created = createStreamingAssistantMessage(activeSessionId, context.streamingStatus)
             context.messagesBySession[activeSessionId] = [...messages, created]
             tempAssistantMessage = created
             return created
@@ -229,7 +277,10 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
             assistantMessage.searchHits = event.hits?.map((item): ChatSearchHit => ({
               documentId: item.document_id,
               fileName: item.file_name,
+              documentName: item.document_name ?? item.file_name,
               sourceUrl: item.source_url,
+              chunkId: item.chunk_id ?? null,
+              hitType: item.hit_type ?? null,
               score: item.score ?? null
             })) ?? []
             return
@@ -264,6 +315,7 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
                 role: 'user',
                 content: response.user_message.content,
                 citations: [],
+                artifacts: [],
                 searchHits: [],
                 status: 'complete',
                 activity: null
@@ -277,10 +329,21 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
                   fileName: item.file_name,
                   sourceUrl: item.source_url
                 })),
+                artifacts: (response.assistant_message.artifacts || []).map((item) => ({
+                  kind: 'pdf',
+                  label: item.label || 'Xem báo cáo PDF',
+                  fileName: item.file_name || 'report.pdf',
+                  sourceUrl: item.source_url || '',
+                  downloadUrl: item.download_url || null,
+                  contentType: item.content_type || null
+                })),
                 searchHits: (response.search_hits || []).map((item) => ({
                   documentId: item.document_id,
                   fileName: item.file_name,
+                  documentName: item.document_name ?? item.file_name,
                   sourceUrl: item.source_url,
+                  chunkId: item.chunk_id ?? null,
+                  hitType: item.hit_type ?? null,
                   score: item.score ?? null
                 })),
                 status: 'complete',
@@ -295,6 +358,7 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
               ...finalMessages
             ]
             activeSessionId = finalSession.id
+            localMessagesSessionId = finalSession.id
           }
         }
       )
@@ -324,8 +388,9 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
     }
   }
 
-  const submitFeedback = async (slug: string, rating: 'positive' | 'negative', comment: string) => {
-    await api.feedback(slug, rating, comment)
+  const submitFeedback = async (slug: string, messageId: string, rating: 'positive' | 'negative', comment: string) => {
+    const api = useApiChat()
+    await api.feedback(slug, messageId, rating, comment)
   }
 
   return {

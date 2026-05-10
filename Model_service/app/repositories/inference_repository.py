@@ -30,6 +30,13 @@ from app.repositories.registry_repository import RegistryRepository
 
 
 class InferenceRepository:
+    STORED_SYSTEM_PROMPT_CHARS = 4000
+    STORED_MESSAGE_CHARS = 1200
+    STORED_CONTEXT_ITEM_CHARS = 1800
+    STORED_ERROR_CHARS = 2000
+    STORED_RESPONSE_CHARS = 4000
+    STORED_HISTORY_LIMIT = 12
+    STORED_CONTEXT_ITEM_LIMIT = 4
     MAX_STORED_TEXT_LENGTH = 4000
     MAX_STORED_ITEMS = 50
 
@@ -49,6 +56,54 @@ class InferenceRepository:
         self.registry_repository = RegistryRepository(db, settings)
         self.context_repository = ContextRepository()
         self.metrics_repository = MetricsRepository(db)
+
+    def _truncate_text(self, value: str | None, limit: int) -> str:
+        text = (value or "").strip()
+        if len(text) <= limit:
+            return text
+        return text[: max(0, limit - 1)].rstrip() + "…"
+
+    def _compact_message(self, message) -> dict:
+        return {
+            "role": message.role,
+            "content": self._truncate_text(message.content, self.STORED_MESSAGE_CHARS),
+        }
+
+    def _compact_context_item(self, item) -> dict:
+        metadata = item.metadata if isinstance(item.metadata, dict) else {}
+        return {
+            "title": item.title,
+            "content": self._truncate_text(item.content, self.STORED_CONTEXT_ITEM_CHARS),
+            "source": item.source,
+            "metadata": {
+                **metadata,
+                "_stored_preview": True,
+                "_original_content_chars": len(item.content or ""),
+            },
+        }
+
+    def _build_stored_request_payload(self, payload: InferenceCreate) -> dict:
+        return {
+            "conversation_id": payload.conversation_id,
+            "organization_id": payload.organization_id,
+            "user_id": payload.user_id,
+            "model_id": payload.model_id,
+            "model": payload.model,
+            "use_case": payload.use_case,
+            "question": payload.question,
+            "history": [
+                self._compact_message(message)
+                for message in payload.history[-self.STORED_HISTORY_LIMIT :]
+            ],
+            "external_contexts": [
+                self._compact_context_item(item)
+                for item in payload.external_contexts[: self.STORED_CONTEXT_ITEM_LIMIT]
+            ],
+            "system_prompt": self._truncate_text(payload.system_prompt, self.STORED_SYSTEM_PROMPT_CHARS),
+            "temperature": payload.temperature,
+            "max_tokens": payload.max_tokens,
+            "metadata": payload.metadata,
+        }
 
     def _serialize_request(self, request: db_models.InferenceRequest) -> InferenceRequestRead:
         return to_inference_request_model(request)
@@ -155,22 +210,33 @@ class InferenceRepository:
         response_text: str | None = None,
         error_message: str | None = None,
     ) -> dict:
-        input_messages = [message.dict() for message in context.messages]
-        conversation_messages = [message.dict() for message in context.messages]
+        input_messages = [
+            self._compact_message(message)
+            for message in context.messages[-self.STORED_HISTORY_LIMIT :]
+        ]
+        conversation_messages = list(input_messages)
         latest_user_message = context.messages[-1].content if context.messages else None
         if response_text:
-            conversation_messages.append({"role": "assistant", "content": response_text})
+            conversation_messages.append(
+                {
+                    "role": "assistant",
+                    "content": self._truncate_text(response_text, self.STORED_RESPONSE_CHARS),
+                }
+            )
 
         payload = {
+            "system_prompt": self._truncate_text(context.system_prompt, self.STORED_SYSTEM_PROMPT_CHARS),
+            "messages": input_messages,
+            "context_items": [
+                self._compact_context_item(item)
+                for item in context.context_items[: self.STORED_CONTEXT_ITEM_LIMIT]
+            ],
             "token_estimate": context.token_estimate,
-            "message_count": len(context.messages),
-            "context_item_count": len(context.context_items),
             "input_messages": input_messages,
             "conversation_messages": conversation_messages,
-            "latest_user_message": latest_user_message,
-            "latest_assistant_message": response_text,
-            "error_message": error_message,
-            "context_items": [item.dict() for item in context.context_items],
+            "latest_user_message": self._truncate_text(latest_user_message, self.STORED_MESSAGE_CHARS),
+            "latest_assistant_message": self._truncate_text(response_text, self.STORED_RESPONSE_CHARS),
+            "error_message": self._truncate_text(error_message, self.STORED_ERROR_CHARS),
         }
         return self._shrink_for_storage(payload)
 
@@ -180,15 +246,23 @@ class InferenceRepository:
         response_text: str | None = None,
         error_message: str | None = None,
     ) -> list[dict]:
-        items = [item.dict() for item in context.context_items]
+        items = [
+            self._compact_context_item(item)
+            for item in context.context_items[: self.STORED_CONTEXT_ITEM_LIMIT]
+        ]
 
-        for index, message in enumerate(context.messages, start=1):
+        for index, message in enumerate(context.messages[-self.STORED_HISTORY_LIMIT :], start=1):
             items.append(
                 {
                     "title": f"Message {index}",
-                    "content": message.content,
+                    "content": self._truncate_text(message.content, self.STORED_MESSAGE_CHARS),
                     "source": f"message:{message.role}",
-                    "metadata": {"role": message.role, "kind": "message"},
+                    "metadata": {
+                        "role": message.role,
+                        "kind": "message",
+                        "_stored_preview": True,
+                        "_original_content_chars": len(message.content or ""),
+                    },
                 }
             )
 
@@ -196,9 +270,9 @@ class InferenceRepository:
             items.append(
                 {
                     "title": "Assistant response",
-                    "content": response_text,
+                    "content": self._truncate_text(response_text, self.STORED_RESPONSE_CHARS),
                     "source": "message:assistant",
-                    "metadata": {"role": "assistant", "kind": "response"},
+                    "metadata": {"role": "assistant", "kind": "response", "_stored_preview": True},
                 }
             )
 
@@ -206,9 +280,9 @@ class InferenceRepository:
             items.append(
                 {
                     "title": "Inference error",
-                    "content": error_message,
+                    "content": self._truncate_text(error_message, self.STORED_ERROR_CHARS),
                     "source": "system:error",
-                    "metadata": {"kind": "error"},
+                    "metadata": {"kind": "error", "_stored_preview": True},
                 }
             )
 
@@ -227,24 +301,31 @@ class InferenceRepository:
         return value
 
     def create_inference(self, payload: InferenceCreate) -> InferenceResult:
-        model = self.registry_repository.resolve_runtime_model(
-            model_id=payload.model_id,
-            model_name=payload.model,
-            kind="chat",
-        )
-        policy = None
+        if payload.model_id or payload.model:
+            model = self.registry_repository.resolve_runtime_model(
+                model_id=payload.model_id,
+                model_name=payload.model,
+                kind="chat",
+            )
+            policy = None
+        else:
+            model, policy = self.registry_repository.resolve_model(
+                model_id=None,
+                organization_id=payload.organization_id,
+                use_case=payload.use_case,
+            )
         model_parameters = parse_json_dict(model.parameters_json)
         resolved_temperature = (
             payload.temperature
             if payload.temperature is not None
-            else float(model_parameters.get("temperature") or 0.2)
+            else (policy.temperature if policy else float(model_parameters.get("temperature") or 0.2))
         )
         resolved_max_tokens = (
             payload.max_tokens
             if payload.max_tokens is not None
             else int(model_parameters.get("max_tokens") or 40000)
         )
-        resolved_system_prompt = payload.system_prompt
+        resolved_system_prompt = payload.system_prompt if payload.system_prompt is not None else (policy.system_prompt if policy else None)
 
         context = self.context_repository.build_context(
             ContextBuildRequest(
@@ -265,7 +346,7 @@ class InferenceRepository:
             model_id=model.id,
             policy_id=policy.id if policy else None,
             question=payload.question,
-            request_payload_json=dump_json(payload.dict()),
+            request_payload_json=dump_json(self._build_stored_request_payload(payload)),
             assembled_context_json=dump_json(self._build_stored_context_payload(context)),
             status="running",
         )
@@ -411,4 +492,3 @@ class InferenceRepository:
         if model_id:
             query = query.filter(db_models.FeedbackEvent.model_id == model_id)
         return [self._serialize_feedback(item) for item in query.limit(limit).all()]
-

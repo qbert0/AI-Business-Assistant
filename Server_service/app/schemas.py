@@ -215,7 +215,10 @@ class DocumentSearchRequest(BaseModel):
 class DocumentSearchHit(BaseModel):
     document_id: str
     file_name: str
+    document_name: str | None = None
     source_url: str
+    chunk_id: str | None = None
+    hit_type: str | None = None
     score: float | None = None
     document: dict[str, Any] = Field(default_factory=dict)
 
@@ -246,6 +249,15 @@ class Citation(BaseModel):
     source_url: str
 
 
+class ReportArtifact(BaseModel):
+    kind: Literal["pdf"]
+    label: str
+    file_name: str
+    source_url: str
+    download_url: str | None = None
+    content_type: str | None = None
+
+
 class ChatAsk(BaseModel):
     user_id: str
     question: str = Field(..., min_length=1, examples=["Chinh sach nghi phep cua cong ty nhu the nao?"])
@@ -258,6 +270,7 @@ class ChatMessageRead(BaseModel):
     sender_type: str
     content: str
     citations: list[Citation]
+    artifacts: list[ReportArtifact] = Field(default_factory=list)
     created_at: datetime
 
 
@@ -267,6 +280,7 @@ class ChatAnswer(BaseModel):
     assistant_message: ChatMessageRead
     answer: str
     citations: list[Citation]
+    artifacts: list[ReportArtifact] = Field(default_factory=list)
     search_hits: list[DocumentSearchHit] = Field(default_factory=list)
 
 

@@ -14,6 +14,28 @@ export default defineNuxtConfig({
     '@nuxtjs/google-fonts',
     '@pinia/nuxt'
   ],
+  imports: {
+    dirs: [
+      '~/composables',
+      '~/composables/**',
+      '~/stores',
+      '~/stores/**',
+      '~/utils',
+      '~/utils/**',
+      'composables',
+      'composables/**',
+      'stores',
+      'stores/**',
+      'utils',
+      'utils/**',
+      'app/composables',
+      'app/composables/**',
+      'app/stores',
+      'app/stores/**',
+      'app/utils',
+      'app/utils/**'
+    ]
+  },
   devtools: { enabled: true },
   imports: {
     // `srcDir` mặc định là thư mục `app/`. Tiền tố `app/` sai → chỉ utils (hoặc mặc định khác)

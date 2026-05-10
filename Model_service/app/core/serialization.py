@@ -27,4 +27,7 @@ def parse_json_dict(raw: Any) -> dict[str, Any]:
 
 
 def dump_json(value: Any) -> str:
-    return json.dumps(value if value is not None else {}, ensure_ascii=False)
+    # Store JSON safely even when the backing MariaDB/table collation is not
+    # configured for full Unicode text. Escaping non-ASCII keeps round-tripping
+    # correct while avoiding insert failures in trace/audit columns.
+    return json.dumps(value if value is not None else {}, ensure_ascii=True)

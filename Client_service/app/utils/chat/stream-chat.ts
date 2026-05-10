@@ -1,12 +1,6 @@
 import { getClientAuthToken } from '@/utils/auth-token'
-import { useRuntimeConfig } from '#imports'
 
 type StreamEventHandler = (event: Record<string, any>) => void
-
-const getBackendBaseUrl = () => {
-  const config = useRuntimeConfig()
-  return (config.public.backendApiBaseUrl || '/api').replace(/\/$/, '')
-}
 
 export const streamChatAnswer = async (
   slug: string,
@@ -14,19 +8,16 @@ export const streamChatAnswer = async (
   onEvent: StreamEventHandler,
 ) => {
   const token = getClientAuthToken()
-  const endpoint = slug === 'personal'
-    ? '/chat/personal/ask/stream'
-    : `/organizations/${slug}/chat/ask/stream`
-  const response = await fetch(`${getBackendBaseUrl()}${endpoint}`, {
+  const response = await fetch(`/api/chat/${slug}/stream`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
     body: JSON.stringify({
-      user_id: body.userId,
       question: body.question,
-      session_id: body.sessionId || null
+      userId: body.userId,
+      sessionId: body.sessionId || null
     })
   })
 

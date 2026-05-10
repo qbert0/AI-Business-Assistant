@@ -1,20 +1,20 @@
 ﻿<template>
-  <div v-if="organization" class="space-y-6">
-    <section class="surface-card space-y-3">
+  <div v-if="organization" class="org-content-page">
+    <section class="surface-card org-hero-card space-y-3">
       <p class="eyebrow">{{ text.analytics.eyebrow }}</p>
       <h1 class="page-title">{{ text.analytics.titlePrefix }} {{ organization.name }}</h1>
       <p class="muted-copy">{{ text.analytics.description }}</p>
     </section>
 
-    <section class="grid gap-3 md:grid-cols-3">
-      <article v-for="item in metrics" :key="item.label" class="surface-card space-y-2">
+    <section class="org-metric-grid">
+      <article v-for="item in metrics" :key="item.label" class="surface-card analytics-metric-card space-y-2">
         <p class="text-caption text-stone">{{ item.label }}</p>
         <strong class="text-3xl">{{ item.value }}</strong>
         <p class="muted-copy">{{ item.delta }}</p>
       </article>
     </section>
 
-    <section class="surface-card">
+    <section class="surface-card org-table-panel">
       <div class="section-heading">
         <div>
           <p class="section-kicker">{{ text.analytics.questionsEyebrow }}</p>
@@ -22,20 +22,22 @@
         </div>
       </div>
 
-      <table class="app-table mt-3">
-        <thead>
-          <tr>
-            <th>{{ text.analytics.questionColumn }}</th>
-            <th>{{ text.analytics.countColumn }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in popularQuestions" :key="item.question">
-            <td>{{ item.question }}</td>
-            <td>{{ item.count }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="org-table-scroll mt-3">
+        <table class="app-table">
+          <thead>
+            <tr>
+              <th>{{ text.analytics.questionColumn }}</th>
+              <th>{{ text.analytics.countColumn }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in popularQuestions" :key="item.question">
+              <td>{{ item.question }}</td>
+              <td>{{ item.count }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <section class="surface-card space-y-3">
@@ -44,9 +46,9 @@
         <h2 class="panel-title">{{ text.analytics.restrictionTitle }}</h2>
       </div>
       <textarea v-model="sensitiveRestrictions" class="app-textarea" rows="8" :maxlength="3000" :placeholder="text.analytics.restrictionPlaceholder" />
-      <div class="flex items-center justify-between gap-3">
+      <div class="org-textarea-actions">
         <p class="table-copy">{{ sensitiveWordCount }} / 500 {{ text.analytics.wordUnit }}</p>
-        <div class="flex gap-2">
+        <div class="org-inline-actions">
           <button class="btn-primary">{{ text.common.openPage }}</button>
           <button class="btn-secondary">{{ text.common.cancel }}</button>
         </div>
@@ -60,7 +62,8 @@ import { useChatbot } from '@/composables/chat/useChatbot'
 import { useOrganization } from '@/composables/organizations/useOrganization'
 import { useAppLocale } from '@/composables/system/useAppLocale'
 definePageMeta({
-  layout: 'org'
+  layout: 'org',
+  orgFullBleed: true
 })
 
 const { text } = useAppLocale()
@@ -92,4 +95,3 @@ onMounted(async () => {
   await loadContext(slug.value)
 })
 </script>
-

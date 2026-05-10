@@ -42,9 +42,14 @@
       <div class="space-y-2.5">
         <div class="chat-sidebar-heading">
           <h2 class="panel-title">{{ text.chatSidebar.title }}</h2>
-          <button class="chat-search-trigger" type="button" @click="isSearchVisible = !isSearchVisible">
-            <Icon name="lucide:search" />
-          </button>
+          <div class="flex items-center gap-2">
+            <button class="chat-search-trigger" type="button" :aria-label="text.chatSidebar.newConversation" @click="startNewConversation">
+              <Icon name="lucide:plus" />
+            </button>
+            <button class="chat-search-trigger" type="button" :aria-label="text.chatSidebar.searchPlaceholder" @click="isSearchVisible = !isSearchVisible">
+              <Icon name="lucide:search" />
+            </button>
+          </div>
         </div>
         <input
           v-if="isSearchVisible"
@@ -178,6 +183,11 @@ const selectContext = async (slug: string) => {
 
 const selectSession = (sessionId: string) => {
   emit('update:selectedSessionId', sessionId)
+  activeSessionMenuId.value = null
+}
+
+const startNewConversation = () => {
+  emit('update:selectedSessionId', null)
   activeSessionMenuId.value = null
 }
 

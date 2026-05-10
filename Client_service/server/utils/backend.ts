@@ -65,6 +65,7 @@ interface BackendChatMessage {
   sender_type: 'user' | 'ai' | 'assistant'
   content: string
   citations?: Array<{ document_id?: string, file_name: string, source_url?: string }>
+  artifacts?: Array<{ kind?: 'pdf', label?: string, file_name?: string, source_url?: string, download_url?: string | null, content_type?: string | null }>
 }
 
 interface BackendPipelineEvent {
@@ -248,6 +249,14 @@ export const mapChatMessage = (message: BackendChatMessage): ChatMessage => ({
     documentId: citation.document_id || '',
     fileName: citation.file_name,
     sourceUrl: citation.source_url || ''
+  })) ?? [],
+  artifacts: message.artifacts?.map((artifact) => ({
+    kind: 'pdf',
+    label: artifact.label || 'Xem báo cáo PDF',
+    fileName: artifact.file_name || 'report.pdf',
+    sourceUrl: artifact.source_url || '',
+    downloadUrl: artifact.download_url || null,
+    contentType: artifact.content_type || null
   })) ?? [],
   searchHits: [],
   status: 'complete',

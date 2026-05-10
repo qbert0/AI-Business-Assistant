@@ -1,6 +1,6 @@
 <template>
-  <div v-if="organization" class="space-y-6">
-    <section class="surface-card space-y-4">
+  <div v-if="organization" class="org-content-page">
+    <section class="surface-card org-hero-card space-y-4">
       <div class="section-heading">
         <h1 class="page-title">{{ text.employeesPage.titlePrefix }} {{ organization.name }}</h1>
         <button v-if="isOrganizationAdmin" class="btn-primary" @click="isAddModalOpen = true">{{ text.common.addEmployee }}</button>
@@ -12,72 +12,74 @@
       </div>
     </section>
 
-    <section class="surface-card overflow-x-auto">
-      <table class="app-table mt-3 min-w-[760px]">
-        <thead>
-          <tr>
-            <th>{{ text.employeesPage.employeeColumn }}</th>
-            <th>{{ text.employeesPage.departmentColumn }}</th>
-            <th>{{ text.employeesPage.roleColumn }}</th>
-            <th>{{ text.employeesPage.statusColumn }}</th>
-            <th>{{ text.employeesPage.actionColumn }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="member in paginatedMembers" :key="member.id">
-            <td>
-              <div>
-                <strong>{{ member.name }}</strong>
-                <p class="table-copy">{{ member.email }}</p>
-              </div>
-            </td>
-            <td>
-              {{ member.department }}
-              <p class="table-copy">{{ member.title }}</p>
-            </td>
-            <td>
-              <div class="employee-role-cell">
-                <span class="status-badge status-info">{{ roleLabel(member.role) }}</span>
-                <div class="permission-list">
-                  <span v-for="permission in getRolePermissions(member.role)" :key="permission.id" class="permission-chip active">
-                    {{ permission.label }}
-                  </span>
+    <section class="surface-card org-table-panel">
+      <div class="org-table-scroll">
+        <table class="app-table mt-3">
+          <thead>
+            <tr>
+              <th>{{ text.employeesPage.employeeColumn }}</th>
+              <th>{{ text.employeesPage.departmentColumn }}</th>
+              <th>{{ text.employeesPage.roleColumn }}</th>
+              <th>{{ text.employeesPage.statusColumn }}</th>
+              <th>{{ text.employeesPage.actionColumn }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="member in paginatedMembers" :key="member.id">
+              <td>
+                <div>
+                  <strong>{{ member.name }}</strong>
+                  <p class="table-copy">{{ member.email }}</p>
                 </div>
-              </div>
-            </td>
-            <td>
-              <span :class="member.status === 'active' ? 'status-badge status-success' : 'status-badge status-warning'">
-                {{ statusLabel(member.status) }}
-              </span>
-            </td>
-            <td>
-              <AppPopup
-                :open="activeActionMemberId === member.id"
-                root-class="relative inline-block"
-                content-class="row-action-menu"
-                @update:open="handleRowMenuUpdate(member.id, $event)"
-              >
-                <template #trigger="{ toggle }">
-                  <button class="icon-action-light" :aria-label="text.employeesPage.rowActions" @click="toggle">
-                    <Icon name="lucide:more-horizontal" />
-                  </button>
-                </template>
+              </td>
+              <td>
+                {{ member.department }}
+                <p class="table-copy">{{ member.title }}</p>
+              </td>
+              <td>
+                <div class="employee-role-cell">
+                  <span class="status-badge status-info">{{ roleLabel(member.role) }}</span>
+                  <div class="permission-list">
+                    <span v-for="permission in getRolePermissions(member.role)" :key="permission.id" class="permission-chip active">
+                      {{ permission.label }}
+                    </span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span :class="member.status === 'active' ? 'status-badge status-success' : 'status-badge status-warning'">
+                  {{ statusLabel(member.status) }}
+                </span>
+              </td>
+              <td>
+                <AppPopup
+                  :open="activeActionMemberId === member.id"
+                  root-class="relative inline-block"
+                  content-class="row-action-menu"
+                  @update:open="handleRowMenuUpdate(member.id, $event)"
+                >
+                  <template #trigger="{ toggle }">
+                    <button class="icon-action-light" :aria-label="text.employeesPage.rowActions" @click="toggle">
+                      <Icon name="lucide:more-horizontal" />
+                    </button>
+                  </template>
 
-                <template #default>
-                  <button class="user-menu-link" @click="openEditEmployee(member)">
-                    <Icon name="lucide:pencil" />
-                    <span>{{ text.employeesPage.editEmployee }}</span>
-                  </button>
-                  <button class="user-menu-link danger" @click="deleteMember(member.id)">
-                    <Icon name="lucide:trash-2" />
-                    <span>{{ text.employeesPage.removeEmployee }}</span>
-                  </button>
-                </template>
-              </AppPopup>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+                  <template #default>
+                    <button class="user-menu-link" @click="openEditEmployee(member)">
+                      <Icon name="lucide:pencil" />
+                      <span>{{ text.employeesPage.editEmployee }}</span>
+                    </button>
+                    <button class="user-menu-link danger" @click="deleteMember(member.id)">
+                      <Icon name="lucide:trash-2" />
+                      <span>{{ text.employeesPage.removeEmployee }}</span>
+                    </button>
+                  </template>
+                </AppPopup>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <div v-if="!paginatedMembers.length" class="table-copy mt-3">{{ text.employeesPage.empty }}</div>
 
@@ -234,7 +236,8 @@ import {
 import type { OrganizationMember } from '@/types/organization'
 
 definePageMeta({
-  layout: 'org'
+  layout: 'org',
+  orgFullBleed: true
 })
 
 const { text } = useAppLocale()

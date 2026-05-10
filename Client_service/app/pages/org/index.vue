@@ -125,7 +125,8 @@ import type { OrganizationSummary } from '@/types/organization'
 import type { AppNotificationItem } from '@/types/notification'
 
 definePageMeta({
-  layout: 'org'
+  layout: 'org',
+  orgFullBleed: true
 })
 
 type OrganizationFilter = 'all' | 'admin' | 'user' | 'pending'
