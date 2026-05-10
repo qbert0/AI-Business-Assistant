@@ -11,8 +11,10 @@ from utils.logs import logger
 
 def build_default_payload() -> dict:
     sample_filename = "6-thang-dau-nam-tp-hcm-da-trien-khai-131-cuoc-thanh-tra-hanh-chinh.txt"
+    task_id = str(uuid4())
     return {
-        "task_id": str(uuid4()),
+        "task_id": task_id,
+        "document_id": task_id,
         "task_type": "local-parse-test",
         "filename": sample_filename,
         "local_path": sample_filename,

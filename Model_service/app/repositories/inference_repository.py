@@ -30,6 +30,9 @@ from app.repositories.registry_repository import RegistryRepository
 
 
 class InferenceRepository:
+    MAX_STORED_TEXT_LENGTH = 4000
+    MAX_STORED_ITEMS = 50
+
     def __init__(self, db: Session, settings: Settings) -> None:
         self.db = db
         self.settings = settings
@@ -144,14 +147,18 @@ class InferenceRepository:
         if response_text:
             conversation_messages.append({"role": "assistant", "content": response_text})
 
-        return {
-            **context.dict(),
+        payload = {
+            "token_estimate": context.token_estimate,
+            "message_count": len(context.messages),
+            "context_item_count": len(context.context_items),
             "input_messages": input_messages,
             "conversation_messages": conversation_messages,
             "latest_user_message": latest_user_message,
             "latest_assistant_message": response_text,
             "error_message": error_message,
+            "context_items": [item.dict() for item in context.context_items],
         }
+        return self._shrink_for_storage(payload)
 
     def _build_snapshot_items(
         self,
@@ -191,7 +198,19 @@ class InferenceRepository:
                 }
             )
 
-        return items
+        return self._shrink_for_storage(items)
+
+    @classmethod
+    def _shrink_for_storage(cls, value):
+        if isinstance(value, str):
+            if len(value) <= cls.MAX_STORED_TEXT_LENGTH:
+                return value
+            return value[: cls.MAX_STORED_TEXT_LENGTH] + "...[truncated]"
+        if isinstance(value, list):
+            return [cls._shrink_for_storage(item) for item in value[: cls.MAX_STORED_ITEMS]]
+        if isinstance(value, dict):
+            return {key: cls._shrink_for_storage(item) for key, item in value.items()}
+        return value
 
     def create_inference(self, payload: InferenceCreate) -> InferenceResult:
         model = self.registry_repository.resolve_runtime_model(

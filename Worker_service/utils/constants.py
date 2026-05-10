@@ -20,6 +20,7 @@ else:
 
 WORKER_CONFIG = config.get("worker", {})
 REDIS_CONFIG = config.get("redis", {})
+RAG_CONFIG = config.get("rag_service", {})
 
 LLM_STREAM_LOG = config.get("llm_config", {}).get("stream_log", False)
 
@@ -35,3 +36,5 @@ REDIS_HOST = REDIS_CONFIG.get("host", "redis")
 REDIS_PORT = int(REDIS_CONFIG.get("port", 6379))
 REDIS_DB = int(REDIS_CONFIG.get("db", 0))
 REDIS_PASSWORD = REDIS_CONFIG.get("password")
+
+RAG_SERVICE_URL = RAG_CONFIG.get("url", "http://rag-service:8000")

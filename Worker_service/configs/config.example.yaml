@@ -15,3 +15,6 @@ redis:
   port: 6379
   db: 0
   password: null
+
+rag_service:
+  url: http://rag-service:8000

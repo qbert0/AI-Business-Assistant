@@ -1,0 +1,157 @@
+Few-shot examples:
+
+Example 1
+Bad output:
+I will return the JSON now.
+```json
+{"items":[]}
+```
+
+Good output:
+```json
+{"items":[]}
+```
+
+Example 2
+Bad output:
+```json
+{
+  "$defs": {"Item": {"type": "object"}},
+  "properties": {"items": {"type": "array"}},
+  "required": ["items"],
+  "title": "Example",
+  "type": "object"
+}
+```
+
+Good output:
+```json
+{"items":[]}
+```
+
+Example 3
+Bad output:
+```json
+{
+  "$defs": {"Item": {"type": "object"}},
+  "items": [{"name": "Alice"}]
+}
+```
+
+Good output:
+```json
+{"items":[{"name":"Alice"}]}
+```
+
+Example 4
+Bad output:
+I analyzed the schema and the correct answer is:
+```json
+{"edges":[]}
+```
+
+Good output:
+```json
+{"edges":[]}
+```
+
+Example 5
+Bad output:
+```json
+{
+  "properties": {
+    "duplicate_facts": [],
+    "contradicted_facts": []
+  },
+  "required": ["duplicate_facts", "contradicted_facts"],
+  "title": "EdgeDuplicate",
+  "type": "object"
+}
+```
+
+Good output:
+```json
+{
+  "duplicate_facts": [],
+  "contradicted_facts": []
+}
+```
+
+Example 6
+Bad output:
+```json
+{
+  "$defs": {"ExtractedEntity": {"type": "object"}},
+  "properties": {
+    "extracted_entities": {
+      "type": "array"
+    }
+  },
+  "required": ["extracted_entities"],
+  "title": "ExtractedEntities",
+  "type": "object",
+  "extracted_entities": [
+    {"name": "Thi Nguyễn", "entity_type_id": 0, "episode_indices": [0]}
+  ]
+}
+```
+
+Good output:
+```json
+{
+  "extracted_entities": [
+    {"name": "Thi Nguyễn", "entity_type_id": 0, "episode_indices": [0]}
+  ]
+}
+```
+
+Example 7
+Bad output:
+```json
+{
+  "$defs": {"NodeDuplicate": {"type": "object"}},
+  "entity_resolutions": [
+    {"id": 0, "name": "Đảng", "duplicate_candidate_id": -1}
+  ],
+  "properties": {
+    "entity_resolutions": {"type": "array"}
+  }
+}
+```
+
+Good output:
+```json
+{
+  "entity_resolutions": [
+    {"id": 0, "name": "Đảng", "duplicate_candidate_id": -1}
+  ]
+}
+```
+
+Example 8
+Bad output:
+```json
+{
+  "$defs": {"Edge": {"type": "object"}},
+  "edges": []
+}
+```
+
+Good output:
+```json
+{
+  "edges": []
+}
+```
+
+Example 9
+Bad output:
+No valid items were found.
+```json
+{"extracted_entities":[]}
+```
+
+Good output:
+```json
+{"extracted_entities":[]}
+```

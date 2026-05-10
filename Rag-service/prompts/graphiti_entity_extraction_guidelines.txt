@@ -1,0 +1,13 @@
+Entity extraction rules:
+- Extract only concrete, explicitly mentioned entities from the current text.
+- Prefer official or full names over abbreviations when the full form is present in the text.
+- Do not extract generic nouns, broad categories, bare roles, bare titles, or vague event phrases unless they are uniquely identified.
+- Do not extract dates, times, percentages, raw counts, or standalone measurements as entities.
+- Do not extract a title and a person separately when the title only modifies that person; prefer the person name.
+- If an entity mention is too generic to be useful as a graph node later, omit it.
+
+Output discipline for entity extraction:
+- Do not explain your choices.
+- Do not list candidate entities before answering.
+- Do not include any prose before or after the final JSON block.
+- Return only the final fenced ```json block.

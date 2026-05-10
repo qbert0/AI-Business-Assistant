@@ -5,4 +5,5 @@ include:
   - ./Client_service/docker-compose.yml
   - ./Plugin-service/docker-compose.yml
   - ./Model_service/docker-compose.yml
+  - ./Rag-service/docker-compose.yml
   - ./Worker_service/docker-compose.yml
