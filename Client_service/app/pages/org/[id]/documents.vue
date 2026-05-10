@@ -109,6 +109,33 @@
             Chưa có graph tổ chức. Hãy chạy phân tích cho tài liệu trước, sau đó bấm Tải graph.
           </p>
         </article>
+
+        <article class="document-search-card">
+          <div class="document-search-heading">
+            <div>
+              <p class="section-kicker">Organization search</p>
+              <h3>Tìm trên toàn tổ chức</h3>
+            </div>
+            <span>{{ organizationSearchResults.length }} kết quả</span>
+          </div>
+          <form class="document-search-form" @submit.prevent="handleOrganizationSearch">
+            <Icon name="lucide:search" />
+            <input v-model="organizationSearchQuery" type="search" placeholder="Tìm fact/entity trong toàn bộ tài liệu đã index..." />
+            <button class="btn-dark" type="submit" :disabled="isOrganizationSearching || !organizationSearchQuery.trim()">
+              {{ isOrganizationSearching ? 'Đang tìm' : 'Tìm kiếm' }}
+            </button>
+          </form>
+          <div v-if="organizationSearchResults.length" class="document-search-results">
+            <article v-for="result in organizationSearchResults" :key="result.id" class="document-search-result">
+              <strong>{{ result.title }}</strong>
+              <small>{{ result.documentName }}</small>
+              <p>{{ result.content }}</p>
+            </article>
+          </div>
+          <p v-else-if="organizationSearchQuery.trim()" class="document-insight-empty">
+            Chưa có kết quả phù hợp hoặc graph tổ chức chưa index xong.
+          </p>
+        </article>
       </div>
 
       <div v-else-if="selectedDocument" class="document-content">
@@ -205,6 +232,32 @@
             <span>{{ mode.label }}</span>
           </button>
         </nav>
+
+        <article class="document-search-card">
+          <div class="document-search-heading">
+            <div>
+              <p class="section-kicker">Document search</p>
+              <h3>Tìm trong tài liệu này</h3>
+            </div>
+            <span>{{ documentSearchResults.length }} kết quả</span>
+          </div>
+          <form class="document-search-form" @submit.prevent="handleDocumentSearch">
+            <Icon name="lucide:search" />
+            <input v-model="documentSearchQuery" type="search" placeholder="Tìm fact/entity trong tài liệu đang mở..." />
+            <button class="btn-dark" type="submit" :disabled="isDocumentSearching || !documentSearchQuery.trim()">
+              {{ isDocumentSearching ? 'Đang tìm' : 'Tìm kiếm' }}
+            </button>
+          </form>
+          <div v-if="documentSearchResults.length" class="document-search-results compact">
+            <article v-for="result in documentSearchResults" :key="result.id" class="document-search-result">
+              <strong>{{ result.title }}</strong>
+              <p>{{ result.content }}</p>
+            </article>
+          </div>
+          <p v-else-if="documentSearchQuery.trim()" class="document-insight-empty">
+            Chưa có kết quả trong tài liệu này hoặc graph chưa index xong.
+          </p>
+        </article>
 
         <section v-if="activeDocumentView === 'chunks'" class="document-mode-panel">
           <article class="document-insight-card full">
@@ -336,7 +389,7 @@
 import { useDocuments } from '@/composables/documents/useDocuments'
 import { useOrganization } from '@/composables/organizations/useOrganization'
 import { useAppLocale } from '@/composables/system/useAppLocale'
-import type { DocumentGraph, KnowledgeDocument } from '@/types/organization'
+import type { DocumentGraph, DocumentSearchResult, KnowledgeDocument } from '@/types/organization'
 import { DOCUMENT_FOLDER_IDS, DOCUMENT_FOLDER_KEYWORDS } from '@/constants/documents'
 
 definePageMeta({
@@ -362,9 +415,12 @@ const {
   getPreview,
   getDocumentGraph,
   getOrganizationGraph,
+  getSearchResults,
   loadDocuments,
   loadDocumentGraph,
   loadOrganizationGraph,
+  searchDocument,
+  searchOrganization,
   uploadDocument,
   startAnalysis,
   stopAnalysis,
@@ -392,6 +448,10 @@ const activeDocumentView = ref<DocumentViewMode>('document')
 const graphLoadRequests = ref(new Set<string>())
 const isOrganizationGraphView = ref(false)
 const isOrganizationGraphLoading = ref(false)
+const isDocumentSearching = ref(false)
+const isOrganizationSearching = ref(false)
+const documentSearchQuery = ref('')
+const organizationSearchQuery = ref('')
 const graphContainerRef = ref<HTMLElement | null>(null)
 let graphNetwork: { destroy: () => void, fit: (options?: unknown) => void, once: (event: string, callback: () => void) => void } | null = null
 let graphRenderRun = 0
@@ -457,6 +517,10 @@ const selectedDocument = computed(() => documents.value.find((document: Knowledg
 const selectedDocumentPreview = computed(() => (selectedDocument.value ? getPreview(slug.value, selectedDocument.value.id) : null))
 const selectedDocumentGraph = computed(() => (selectedDocument.value ? getDocumentGraph(selectedDocument.value.id) : null))
 const organizationGraph = computed(() => getOrganizationGraph(slug.value))
+const documentSearchResults = computed<DocumentSearchResult[]>(() =>
+  selectedDocument.value ? getSearchResults(`document:${selectedDocument.value.id}`) : []
+)
+const organizationSearchResults = computed<DocumentSearchResult[]>(() => getSearchResults(`organization:${slug.value}`))
 const visibleGraph = computed<DocumentGraph | null>(() => isOrganizationGraphView.value ? organizationGraph.value : selectedDocumentGraph.value)
 const indexedDocumentCount = computed(() => documents.value.filter((document) => document.status === 'indexed').length)
 
@@ -551,6 +615,36 @@ const refreshOrganizationGraph = async () => {
     await renderGraphNetwork()
   } finally {
     isOrganizationGraphLoading.value = false
+  }
+}
+
+const handleDocumentSearch = async () => {
+  if (!selectedDocument.value || !documentSearchQuery.value.trim() || isDocumentSearching.value) {
+    return
+  }
+
+  isDocumentSearching.value = true
+  try {
+    await searchDocument(slug.value, selectedDocument.value.id, documentSearchQuery.value)
+  } catch {
+    // Store-level error is rendered through the shared document error state.
+  } finally {
+    isDocumentSearching.value = false
+  }
+}
+
+const handleOrganizationSearch = async () => {
+  if (!organizationSearchQuery.value.trim() || isOrganizationSearching.value) {
+    return
+  }
+
+  isOrganizationSearching.value = true
+  try {
+    await searchOrganization(slug.value, organizationSearchQuery.value)
+  } catch {
+    // Store-level error is rendered through the shared document error state.
+  } finally {
+    isOrganizationSearching.value = false
   }
 }
 

@@ -79,6 +79,13 @@ export const getBackendBaseUrl = () => {
   return (config.backendApiBaseUrl || process.env.NUXT_BACKEND_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
 }
 
+export const getRagBaseUrl = () => {
+  const config = useRuntimeConfig()
+  const configured = String(config.ragServiceBaseUrl || process.env.NUXT_RAG_SERVICE_BASE_URL || '').trim()
+  const baseUrl = configured || `${getBackendBaseUrl()}/rag`
+  return baseUrl.replace(/\/$/, '')
+}
+
 const getEventToken = (event: Parameters<typeof getCookie>[0]) => {
   const authorization = getHeader(event, 'authorization')
   if (authorization?.startsWith('Bearer ')) {

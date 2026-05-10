@@ -1,4 +1,4 @@
-import { getBackendUser, mapDocumentGraph } from '../../../../utils/backend'
+import { getBackendUser, getRagBaseUrl, mapDocumentGraph } from '../../../../utils/backend'
 
 export default defineEventHandler(async (event) => {
   await getBackendUser(event)
@@ -7,8 +7,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Missing document id' })
   }
 
-  const config = useRuntimeConfig()
-  const baseUrl = String(config.ragServiceBaseUrl || 'http://rag-service:8000').replace(/\/$/, '')
+  const baseUrl = getRagBaseUrl()
   const response = await $fetch<{ graph: any }>(`${baseUrl}/graph/documents/${documentId}`, {
     query: {
       limit: 80

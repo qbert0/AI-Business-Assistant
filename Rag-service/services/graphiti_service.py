@@ -204,7 +204,8 @@ class GraphitiModelServiceLLMClient(LLMClient):  # type: ignore[misc]
                 logger.info(
                     "Structured response attempt succeeded "
                     f"response_model={getattr(response_model, '__name__', None)} "
-                    f"attempt={attempt_number}"
+                    f"attempt={attempt_number} "
+                    f"summary={self._summarize_structured_payload(parsed)}"
                 )
 
         if parsed is None:
@@ -409,6 +410,21 @@ class GraphitiModelServiceLLMClient(LLMClient):  # type: ignore[misc]
             ),
         }
         llm_response_logger.info(json.dumps(payload, ensure_ascii=False))
+
+    @staticmethod
+    def _summarize_structured_payload(parsed: Any) -> str:
+        if not isinstance(parsed, dict):
+            return type(parsed).__name__
+
+        summary: list[str] = []
+        for key, value in parsed.items():
+            if isinstance(value, list):
+                summary.append(f"{key}={len(value)}")
+            elif isinstance(value, dict):
+                summary.append(f"{key}=object")
+            else:
+                summary.append(f"{key}={type(value).__name__}")
+        return ",".join(summary) or "empty"
 
     @staticmethod
     def _truncate_for_log(text: str) -> str:

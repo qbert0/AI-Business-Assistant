@@ -1,4 +1,4 @@
-import type { DocumentGraph, KnowledgeDocument, PipelineStep } from '@/types/organization'
+import type { DocumentGraph, DocumentSearchResult, KnowledgeDocument, PipelineStep } from '@/types/organization'
 
 import { useApiDocuments } from '@/composables/api/documents/useApiDocuments'
 
@@ -8,6 +8,7 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
   const pipelineByOrg = ref<Record<string, PipelineStep[]>>({})
   const graphByDocumentId = ref<Record<string, DocumentGraph>>({})
   const graphByOrg = ref<Record<string, DocumentGraph>>({})
+  const searchResultsByScope = ref<Record<string, DocumentSearchResult[]>>({})
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
@@ -15,6 +16,7 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
   const getPipeline = (slug: string) => pipelineByOrg.value[slug] ?? []
   const getDocumentGraph = (documentId: string) => graphByDocumentId.value[documentId] ?? null
   const getOrganizationGraph = (slug: string) => graphByOrg.value[slug] ?? null
+  const getSearchResults = (scope: string) => searchResultsByScope.value[scope] ?? []
 
   const loadDocuments = async (slug: string) => {
     isLoading.value = true
@@ -110,23 +112,67 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
     }
   }
 
+  const searchDocument = async (slug: string, documentId: string, query: string) => {
+    const scope = `document:${documentId}`
+    if (!query.trim()) {
+      searchResultsByScope.value = { ...searchResultsByScope.value, [scope]: [] }
+      return []
+    }
+
+    try {
+      const response = await api.searchDocument(slug, documentId, query.trim())
+      searchResultsByScope.value = {
+        ...searchResultsByScope.value,
+        [scope]: response.results
+      }
+      return response.results
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Cannot search document'
+      throw err
+    }
+  }
+
+  const searchOrganization = async (slug: string, query: string) => {
+    const scope = `organization:${slug}`
+    if (!query.trim()) {
+      searchResultsByScope.value = { ...searchResultsByScope.value, [scope]: [] }
+      return []
+    }
+
+    try {
+      const response = await api.searchOrganization(slug, query.trim())
+      searchResultsByScope.value = {
+        ...searchResultsByScope.value,
+        [scope]: response.results
+      }
+      return response.results
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Cannot search organization'
+      throw err
+    }
+  }
+
   return {
     documentsByOrg,
     pipelineByOrg,
     graphByDocumentId,
     graphByOrg,
+    searchResultsByScope,
     isLoading,
     error,
     getDocuments,
     getPipeline,
     getDocumentGraph,
     getOrganizationGraph,
+    getSearchResults,
     loadDocuments,
     loadPipeline,
     uploadDocument,
     startAnalysis,
     stopAnalysis,
     loadDocumentGraph,
-    loadOrganizationGraph
+    loadOrganizationGraph,
+    searchDocument,
+    searchOrganization
   }
 })

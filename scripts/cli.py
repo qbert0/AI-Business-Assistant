@@ -12,6 +12,14 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from scripts.utils.benchmark_pdf import TextChunk, build_chunks_for_report, discover_reports
+from scripts.utils.benchmark_qa import (
+    answer_with_rag,
+    answer_with_ras,
+    load_benchmark_questions,
+    run_rag_benchmark,
+    run_ras_benchmark,
+    write_benchmark_results,
+)
 from scripts.utils.config_loader import get_nested, load_config
 from scripts.utils.graph_status import (
     get_neo4j_namespace_status,
@@ -129,6 +137,95 @@ def add_benchmark_parser(subparsers: argparse._SubParsersAction) -> None:
     clean_parser.add_argument("--elasticsearch-verify-certs", action="store_true")
     clean_parser.add_argument("--index-name")
 
+    answer_parser = benchmark_subparsers.add_parser("answer", help="Answer a benchmark question with RAG or RAS")
+    answer_parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
+    answer_parser.add_argument("--strategy", choices=["rag", "ras"], default="rag")
+    answer_parser.add_argument("--question", required=True)
+    answer_parser.add_argument("--output")
+    answer_parser.add_argument("--keep-query-graph", action="store_true")
+
+    answer_parser.add_argument("--organization-id")
+    answer_parser.add_argument("--request-timeout", type=float)
+    answer_parser.add_argument("--request-retries", type=int)
+    answer_parser.add_argument("--model-service-url")
+    answer_parser.add_argument("--embedding-model-id")
+    answer_parser.add_argument("--embedding-use-case")
+    answer_parser.add_argument("--embedding-dimensions", type=int)
+    answer_parser.add_argument("--llm-model-id")
+    answer_parser.add_argument("--llm-use-case")
+    answer_parser.add_argument("--llm-temperature", type=float)
+    answer_parser.add_argument("--answer-max-tokens", type=int)
+    answer_parser.add_argument("--analysis-max-tokens", type=int)
+    answer_parser.add_argument("--elasticsearch-url")
+    answer_parser.add_argument("--elasticsearch-username")
+    answer_parser.add_argument("--elasticsearch-password")
+    answer_parser.add_argument("--elasticsearch-verify-certs", action="store_true")
+    answer_parser.add_argument("--index-name")
+    answer_parser.add_argument("--top-k", type=int)
+    answer_parser.add_argument("--num-candidates", type=int)
+    answer_parser.add_argument("--max-rounds", type=int)
+    answer_parser.add_argument("--max-follow-up-queries", type=int)
+    answer_parser.add_argument("--neo4j-uri")
+    answer_parser.add_argument("--neo4j-username")
+    answer_parser.add_argument("--neo4j-password")
+    answer_parser.add_argument("--query-graph-namespace")
+
+    run_rag_parser = benchmark_subparsers.add_parser("run-rag", help="Run basic one-shot RAG benchmark from Excel")
+    run_rag_parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
+    run_rag_parser.add_argument("--dataset")
+    run_rag_parser.add_argument("--output")
+    run_rag_parser.add_argument("--limit", type=int)
+    run_rag_parser.add_argument("--organization-id")
+    run_rag_parser.add_argument("--request-timeout", type=float)
+    run_rag_parser.add_argument("--request-retries", type=int)
+    run_rag_parser.add_argument("--model-service-url")
+    run_rag_parser.add_argument("--embedding-model-id")
+    run_rag_parser.add_argument("--embedding-use-case")
+    run_rag_parser.add_argument("--embedding-dimensions", type=int)
+    run_rag_parser.add_argument("--llm-model-id")
+    run_rag_parser.add_argument("--llm-use-case")
+    run_rag_parser.add_argument("--llm-temperature", type=float)
+    run_rag_parser.add_argument("--answer-max-tokens", type=int)
+    run_rag_parser.add_argument("--elasticsearch-url")
+    run_rag_parser.add_argument("--elasticsearch-username")
+    run_rag_parser.add_argument("--elasticsearch-password")
+    run_rag_parser.add_argument("--elasticsearch-verify-certs", action="store_true")
+    run_rag_parser.add_argument("--index-name")
+    run_rag_parser.add_argument("--top-k", type=int)
+    run_rag_parser.add_argument("--num-candidates", type=int)
+
+    run_ras_parser = benchmark_subparsers.add_parser("run-ras", help="Run iterative RAS benchmark from Excel")
+    run_ras_parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
+    run_ras_parser.add_argument("--dataset")
+    run_ras_parser.add_argument("--output")
+    run_ras_parser.add_argument("--limit", type=int)
+    run_ras_parser.add_argument("--keep-query-graph", action="store_true")
+    run_ras_parser.add_argument("--organization-id")
+    run_ras_parser.add_argument("--request-timeout", type=float)
+    run_ras_parser.add_argument("--request-retries", type=int)
+    run_ras_parser.add_argument("--model-service-url")
+    run_ras_parser.add_argument("--embedding-model-id")
+    run_ras_parser.add_argument("--embedding-use-case")
+    run_ras_parser.add_argument("--embedding-dimensions", type=int)
+    run_ras_parser.add_argument("--llm-model-id")
+    run_ras_parser.add_argument("--llm-use-case")
+    run_ras_parser.add_argument("--llm-temperature", type=float)
+    run_ras_parser.add_argument("--answer-max-tokens", type=int)
+    run_ras_parser.add_argument("--analysis-max-tokens", type=int)
+    run_ras_parser.add_argument("--elasticsearch-url")
+    run_ras_parser.add_argument("--elasticsearch-username")
+    run_ras_parser.add_argument("--elasticsearch-password")
+    run_ras_parser.add_argument("--elasticsearch-verify-certs", action="store_true")
+    run_ras_parser.add_argument("--index-name")
+    run_ras_parser.add_argument("--top-k", type=int)
+    run_ras_parser.add_argument("--num-candidates", type=int)
+    run_ras_parser.add_argument("--max-rounds", type=int)
+    run_ras_parser.add_argument("--max-follow-up-queries", type=int)
+    run_ras_parser.add_argument("--neo4j-uri")
+    run_ras_parser.add_argument("--neo4j-username")
+    run_ras_parser.add_argument("--neo4j-password")
+    run_ras_parser.add_argument("--query-graph-namespace")
+
 
 def resolve_index_options(args: argparse.Namespace) -> argparse.Namespace:
     config = load_config(args.config)
@@ -157,9 +254,9 @@ def resolve_index_options(args: argparse.Namespace) -> argparse.Namespace:
     args.recreate = args.recreate or (args.reset_before_index and bool(cfg(config, "benchmark.elasticsearch.recreate", True)))
 
     args.rag_url = args.rag_url or env_or_config("BENCHMARK_RAG_URL", config, "benchmark.rag.url", "http://localhost:8003")
-    args.neo4j_uri = args.neo4j_uri or env_or_config("BENCHMARK_NEO4J_URI", config, "benchmark.neo4j.uri", "bolt://localhost:7687")
-    args.neo4j_username = args.neo4j_username or env_or_config("BENCHMARK_NEO4J_USERNAME", config, "benchmark.neo4j.username", "neo4j")
-    args.neo4j_password = args.neo4j_password or env_or_config("BENCHMARK_NEO4J_PASSWORD", config, "benchmark.neo4j.password", "pleaseletmein")
+    args.neo4j_uri = getattr(args, "neo4j_uri", None) or env_or_config("BENCHMARK_NEO4J_URI", config, "benchmark.neo4j.uri", "bolt://localhost:7687")
+    args.neo4j_username = getattr(args, "neo4j_username", None) or env_or_config("BENCHMARK_NEO4J_USERNAME", config, "benchmark.neo4j.username", "neo4j")
+    args.neo4j_password = getattr(args, "neo4j_password", None) or env_or_config("BENCHMARK_NEO4J_PASSWORD", config, "benchmark.neo4j.password", "pleaseletmein")
     return args
 
 
@@ -172,9 +269,9 @@ def resolve_graph_status_options(args: argparse.Namespace) -> argparse.Namespace
     args.redis_password = args.redis_password or env_or_config("BENCHMARK_REDIS_PASSWORD", config, "benchmark.redis.password")
     args.redis_queue = args.redis_queue or env_or_config("BENCHMARK_REDIS_QUEUE", config, "benchmark.redis.ingest_queue", "rag-ingest")
     args.redis_group = args.redis_group or env_or_config("BENCHMARK_REDIS_GROUP", config, "benchmark.redis.ingest_group", "rag-ingest")
-    args.neo4j_uri = args.neo4j_uri or env_or_config("BENCHMARK_NEO4J_URI", config, "benchmark.neo4j.uri", "bolt://localhost:7687")
-    args.neo4j_username = args.neo4j_username or env_or_config("BENCHMARK_NEO4J_USERNAME", config, "benchmark.neo4j.username", "neo4j")
-    args.neo4j_password = args.neo4j_password or env_or_config("BENCHMARK_NEO4J_PASSWORD", config, "benchmark.neo4j.password", "pleaseletmein")
+    args.neo4j_uri = getattr(args, "neo4j_uri", None) or env_or_config("BENCHMARK_NEO4J_URI", config, "benchmark.neo4j.uri", "bolt://localhost:7687")
+    args.neo4j_username = getattr(args, "neo4j_username", None) or env_or_config("BENCHMARK_NEO4J_USERNAME", config, "benchmark.neo4j.username", "neo4j")
+    args.neo4j_password = getattr(args, "neo4j_password", None) or env_or_config("BENCHMARK_NEO4J_PASSWORD", config, "benchmark.neo4j.password", "pleaseletmein")
     return args
 
 
@@ -186,14 +283,64 @@ def resolve_clean_options(args: argparse.Namespace) -> argparse.Namespace:
     args.redis_db = args.redis_db if args.redis_db is not None else int(env_or_config("BENCHMARK_REDIS_DB", config, "benchmark.redis.db", 0))
     args.redis_password = args.redis_password or env_or_config("BENCHMARK_REDIS_PASSWORD", config, "benchmark.redis.password")
     args.redis_queue = args.redis_queue or env_or_config("BENCHMARK_REDIS_QUEUE", config, "benchmark.redis.ingest_queue", "rag-ingest")
-    args.neo4j_uri = args.neo4j_uri or env_or_config("BENCHMARK_NEO4J_URI", config, "benchmark.neo4j.uri", "bolt://localhost:7687")
-    args.neo4j_username = args.neo4j_username or env_or_config("BENCHMARK_NEO4J_USERNAME", config, "benchmark.neo4j.username", "neo4j")
-    args.neo4j_password = args.neo4j_password or env_or_config("BENCHMARK_NEO4J_PASSWORD", config, "benchmark.neo4j.password", "pleaseletmein")
+    args.neo4j_uri = getattr(args, "neo4j_uri", None) or env_or_config("BENCHMARK_NEO4J_URI", config, "benchmark.neo4j.uri", "bolt://localhost:7687")
+    args.neo4j_username = getattr(args, "neo4j_username", None) or env_or_config("BENCHMARK_NEO4J_USERNAME", config, "benchmark.neo4j.username", "neo4j")
+    args.neo4j_password = getattr(args, "neo4j_password", None) or env_or_config("BENCHMARK_NEO4J_PASSWORD", config, "benchmark.neo4j.password", "pleaseletmein")
     args.elasticsearch_url = args.elasticsearch_url or env_or_config("BENCHMARK_ELASTICSEARCH_URL", config, "benchmark.elasticsearch.url", "http://localhost:9200")
     args.elasticsearch_username = args.elasticsearch_username or env_or_config("BENCHMARK_ELASTICSEARCH_USERNAME", config, "benchmark.elasticsearch.username")
     args.elasticsearch_password = args.elasticsearch_password or env_or_config("BENCHMARK_ELASTICSEARCH_PASSWORD", config, "benchmark.elasticsearch.password")
     args.elasticsearch_verify_certs = args.elasticsearch_verify_certs or bool(cfg(config, "benchmark.elasticsearch.verify_certs", False))
     args.index_name = args.index_name or env_or_config("BENCHMARK_ELASTICSEARCH_INDEX", config, "benchmark.elasticsearch.index_name", "benchmark_vector")
+    return args
+
+
+def resolve_answer_options(args: argparse.Namespace) -> argparse.Namespace:
+    config = load_config(args.config)
+    args.organization_id = args.organization_id or env_or_config("BENCHMARK_ORGANIZATION_ID", config, "benchmark.organization_id", "benchmark")
+    args.request_timeout = args.request_timeout or float(env_or_config("BENCHMARK_REQUEST_TIMEOUT", config, "benchmark.request.timeout_seconds", 180))
+    args.request_retries = args.request_retries if args.request_retries is not None else int(env_or_config("BENCHMARK_REQUEST_RETRIES", config, "benchmark.request.retries", 1))
+
+    args.model_service_url = args.model_service_url or env_or_config("BENCHMARK_MODEL_SERVICE_URL", config, "benchmark.model_service.url", "http://localhost:8888")
+    args.embedding_model_id = args.embedding_model_id or env_or_config("BENCHMARK_EMBEDDING_MODEL_ID", config, "benchmark.model_service.embedding_model_id")
+    args.embedding_use_case = args.embedding_use_case or env_or_config("BENCHMARK_EMBEDDING_USE_CASE", config, "benchmark.model_service.embedding_use_case", "embeddings")
+    args.embedding_dimensions = args.embedding_dimensions if args.embedding_dimensions is not None else cfg(config, "benchmark.model_service.embedding_dimensions")
+    args.llm_model_id = args.llm_model_id or env_or_config("BENCHMARK_LLM_MODEL_ID", config, "benchmark.qa.llm_model_id")
+    args.llm_use_case = args.llm_use_case or env_or_config("BENCHMARK_LLM_USE_CASE", config, "benchmark.qa.llm_use_case", "chat_advisory")
+    args.llm_temperature = args.llm_temperature if args.llm_temperature is not None else float(cfg(config, "benchmark.qa.temperature", 0.1))
+    args.answer_max_tokens = args.answer_max_tokens or int(cfg(config, "benchmark.qa.answer_max_tokens", 2048))
+    args.analysis_max_tokens = getattr(args, "analysis_max_tokens", None) or int(cfg(config, "benchmark.qa.analysis_max_tokens", 1200))
+
+    args.elasticsearch_url = args.elasticsearch_url or env_or_config("BENCHMARK_ELASTICSEARCH_URL", config, "benchmark.elasticsearch.url", "http://localhost:9200")
+    args.elasticsearch_username = args.elasticsearch_username or env_or_config("BENCHMARK_ELASTICSEARCH_USERNAME", config, "benchmark.elasticsearch.username")
+    args.elasticsearch_password = args.elasticsearch_password or env_or_config("BENCHMARK_ELASTICSEARCH_PASSWORD", config, "benchmark.elasticsearch.password")
+    args.elasticsearch_verify_certs = args.elasticsearch_verify_certs or bool(cfg(config, "benchmark.elasticsearch.verify_certs", False))
+    args.index_name = args.index_name or env_or_config("BENCHMARK_ELASTICSEARCH_INDEX", config, "benchmark.elasticsearch.index_name", "benchmark_vector")
+    args.top_k = args.top_k or int(cfg(config, "benchmark.qa.top_k", 8))
+    args.num_candidates = args.num_candidates or int(cfg(config, "benchmark.qa.num_candidates", 80))
+    args.max_rounds = getattr(args, "max_rounds", None) or int(cfg(config, "benchmark.qa.max_rounds", 3))
+    args.max_follow_up_queries = getattr(args, "max_follow_up_queries", None) or int(cfg(config, "benchmark.qa.max_follow_up_queries", 3))
+
+    args.neo4j_uri = getattr(args, "neo4j_uri", None) or env_or_config("BENCHMARK_NEO4J_URI", config, "benchmark.neo4j.uri", "bolt://localhost:7687")
+    args.neo4j_username = getattr(args, "neo4j_username", None) or env_or_config("BENCHMARK_NEO4J_USERNAME", config, "benchmark.neo4j.username", "neo4j")
+    args.neo4j_password = getattr(args, "neo4j_password", None) or env_or_config("BENCHMARK_NEO4J_PASSWORD", config, "benchmark.neo4j.password", "pleaseletmein")
+    args.query_graph_namespace = getattr(args, "query_graph_namespace", None) or cfg(config, "benchmark.qa.query_graph_namespace", "benchmark-query")
+    args.cleanup_query_graph = (not getattr(args, "keep_query_graph", False)) and bool(cfg(config, "benchmark.qa.cleanup_query_graph", True))
+    return args
+
+
+def resolve_run_rag_options(args: argparse.Namespace) -> argparse.Namespace:
+    args = resolve_answer_options(args)
+    config = load_config(args.config)
+    args.dataset = args.dataset or cfg(config, "benchmark.qa.dataset_path", "benchmark/dataset/benchmark_metric.xlsx")
+    args.output = args.output or cfg(config, "benchmark.qa.rag_results_path", "benchmark/results/rag_results.xlsx")
+    return args
+
+
+def resolve_run_ras_options(args: argparse.Namespace) -> argparse.Namespace:
+    args = resolve_answer_options(args)
+    config = load_config(args.config)
+    args.dataset = args.dataset or cfg(config, "benchmark.qa.dataset_path", "benchmark/dataset/benchmark_metric.xlsx")
+    args.output = args.output or cfg(config, "benchmark.qa.ras_results_path", "benchmark/results/ras_basic_50.xlsx")
     return args
 
 
@@ -347,6 +494,128 @@ def run_benchmark_clean(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_benchmark_answer(args: argparse.Namespace) -> int:
+    args = resolve_answer_options(args)
+    common = {
+        "question": args.question,
+        "model_service_url": args.model_service_url,
+        "organization_id": args.organization_id,
+        "embedding_model_id": args.embedding_model_id,
+        "embedding_use_case": args.embedding_use_case,
+        "embedding_dimensions": args.embedding_dimensions,
+        "llm_model_id": args.llm_model_id,
+        "llm_use_case": args.llm_use_case,
+        "elasticsearch_url": args.elasticsearch_url,
+        "elasticsearch_username": args.elasticsearch_username,
+        "elasticsearch_password": args.elasticsearch_password,
+        "elasticsearch_verify_certs": args.elasticsearch_verify_certs,
+        "index_name": args.index_name,
+        "top_k": args.top_k,
+        "num_candidates": args.num_candidates,
+        "answer_max_tokens": args.answer_max_tokens,
+        "temperature": args.llm_temperature,
+        "timeout": args.request_timeout,
+        "retries": args.request_retries,
+    }
+    if args.strategy == "rag":
+        result = answer_with_rag(**common)
+    else:
+        result = answer_with_ras(
+            **common,
+            max_rounds=args.max_rounds,
+            max_follow_up_queries=args.max_follow_up_queries,
+            analysis_max_tokens=args.analysis_max_tokens,
+            neo4j_uri=args.neo4j_uri,
+            neo4j_username=args.neo4j_username,
+            neo4j_password=args.neo4j_password,
+            query_graph_namespace=args.query_graph_namespace,
+            cleanup_query_graph=args.cleanup_query_graph,
+        )
+
+    if args.output:
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"answer written: {output_path}")
+
+    print("\nANSWER\n")
+    print(result["answer"])
+    print(f"\nevidence={len(result.get('evidence', []))} strategy={result.get('strategy')}")
+    if result.get("query_graph_id"):
+        print(f"query_graph_id={result['query_graph_id']}")
+    return 0
+
+
+def run_benchmark_rag_batch(args: argparse.Namespace) -> int:
+    args = resolve_run_rag_options(args)
+    questions = load_benchmark_questions(args.dataset, limit=args.limit)
+    if not questions:
+        raise SystemExit(f"No benchmark questions found in dataset: {args.dataset}")
+    print(f"loaded benchmark questions: {len(questions)}")
+    rows = run_rag_benchmark(
+        questions,
+        model_service_url=args.model_service_url,
+        organization_id=args.organization_id,
+        embedding_model_id=args.embedding_model_id,
+        embedding_use_case=args.embedding_use_case,
+        embedding_dimensions=args.embedding_dimensions,
+        llm_model_id=args.llm_model_id,
+        llm_use_case=args.llm_use_case,
+        elasticsearch_url=args.elasticsearch_url,
+        elasticsearch_username=args.elasticsearch_username,
+        elasticsearch_password=args.elasticsearch_password,
+        elasticsearch_verify_certs=args.elasticsearch_verify_certs,
+        index_name=args.index_name,
+        top_k=args.top_k,
+        num_candidates=args.num_candidates,
+        answer_max_tokens=args.answer_max_tokens,
+        temperature=args.llm_temperature,
+        timeout=args.request_timeout,
+        retries=args.request_retries,
+    )
+    write_benchmark_results(rows, args.output)
+    return 0
+
+
+def run_benchmark_ras_batch(args: argparse.Namespace) -> int:
+    args = resolve_run_ras_options(args)
+    questions = load_benchmark_questions(args.dataset, limit=args.limit)
+    if not questions:
+        raise SystemExit(f"No benchmark questions found in dataset: {args.dataset}")
+    print(f"loaded benchmark questions: {len(questions)}")
+    rows = run_ras_benchmark(
+        questions,
+        model_service_url=args.model_service_url,
+        organization_id=args.organization_id,
+        embedding_model_id=args.embedding_model_id,
+        embedding_use_case=args.embedding_use_case,
+        embedding_dimensions=args.embedding_dimensions,
+        llm_model_id=args.llm_model_id,
+        llm_use_case=args.llm_use_case,
+        elasticsearch_url=args.elasticsearch_url,
+        elasticsearch_username=args.elasticsearch_username,
+        elasticsearch_password=args.elasticsearch_password,
+        elasticsearch_verify_certs=args.elasticsearch_verify_certs,
+        index_name=args.index_name,
+        top_k=args.top_k,
+        num_candidates=args.num_candidates,
+        max_rounds=args.max_rounds,
+        max_follow_up_queries=args.max_follow_up_queries,
+        analysis_max_tokens=args.analysis_max_tokens,
+        answer_max_tokens=args.answer_max_tokens,
+        temperature=args.llm_temperature,
+        timeout=args.request_timeout,
+        retries=args.request_retries,
+        neo4j_uri=args.neo4j_uri,
+        neo4j_username=args.neo4j_username,
+        neo4j_password=args.neo4j_password,
+        query_graph_namespace=args.query_graph_namespace,
+        cleanup_query_graph=args.cleanup_query_graph,
+    )
+    write_benchmark_results(rows, args.output)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Project maintenance and benchmark CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -363,6 +632,12 @@ def main(argv: list[str] | None = None) -> int:
         return run_graph_status(args)
     if args.command == "benchmark" and args.benchmark_command == "clean":
         return run_benchmark_clean(args)
+    if args.command == "benchmark" and args.benchmark_command == "answer":
+        return run_benchmark_answer(args)
+    if args.command == "benchmark" and args.benchmark_command == "run-rag":
+        return run_benchmark_rag_batch(args)
+    if args.command == "benchmark" and args.benchmark_command == "run-ras":
+        return run_benchmark_ras_batch(args)
     parser.error("Unknown command")
     return 2
 
