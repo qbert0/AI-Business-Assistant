@@ -11,8 +11,6 @@ class SynthesizerAgent(BaseAgent):
     name = "synthesizer"
     stage = "synthesizing"
     start_message = "Đang hoàn thiện câu trả lời cuối cùng."
-    CONTEXT_ITEM_LIMIT = 3
-    CONTEXT_CHAR_LIMIT = 1600
     METRIC_LINE_PATTERN = re.compile(
         r"^\s*(?:[-*]\s*)?[^:\n]{2,64}:\s*[\d.,\s\u202f]+(?:VNĐ|%|ty|tỷ|blocks?)?\s*$",
         flags=re.IGNORECASE,
@@ -28,11 +26,11 @@ class SynthesizerAgent(BaseAgent):
 
     def _build_compact_contexts(self, state: AgentWorkflowState) -> list[dict]:
         compact_contexts: list[dict] = []
-        for item in state.contexts[: self.CONTEXT_ITEM_LIMIT]:
+        for item in state.contexts[: AGENT_SETTINGS.synthesizer.context_item_limit]:
             compact_contexts.append(
                 {
                     **item,
-                    "content": (item.get("content") or "")[: self.CONTEXT_CHAR_LIMIT],
+                    "content": (item.get("content") or "")[: AGENT_SETTINGS.synthesizer.context_char_limit],
                 }
             )
         return compact_contexts
@@ -165,6 +163,18 @@ class SynthesizerAgent(BaseAgent):
             return state
 
         feedback_guidance = format_feedback_guidance(state.feedback_contexts)
+        report_mode_guidance = (
+            "\n\nReport mode:\n"
+            "- The user explicitly wants a report or PDF artifact.\n"
+            f"- Produce polished Markdown that can stand alone as a report titled `{state.report_title_hint or 'Bao cao tong hop'}`.\n"
+            "- Start with a single `#` top-level title.\n"
+            "- Prefer a clear report structure such as `## Tóm tắt`, `## Phân tích chính`, `## Dữ liệu nổi bật`, or another grounded structure that fits the content.\n"
+            "- Write in a formal, concise report tone instead of a casual chat tone.\n"
+            "- Include tables or one chart only when they materially improve readability.\n"
+            "- Do not add a references section in the answer body; the export pipeline will attach source information separately.\n"
+            if state.wants_report_output
+            else ""
+        )
         try:
             inference = create_inference(
                 {
@@ -193,12 +203,12 @@ class SynthesizerAgent(BaseAgent):
                         "Do not pad with generic filler, but do make the reply feel complete. "
                         "Use the same language as the user's question unless the user explicitly asked for another language. "
                         "\n\nMarkdown rules for the `answer` field:\n"
-                        "- Use only this Markdown subset: plain paragraphs, `###` headings, `-` bullet lists, `1.` numbered lists, simple pipe tables, blockquotes, fenced code blocks, inline code, and normal Markdown links.\n"
+                        "- Use only this Markdown subset: plain paragraphs, `#`-`###` headings, `-` bullet lists, `1.` numbered lists, simple pipe tables, blockquotes, fenced code blocks, inline code, and normal Markdown links.\n"
                         "- Leave a blank line between paragraphs, headings, lists, tables, and code blocks.\n"
                         "- Keep lists flat. Do not use nested bullets, nested numbering, or multi-level indentation.\n"
                         "- Keep list items short and self-contained. Prefer one sentence per bullet when possible.\n"
                         "- Use headings only when the answer truly has multiple sections. For short factual answers, do not add a heading.\n"
-                        "- If headings are needed, prefer concise titles such as `### Tóm tắt`, `### Chi tiết`, or `### Lưu ý`.\n"
+                        "- If headings are needed, prefer concise titles such as `## Tóm tắt`, `## Chi tiết`, or `## Lưu ý`.\n"
                         "- Do not output raw HTML.\n"
                         "- Do not output footnotes, task lists, Mermaid, math blocks, or custom Markdown extensions.\n"
                         "- Do not output a references section or inline citations, because the application shows source links separately.\n"
@@ -221,6 +231,7 @@ class SynthesizerAgent(BaseAgent):
                         "- Do not output both a markdown table and a chart in the same answer unless the user explicitly asks for both.\n"
                         "- Chart JSON schema:\n"
                         "  `{\"type\":\"bar|line|pie\",\"title\":\"...\",\"xLabel\":\"...\",\"yLabel\":\"...\",\"categories\":[\"...\"],\"series\":[{\"name\":\"...\",\"data\":[1,2,3]}],\"format\":\"number|currency_vnd|percent\",\"note\":\"...\"}`\n"
+                        + report_mode_guidance
                         + (f"\n\n{feedback_guidance}\nUse this feedback to improve clarity, completeness, and tone, but do not introduce any new factual claims." if feedback_guidance else "")
                         + "\n"
                         "Examples:\n"

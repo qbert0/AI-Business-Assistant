@@ -9,10 +9,12 @@ JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "")
+MINIO_PUBLIC_ENDPOINT = os.getenv("MINIO_PUBLIC_ENDPOINT", "").rstrip("/")
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
 MINIO_BUCKET = os.getenv("MINIO_BUCKET", "business-documents")
 MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
+MINIO_PRESIGN_EXPIRES_SECONDS = max(300, int(os.getenv("MINIO_PRESIGN_EXPIRES_SECONDS", "86400")))
 
 SEARCH_SERVICE_URL = os.getenv("SEARCH_SERVICE_URL", "http://search-service:8000").rstrip("/")
 SEARCH_SERVICE_TIMEOUT = int(os.getenv("SEARCH_SERVICE_TIMEOUT", "10"))
@@ -95,6 +97,8 @@ class FeedbackAgentSettings:
 @dataclass(frozen=True)
 class SynthesizerAgentSettings:
     max_completion_tokens: int
+    context_item_limit: int
+    context_char_limit: int
 
 
 @dataclass(frozen=True)
@@ -110,38 +114,40 @@ class AgentSettings:
 
 AGENT_SETTINGS = AgentSettings(
     planner=PlannerAgentSettings(
-        history_limit=_nested_int(AGENT_CONFIG_SECTION, ["planner", "history_limit"], 8),
+        history_limit=_nested_int(AGENT_CONFIG_SECTION, ["planner", "history_limit"], 16),
     ),
     questioner=SearchQuestionAgentSettings(
-        history_limit=_nested_int(AGENT_CONFIG_SECTION, ["questioner", "history_limit"], 8),
+        history_limit=_nested_int(AGENT_CONFIG_SECTION, ["questioner", "history_limit"], 16),
     ),
     retrieval=RetrievalAgentSettings(
         no_hit_retries=_nested_int(AGENT_CONFIG_SECTION, ["retrieval", "no_hit_retries"], 2, minimum=0),
-        max_queries_per_attempt=_nested_int(AGENT_CONFIG_SECTION, ["retrieval", "max_queries_per_attempt"], 3),
-        hits_per_query=_nested_int(AGENT_CONFIG_SECTION, ["retrieval", "hits_per_query"], 3),
-        max_merged_hits=_nested_int(AGENT_CONFIG_SECTION, ["retrieval", "max_merged_hits"], 5),
-        max_context_items=_nested_int(AGENT_CONFIG_SECTION, ["retrieval", "max_context_items"], 3),
-        context_char_limit=_nested_int(AGENT_CONFIG_SECTION, ["retrieval", "context_char_limit"], 2400),
+        max_queries_per_attempt=_nested_int(AGENT_CONFIG_SECTION, ["retrieval", "max_queries_per_attempt"], 4),
+        hits_per_query=_nested_int(AGENT_CONFIG_SECTION, ["retrieval", "hits_per_query"], 8),
+        max_merged_hits=_nested_int(AGENT_CONFIG_SECTION, ["retrieval", "max_merged_hits"], 24),
+        max_context_items=_nested_int(AGENT_CONFIG_SECTION, ["retrieval", "max_context_items"], 8),
+        context_char_limit=_nested_int(AGENT_CONFIG_SECTION, ["retrieval", "context_char_limit"], 5000),
     ),
     answerer=AnswererAgentSettings(
-        max_completion_tokens=_nested_int(AGENT_CONFIG_SECTION, ["answerer", "max_completion_tokens"], 350),
-        compact_context_items=_nested_int(AGENT_CONFIG_SECTION, ["answerer", "compact_context_items"], 2),
-        compact_context_chars=_nested_int(AGENT_CONFIG_SECTION, ["answerer", "compact_context_chars"], 900),
+        max_completion_tokens=_nested_int(AGENT_CONFIG_SECTION, ["answerer", "max_completion_tokens"], 6000),
+        compact_context_items=_nested_int(AGENT_CONFIG_SECTION, ["answerer", "compact_context_items"], 8),
+        compact_context_chars=_nested_int(AGENT_CONFIG_SECTION, ["answerer", "compact_context_chars"], 3000),
     ),
     verifier=VerifierAgentSettings(
-        max_completion_tokens=_nested_int(AGENT_CONFIG_SECTION, ["verifier", "max_completion_tokens"], 500),
+        max_completion_tokens=_nested_int(AGENT_CONFIG_SECTION, ["verifier", "max_completion_tokens"], 5000),
         max_context_chars_for_model_verify=_nested_int(
             AGENT_CONFIG_SECTION,
             ["verifier", "max_context_chars_for_model_verify"],
-            1400,
+            24000,
         ),
     ),
     feedback=FeedbackAgentSettings(
-        history_limit=_nested_int(AGENT_CONFIG_SECTION, ["feedback", "history_limit"], 6),
-        comment_char_limit=_nested_int(AGENT_CONFIG_SECTION, ["feedback", "comment_char_limit"], 280),
-        answer_char_limit=_nested_int(AGENT_CONFIG_SECTION, ["feedback", "answer_char_limit"], 360),
+        history_limit=_nested_int(AGENT_CONFIG_SECTION, ["feedback", "history_limit"], 8),
+        comment_char_limit=_nested_int(AGENT_CONFIG_SECTION, ["feedback", "comment_char_limit"], 400),
+        answer_char_limit=_nested_int(AGENT_CONFIG_SECTION, ["feedback", "answer_char_limit"], 600),
     ),
     synthesizer=SynthesizerAgentSettings(
-        max_completion_tokens=_nested_int(AGENT_CONFIG_SECTION, ["synthesizer", "max_completion_tokens"], 500),
+        max_completion_tokens=_nested_int(AGENT_CONFIG_SECTION, ["synthesizer", "max_completion_tokens"], 6000),
+        context_item_limit=_nested_int(AGENT_CONFIG_SECTION, ["synthesizer", "context_item_limit"], 8),
+        context_char_limit=_nested_int(AGENT_CONFIG_SECTION, ["synthesizer", "context_char_limit"], 3000),
     ),
 )

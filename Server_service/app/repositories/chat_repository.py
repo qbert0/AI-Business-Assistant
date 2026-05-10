@@ -3,8 +3,9 @@ import json
 from sqlalchemy.orm import Session
 
 from app.entities import database as db_entities
-from app.entities.chat import ChatAnswerEntity, CitationEntity
+from app.entities.chat import ChatAnswerEntity, CitationEntity, ReportArtifactEntity
 from app.entities.search import SearchHitEntity
+from app.services.chat_artifacts import serialize_report_artifacts
 
 
 def get_chat_session(session_id: str, db: Session) -> db_entities.ChatSession | None:
@@ -93,13 +94,14 @@ def save_chat_answer(
     answer: str,
     citations: list[CitationEntity],
     search_hits: list[SearchHitEntity],
+    report_artifacts: list[ReportArtifactEntity],
     db: Session,
 ) -> ChatAnswerEntity:
     user_message = db_entities.ChatMessage(session_id=session.id, sender_type="user", content=question)
     assistant_message = db_entities.ChatMessage(
         session_id=session.id,
         sender_type="ai",
-        content=answer,
+        content=serialize_report_artifacts(answer, report_artifacts),
         citations_json=json.dumps(
             [
                 {
@@ -123,6 +125,7 @@ def save_chat_answer(
         answer=answer,
         citations=citations,
         search_hits=search_hits,
+        report_artifacts=report_artifacts,
     )
 
 

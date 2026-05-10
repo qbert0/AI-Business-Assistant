@@ -31,6 +31,13 @@ class AnswerAgent(BaseAgent):
 
     def _run_inference(self, state: AgentWorkflowState, contexts: list[dict]) -> str:
         feedback_guidance = format_feedback_guidance(state.feedback_contexts)
+        answering_mode_prompt = (
+            "The user is asking for a report-style response. "
+            "Draft a fuller markdown-ready report body with clear sections, meaningful synthesis, and all important grounded figures that support the requested report. "
+            "Do not be terse. Prefer completeness over brevity, while staying grounded in the trusted context. "
+            if state.wants_report_output
+            else "Answer directly and keep the response concise. "
+        )
         inference = create_inference(
             {
                 "conversation_id": state.session_id,
@@ -46,13 +53,13 @@ class AnswerAgent(BaseAgent):
                     "If trusted context is provided, rely only on that context for factual claims. "
                     "If the context is insufficient, explicitly say what is missing. "
                     "Do not invent unsupported details. "
-                    "Answer directly and keep the response concise. "
-                    "Use minimal internal reasoning before answering. "
+                    + answering_mode_prompt
+                    + "Use minimal internal reasoning before answering. "
                     + (f"\n\n{feedback_guidance}\nRemember: feedback is guidance about answer quality, not factual evidence." if feedback_guidance else "")
                     + " "
-                    "Return ONLY one valid JSON object with no markdown, using this schema: "
-                    '{"answer":"..."}. '
-                    "The answer value must be directly user-facing and must stay in the same language as the user's question unless the user explicitly asks for another language."
+                    + "Return ONLY one valid JSON object with no markdown, using this schema: "
+                    + '{"answer":"..."}. '
+                    + "The answer value must be directly user-facing and must stay in the same language as the user's question unless the user explicitly asks for another language."
                 ),
                 "max_tokens": AGENT_SETTINGS.answerer.max_completion_tokens,
                 "metadata": {

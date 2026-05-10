@@ -91,11 +91,21 @@ export interface ChatSearchHit {
   score?: number | null
 }
 
+export interface ChatArtifact {
+  kind: 'pdf'
+  label: string
+  fileName: string
+  sourceUrl: string
+  downloadUrl?: string | null
+  contentType?: string | null
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
   citations?: ChatCitation[]
+  artifacts?: ChatArtifact[]
   searchHits?: ChatSearchHit[]
   status?: 'thinking' | 'streaming' | 'complete' | 'error'
   activity?: string | null

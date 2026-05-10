@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.entities.chat import CitationEntity
+from app.entities.chat import CitationEntity, ReportArtifactEntity
 from app.entities.search import SearchHitEntity
 
 
@@ -100,6 +100,8 @@ class AgentWorkflowState:
     plan_summary: str = ""
     retrieval_queries: list[str] = field(default_factory=list)
     needs_document_search: bool = False
+    wants_report_output: bool = False
+    report_title_hint: str = ""
     search_attempts: list[dict[str, Any]] = field(default_factory=list)
     search_hits: list[SearchHitEntity] = field(default_factory=list)
     citations: list[CitationEntity] = field(default_factory=list)
@@ -108,6 +110,7 @@ class AgentWorkflowState:
     verified_answer: str = ""
     answer: str = ""
     verification_notes: str = ""
+    report_artifacts: list[ReportArtifactEntity] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
 

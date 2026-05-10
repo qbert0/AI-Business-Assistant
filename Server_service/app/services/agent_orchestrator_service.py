@@ -16,6 +16,7 @@ from app.agents import (
 from app.config import AGENT_SETTINGS
 from app.entities.chat import CitationEntity
 from app.repositories import agent_trace_repository
+from app.services.report_export_service import ReportExportService
 
 
 class AgentOrchestratorService:
@@ -27,6 +28,7 @@ class AgentOrchestratorService:
         self.answerer = AnswerAgent()
         self.verifier = VerifierAgent()
         self.synthesizer = SynthesizerAgent()
+        self.report_exporter = ReportExportService()
         self._step_order = 0
 
     def _utcnow(self) -> datetime:
@@ -44,6 +46,24 @@ class AgentOrchestratorService:
         payload = agent_trace_repository.summarize_state(state)
         payload["retry_count"] = max(0, len(state.search_attempts) - 1)
         return payload
+
+    def _export_report_if_needed(self, state: AgentWorkflowState) -> AgentWorkflowState:
+        if not state.wants_report_output or not state.answer:
+            return state
+        try:
+            artifact = self.report_exporter.export_pdf_report(state)
+        except Exception as exc:
+            state.metadata["report_export_status"] = "failed"
+            state.metadata["report_export_error"] = str(exc)
+            return state
+
+        if artifact:
+            state.report_artifacts = [artifact]
+            state.metadata["report_export_status"] = "completed"
+            state.metadata["report_file_name"] = artifact.file_name
+        else:
+            state.metadata["report_export_status"] = "skipped"
+        return state
 
     def _create_run(self, state: AgentWorkflowState):
         run = agent_trace_repository.create_agent_run(
@@ -192,6 +212,7 @@ class AgentOrchestratorService:
             state = self._run_step(self.answerer, state, run.id)
             state = self._run_step(self.verifier, state, run.id)
             state = self._run_step(self.synthesizer, state, run.id)
+            state = self._export_report_if_needed(state)
             state = self._apply_fallback(state)
             agent_trace_repository.complete_agent_run(
                 run=run,
@@ -273,6 +294,28 @@ class AgentOrchestratorService:
             yield self.synthesizer.start_event()
             state = self._run_step(self.synthesizer, state, run.id)
             yield self.synthesizer.finish_event(state)
+
+            if state.wants_report_output:
+                yield AgentWorkflowEvent(
+                    event_type="status",
+                    stage="report_export",
+                    agent="report_exporter",
+                    message="Đang xuất báo cáo PDF để bạn có thể mở trực tiếp.",
+                )
+            state = self._export_report_if_needed(state)
+            if state.wants_report_output:
+                message = (
+                    "Đã tạo xong báo cáo PDF đính kèm trong câu trả lời."
+                    if state.report_artifacts
+                    else "Chưa tạo được file PDF, nhưng nội dung markdown của báo cáo vẫn sẵn sàng."
+                )
+                yield AgentWorkflowEvent(
+                    event_type="status",
+                    stage="report_export",
+                    agent="report_exporter",
+                    message=message,
+                    payload={"artifact_count": len(state.report_artifacts)},
+                )
             state = self._apply_fallback(state)
             agent_trace_repository.complete_agent_run(
                 run=run,

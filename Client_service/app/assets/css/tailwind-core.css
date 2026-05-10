@@ -1060,6 +1060,19 @@
     @apply mt-2 text-sm opacity-70;
   }
 
+  .chat-report-artifact {
+    @apply flex flex-col gap-1 rounded-[14px] border border-cream bg-[#f7f9fc] px-4 py-3 text-left transition hover:border-focus/30 hover:bg-white;
+  }
+
+  .chat-report-artifact__label {
+    @apply text-caption font-medium uppercase tracking-[0.08em] text-focus;
+  }
+
+  .chat-report-artifact__file {
+    @apply text-body font-semibold text-near;
+    word-break: break-all;
+  }
+
   .chat-markdown {
     @apply text-body leading-[1.7] text-olive;
   }

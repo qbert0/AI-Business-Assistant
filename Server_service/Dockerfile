@@ -6,6 +6,18 @@ WORKDIR /app
 
 # Copy và cài đặt thư viện trước (giúp build nhanh hơn ở các lần sau)
 COPY requirements.txt .
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    fonts-roboto \
+    fonts-noto \
+    fonts-liberation \
+    fontconfig \
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
+    libharfbuzz-subset0 \
+    libjpeg62-turbo \
+    libopenjp2-7 \
+    libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy toàn bộ code vào container

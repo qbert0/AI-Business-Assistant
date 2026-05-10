@@ -25,6 +25,7 @@ interface StreamMessagePayload {
   id: string
   content: string
   citations?: StreamCitationPayload[]
+  artifacts?: Array<{ kind?: 'pdf', label?: string, file_name?: string, source_url?: string, download_url?: string | null, content_type?: string | null }>
 }
 
 interface StreamCompletePayload {
@@ -168,6 +169,7 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
               role: 'assistant',
               content: '',
               citations: [],
+              artifacts: [],
               searchHits: [],
               status: 'thinking',
               activity: context.streamingStatus
@@ -179,6 +181,7 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
                 role: 'user',
                 content: prompt,
                 citations: [],
+                artifacts: [],
                 searchHits: [],
                 status: 'complete',
                 activity: null
@@ -203,6 +206,7 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
               role: 'assistant',
               content: '',
               citations: [],
+              artifacts: [],
               searchHits: [],
               status: 'thinking',
               activity: context.streamingStatus
@@ -264,6 +268,7 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
                 role: 'user',
                 content: response.user_message.content,
                 citations: [],
+                artifacts: [],
                 searchHits: [],
                 status: 'complete',
                 activity: null
@@ -276,6 +281,14 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
                   documentId: item.document_id,
                   fileName: item.file_name,
                   sourceUrl: item.source_url
+                })),
+                artifacts: (response.assistant_message.artifacts || []).map((item) => ({
+                  kind: 'pdf',
+                  label: item.label || 'Xem báo cáo PDF',
+                  fileName: item.file_name || 'report.pdf',
+                  sourceUrl: item.source_url || '',
+                  downloadUrl: item.download_url || null,
+                  contentType: item.content_type || null
                 })),
                 searchHits: (response.search_hits || []).map((item) => ({
                   documentId: item.document_id,

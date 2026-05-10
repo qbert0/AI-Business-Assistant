@@ -13,6 +13,7 @@ from app.repositories import chat_repository
 from app.repositories.common import parse_json_list
 from app.config import AGENT_SETTINGS
 from app.services.agent_orchestrator_service import AgentOrchestratorService
+from app.services.chat_artifacts import extract_report_artifacts
 
 
 class ChatService:
@@ -81,14 +82,19 @@ class ChatService:
         return session
 
     def _to_history_payload(self, session_id: str) -> list[dict]:
-        return [
-            {
-                "role": "assistant" if item.sender_type != "user" else "user",
-                "content": item.content,
-            }
-            for item in chat_repository.list_chat_history(session_id, self.db)
-            if item.content
-        ]
+        history_limit = max(20, AGENT_SETTINGS.planner.history_limit, AGENT_SETTINGS.questioner.history_limit)
+        history_payload: list[dict] = []
+        for item in chat_repository.list_chat_history(session_id, self.db, limit=history_limit):
+            cleaned_content, _artifacts = extract_report_artifacts(item.content)
+            if not cleaned_content:
+                continue
+            history_payload.append(
+                {
+                    "role": "assistant" if item.sender_type != "user" else "user",
+                    "content": cleaned_content,
+                }
+            )
+        return history_payload
 
     def _to_feedback_contexts(self, session_id: str) -> list[dict]:
         rows = chat_repository.list_chat_feedback_history(
@@ -99,7 +105,8 @@ class ChatService:
         feedback_contexts: list[dict] = []
         for feedback, message in rows:
             comment = (feedback.comment or "").strip()[: AGENT_SETTINGS.feedback.comment_char_limit]
-            answer_excerpt = (message.content or "").strip()[: AGENT_SETTINGS.feedback.answer_char_limit]
+            cleaned_content, _artifacts = extract_report_artifacts(message.content)
+            answer_excerpt = cleaned_content[: AGENT_SETTINGS.feedback.answer_char_limit]
             feedback_contexts.append(
                 {
                     "message_id": message.id,
@@ -160,12 +167,28 @@ class ChatService:
         self._require_permission(org_id, payload.user_id, "chat_advisory")
         session = self._get_or_create_session(org_id, payload)
         state = self._run_agent_workflow(org_id, payload, session)
-        return chat_repository.save_chat_answer(session, payload.question, state.answer, state.citations, state.search_hits, self.db)
+        return chat_repository.save_chat_answer(
+            session,
+            payload.question,
+            state.answer,
+            state.citations,
+            state.search_hits,
+            state.report_artifacts,
+            self.db,
+        )
 
     def ask_personal_chat(self, payload: models.ChatAsk):
         session = self._get_or_create_session(None, payload)
         state = self._run_agent_workflow(None, payload, session)
-        return chat_repository.save_chat_answer(session, payload.question, state.answer, state.citations, state.search_hits, self.db)
+        return chat_repository.save_chat_answer(
+            session,
+            payload.question,
+            state.answer,
+            state.citations,
+            state.search_hits,
+            state.report_artifacts,
+            self.db,
+        )
 
     def stream_chat(self, org_id: str, payload: models.ChatAsk) -> StreamingResponse:
         def event_stream():
@@ -205,6 +228,7 @@ class ChatService:
                     state.answer,
                     state.citations,
                     state.search_hits,
+                    state.report_artifacts,
                     self.db,
                 )
                 yield self._stream_event("complete", response=jsonable_encoder(chat_dto.to_chat_answer_model(result)))
@@ -256,6 +280,7 @@ class ChatService:
                     state.answer,
                     state.citations,
                     state.search_hits,
+                    state.report_artifacts,
                     self.db,
                 )
                 yield self._stream_event("complete", response=jsonable_encoder(chat_dto.to_chat_answer_model(result)))

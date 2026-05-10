@@ -43,6 +43,21 @@ def _citation_summary(state: AgentWorkflowState) -> list[dict[str, Any]]:
     ]
 
 
+def _report_artifact_summary(state: AgentWorkflowState) -> list[dict[str, Any]]:
+    return [
+        {
+            "kind": artifact.kind,
+            "label": artifact.label,
+            "file_name": artifact.file_name,
+            "bucket": artifact.bucket,
+            "object_key": artifact.object_key,
+            "source_url": artifact.source_url,
+            "content_type": artifact.content_type,
+        }
+        for artifact in state.report_artifacts
+    ]
+
+
 def summarize_state(state: AgentWorkflowState) -> dict[str, Any]:
     return {
         "organization_id": state.organization_id,
@@ -54,11 +69,15 @@ def summarize_state(state: AgentWorkflowState) -> dict[str, Any]:
         "plan_summary": state.plan_summary,
         "retrieval_queries": list(state.retrieval_queries),
         "needs_document_search": state.needs_document_search,
+        "wants_report_output": state.wants_report_output,
+        "report_title_hint": state.report_title_hint,
         "search_attempts": list(state.search_attempts),
         "search_hit_count": len(state.search_hits),
         "search_hits": _search_hit_summary(state),
         "citation_count": len(state.citations),
         "citations": _citation_summary(state),
+        "report_artifact_count": len(state.report_artifacts),
+        "report_artifacts": _report_artifact_summary(state),
         "context_count": len(state.contexts),
         "contexts": list(state.contexts),
         "draft_answer": state.draft_answer,
