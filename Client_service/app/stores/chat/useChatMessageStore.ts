@@ -324,9 +324,9 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
     }
   }
 
-  const submitFeedback = async (slug: string, rating: 'positive' | 'negative', comment: string) => {
+  const submitFeedback = async (slug: string, messageId: string, rating: 'positive' | 'negative', comment: string) => {
     const api = useApiChat()
-    await api.feedback(slug, rating, comment)
+    await api.feedback(slug, messageId, rating, comment)
   }
 
   return {

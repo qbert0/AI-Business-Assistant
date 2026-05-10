@@ -88,6 +88,13 @@ class VerifierAgentSettings:
 
 
 @dataclass(frozen=True)
+class FeedbackAgentSettings:
+    history_limit: int
+    comment_char_limit: int
+    answer_char_limit: int
+
+
+@dataclass(frozen=True)
 class SynthesizerAgentSettings:
     max_completion_tokens: int
 
@@ -99,6 +106,7 @@ class AgentSettings:
     retrieval: RetrievalAgentSettings
     answerer: AnswererAgentSettings
     verifier: VerifierAgentSettings
+    feedback: FeedbackAgentSettings
     synthesizer: SynthesizerAgentSettings
 
 
@@ -131,6 +139,11 @@ AGENT_SETTINGS = AgentSettings(
             ["verifier", "max_context_chars_for_model_verify"],
             1400,
         ),
+    ),
+    feedback=FeedbackAgentSettings(
+        history_limit=_nested_int(AGENT_CONFIG_SECTION, ["feedback", "history_limit"], 6),
+        comment_char_limit=_nested_int(AGENT_CONFIG_SECTION, ["feedback", "comment_char_limit"], 280),
+        answer_char_limit=_nested_int(AGENT_CONFIG_SECTION, ["feedback", "answer_char_limit"], 360),
     ),
     synthesizer=SynthesizerAgentSettings(
         max_completion_tokens=_nested_int(AGENT_CONFIG_SECTION, ["synthesizer", "max_completion_tokens"], 500),

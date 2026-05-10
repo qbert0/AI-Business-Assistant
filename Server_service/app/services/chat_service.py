@@ -11,6 +11,7 @@ from app.dtos import chat_dto
 from app.entities import database as db_entities
 from app.repositories import chat_repository
 from app.repositories.common import parse_json_list
+from app.config import AGENT_SETTINGS
 from app.services.agent_orchestrator_service import AgentOrchestratorService
 
 
@@ -89,6 +90,28 @@ class ChatService:
             if item.content
         ]
 
+    def _to_feedback_contexts(self, session_id: str) -> list[dict]:
+        rows = chat_repository.list_chat_feedback_history(
+            session_id,
+            self.db,
+            limit=AGENT_SETTINGS.feedback.history_limit,
+        )
+        feedback_contexts: list[dict] = []
+        for feedback, message in rows:
+            comment = (feedback.comment or "").strip()[: AGENT_SETTINGS.feedback.comment_char_limit]
+            answer_excerpt = (message.content or "").strip()[: AGENT_SETTINGS.feedback.answer_char_limit]
+            feedback_contexts.append(
+                {
+                    "message_id": message.id,
+                    "feedback_id": feedback.id,
+                    "rating": feedback.rating,
+                    "comment": comment,
+                    "assistant_answer_excerpt": answer_excerpt,
+                    "created_at": feedback.created_at.isoformat() if feedback.created_at else None,
+                }
+            )
+        return feedback_contexts
+
     def _stream_event(self, event_type: str, **payload) -> str:
         return json.dumps({"type": event_type, **payload}, ensure_ascii=False) + "\n"
 
@@ -104,6 +127,7 @@ class ChatService:
             user_id=payload.user_id,
             question=payload.question,
             history=self._to_history_payload(session.id),
+            feedback_contexts=self._to_feedback_contexts(session.id),
         )
 
     def chat_suggestions(self, org_id: str, acting_user_id: str) -> list[str]:
@@ -156,6 +180,7 @@ class ChatService:
                     user_id=payload.user_id,
                     question=payload.question,
                     history=self._to_history_payload(session.id),
+                    feedback_contexts=self._to_feedback_contexts(session.id),
                 )
                 while True:
                     try:
@@ -206,6 +231,7 @@ class ChatService:
                     user_id=payload.user_id,
                     question=payload.question,
                     history=self._to_history_payload(session.id),
+                    feedback_contexts=self._to_feedback_contexts(session.id),
                 )
                 while True:
                     try:

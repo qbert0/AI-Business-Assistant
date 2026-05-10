@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 
-from app.agents.base import BaseAgent, AgentWorkflowState, clean_text, parse_json_object
+from app.agents.base import BaseAgent, AgentWorkflowState, clean_text, format_feedback_guidance, parse_json_object
 from app.config import AGENT_SETTINGS
 from app.services.model_service import create_inference
 
@@ -24,6 +24,7 @@ class SynthesizerAgent(BaseAgent):
             state.answer = ""
             return state
 
+        feedback_guidance = format_feedback_guidance(state.feedback_contexts)
         try:
             inference = create_inference(
                 {
@@ -50,6 +51,8 @@ class SynthesizerAgent(BaseAgent):
                         "and optionally end with a short limitation or scope note if it is already implied by the candidate answer. "
                         "Do not pad with generic filler, but do make the reply feel complete. "
                         "Use the same language as the user's question unless the user explicitly asked for another language. "
+                        + (f"\n\n{feedback_guidance}\nUse this feedback to improve clarity, completeness, and tone, but do not introduce any new factual claims." if feedback_guidance else "")
+                        + "\n"
                         "Examples:\n"
                         'Question: "Thông tư về thời hạn bảo quản tài liệu được ban hành vào ngày bao nhiêu?"\n'
                         'Candidate answer: "19 tháng 12 năm 2022."\n'

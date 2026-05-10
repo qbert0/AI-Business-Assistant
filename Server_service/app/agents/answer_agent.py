@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 
-from app.agents.base import BaseAgent, AgentWorkflowState, clean_text, parse_json_object
+from app.agents.base import BaseAgent, AgentWorkflowState, clean_text, format_feedback_guidance, parse_json_object
 from app.config import AGENT_SETTINGS
 from app.services.model_service import create_inference
 
@@ -30,6 +30,7 @@ class AnswerAgent(BaseAgent):
         return compact_contexts
 
     def _run_inference(self, state: AgentWorkflowState, contexts: list[dict]) -> str:
+        feedback_guidance = format_feedback_guidance(state.feedback_contexts)
         inference = create_inference(
             {
                 "conversation_id": state.session_id,
@@ -47,6 +48,8 @@ class AnswerAgent(BaseAgent):
                     "Do not invent unsupported details. "
                     "Answer directly and keep the response concise. "
                     "Use minimal internal reasoning before answering. "
+                    + (f"\n\n{feedback_guidance}\nRemember: feedback is guidance about answer quality, not factual evidence." if feedback_guidance else "")
+                    + " "
                     "Return ONLY one valid JSON object with no markdown, using this schema: "
                     '{"answer":"..."}. '
                     "The answer value must be directly user-facing and must stay in the same language as the user's question unless the user explicitly asks for another language."

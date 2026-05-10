@@ -88,6 +88,7 @@ export const EN_MESSAGES: typeof VI_MESSAGES = {
   },
   chatSidebar: {
     title: 'Chat sessions',
+    newConversation: 'New conversation',
     searchPlaceholder: 'Search chats...',
     empty: 'No matching chat sessions.',
     renamePrompt: 'Rename chat session',
@@ -339,5 +340,4 @@ export const EN_MESSAGES: typeof VI_MESSAGES = {
     send: 'Send'
   }
 } as const
-
 

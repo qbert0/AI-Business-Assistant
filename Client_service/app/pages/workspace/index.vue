@@ -50,17 +50,6 @@
               {{ citation.fileName }}
             </a>
           </div>
-          <div v-if="message.searchHits?.length" class="mt-3 space-y-2">
-            <div
-              v-for="hit in message.searchHits"
-              :key="`${message.id}-${hit.documentId}`"
-              class="rounded-md border border-white/10 px-3 py-2 text-sm"
-            >
-              <p class="font-medium">{{ hit.fileName }}</p>
-              <p class="opacity-70">{{ hit.sourceUrl }}</p>
-              <p v-if="hit.score !== null && hit.score !== undefined" class="opacity-60">Score: {{ hit.score.toFixed(3) }}</p>
-            </div>
-          </div>
         </article>
       </div>
 

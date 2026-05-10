@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 
-from app.agents.base import BaseAgent, AgentWorkflowState, clean_text, parse_json_object
+from app.agents.base import BaseAgent, AgentWorkflowState, clean_text, format_feedback_guidance, parse_json_object
 from app.config import AGENT_SETTINGS
 from app.services.model_service import create_inference
 
@@ -26,6 +26,7 @@ class VerifierAgent(BaseAgent):
             state.verification_notes = "Skipped model verification because the retrieved context was too long."
             return state
 
+        feedback_guidance = format_feedback_guidance(state.feedback_contexts)
         try:
             inference = create_inference(
                 {
@@ -45,6 +46,8 @@ class VerifierAgent(BaseAgent):
                         "Keep only claims that are supported by the trusted context. "
                         "If the context is insufficient, say what is missing and revise the answer so it stays grounded. "
                         "Be brief and produce the final revised answer directly. "
+                        + (f"\n\n{feedback_guidance}\nUse this feedback to catch issues that users previously pointed out, but do not treat it as source evidence." if feedback_guidance else "")
+                        + " "
                         "Return ONLY one valid JSON object with no markdown, "
                         'using this schema: {"is_grounded":true,"revised_answer":"...","notes":"..."}. '
                         "revised_answer must be directly user-facing and must stay in the same language as the user's question unless the user explicitly asked for another language."

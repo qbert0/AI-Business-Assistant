@@ -103,6 +103,7 @@ class AgentOrchestratorService:
         user_id: str,
         question: str,
         history: list[dict],
+        feedback_contexts: list[dict],
     ) -> AgentWorkflowState:
         return AgentWorkflowState(
             organization_id=org_id,
@@ -110,6 +111,7 @@ class AgentOrchestratorService:
             user_id=user_id,
             question=question,
             history=history,
+            feedback_contexts=feedback_contexts,
         )
 
     def _fallback_answer(self, state: AgentWorkflowState) -> tuple[str, list[CitationEntity]]:
@@ -157,6 +159,7 @@ class AgentOrchestratorService:
         user_id: str,
         question: str,
         history: list[dict],
+        feedback_contexts: list[dict],
     ) -> AgentWorkflowState:
         self._step_order = 0
         state = self._build_state(
@@ -165,6 +168,7 @@ class AgentOrchestratorService:
             user_id=user_id,
             question=question,
             history=history,
+            feedback_contexts=feedback_contexts,
         )
         run = self._create_run(state)
         try:
@@ -199,6 +203,7 @@ class AgentOrchestratorService:
         user_id: str,
         question: str,
         history: list[dict],
+        feedback_contexts: list[dict],
     ) -> Generator[AgentWorkflowEvent, None, AgentWorkflowState]:
         self._step_order = 0
         state = self._build_state(
@@ -207,6 +212,7 @@ class AgentOrchestratorService:
             user_id=user_id,
             question=question,
             history=history,
+            feedback_contexts=feedback_contexts,
         )
         run = self._create_run(state)
         try:

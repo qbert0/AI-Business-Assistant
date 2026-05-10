@@ -2,7 +2,7 @@ import json
 
 from fastapi import HTTPException
 
-from app.agents.base import BaseAgent, AgentWorkflowState, coerce_string_list, parse_json_object
+from app.agents.base import BaseAgent, AgentWorkflowState, coerce_string_list, format_feedback_guidance, parse_json_object
 from app.config import AGENT_SETTINGS
 from app.services.model_service import create_inference
 
@@ -32,6 +32,7 @@ class SearchQuestionAgent(BaseAgent):
             return state
 
         attempt_number = len(state.search_attempts) + 1
+        feedback_guidance = format_feedback_guidance(state.feedback_contexts)
         try:
             inference = create_inference(
                 {
@@ -53,6 +54,7 @@ class SearchQuestionAgent(BaseAgent):
                         "Do not repeat the same wording from unsuccessful attempts if prior searches returned no hits. "
                         f"This is retrieval attempt #{attempt_number}. "
                         f"Previous retrieval attempts: {self._previous_attempts_summary(state)}"
+                        + (f"\n\n{feedback_guidance}" if feedback_guidance else "")
                     ),
                     "metadata": {
                         "phase": "search_question",

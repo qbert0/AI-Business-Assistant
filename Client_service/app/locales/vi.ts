@@ -66,6 +66,7 @@
   },
   chatSidebar: {
     title: 'Đoạn chat',
+    newConversation: 'Đoạn chat mới',
     searchPlaceholder: 'Tìm đoạn chat...',
     empty: 'Không có đoạn chat phù hợp.',
     renamePrompt: 'Đổi tên đoạn chat',
@@ -419,7 +420,6 @@
     currentTitle: 'Danh sách yêu cầu đã gửi'
   }
 } as const
-
 
 
 

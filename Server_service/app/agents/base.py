@@ -61,6 +61,25 @@ def parse_json_object(raw_text: str) -> dict[str, Any]:
         return {}
 
 
+def format_feedback_guidance(feedback_contexts: list[dict[str, Any]]) -> str:
+    if not feedback_contexts:
+        return ""
+
+    lines = [
+        "Recent user feedback on earlier answers in this conversation:",
+        "- Treat this feedback as quality guidance, not as factual evidence about the source documents.",
+        "- Use it to avoid repeating mistakes, improve grounding, and better match the user's expectations.",
+    ]
+    for index, item in enumerate(feedback_contexts, start=1):
+        rating = clean_text(item.get("rating")) or "unknown"
+        comment = clean_text(item.get("comment")) or "No written feedback provided."
+        answer_excerpt = clean_text(item.get("assistant_answer_excerpt"))
+        lines.append(f"{index}. Rating: {rating}. Feedback: {comment}")
+        if answer_excerpt:
+            lines.append(f"   Answer that received this feedback: {answer_excerpt}")
+    return "\n".join(lines)
+
+
 @dataclass(slots=True)
 class AgentWorkflowEvent:
     event_type: str
@@ -77,6 +96,7 @@ class AgentWorkflowState:
     user_id: str
     question: str
     history: list[dict[str, Any]] = field(default_factory=list)
+    feedback_contexts: list[dict[str, Any]] = field(default_factory=list)
     plan_summary: str = ""
     retrieval_queries: list[str] = field(default_factory=list)
     needs_document_search: bool = False

@@ -58,13 +58,33 @@ def list_chat_messages(session_id: str, db: Session) -> list[db_entities.ChatMes
 
 
 def list_chat_history(session_id: str, db: Session, limit: int = 12) -> list[db_entities.ChatMessage]:
-    return (
+    messages = (
         db.query(db_entities.ChatMessage)
         .filter(db_entities.ChatMessage.session_id == session_id)
-        .order_by(db_entities.ChatMessage.created_at.asc())
+        .order_by(db_entities.ChatMessage.created_at.desc())
         .limit(limit)
         .all()
     )
+    return list(reversed(messages))
+
+
+def list_chat_feedback_history(
+    session_id: str,
+    db: Session,
+    limit: int = 6,
+) -> list[tuple[db_entities.ChatFeedback, db_entities.ChatMessage]]:
+    rows = (
+        db.query(db_entities.ChatFeedback, db_entities.ChatMessage)
+        .join(db_entities.ChatMessage, db_entities.ChatFeedback.message_id == db_entities.ChatMessage.id)
+        .filter(
+            db_entities.ChatMessage.session_id == session_id,
+            db_entities.ChatMessage.sender_type == "ai",
+        )
+        .order_by(db_entities.ChatFeedback.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return list(reversed(rows))
 
 
 def save_chat_answer(

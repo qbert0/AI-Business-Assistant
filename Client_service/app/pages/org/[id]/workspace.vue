@@ -34,23 +34,12 @@
                 :href="citation.sourceUrl || undefined"
                 target="_blank"
                 rel="noreferrer"
-              >
-                {{ citation.fileName }}
-              </a>
-            </div>
-            <div v-if="message.searchHits?.length" class="mt-3 space-y-2">
-              <div
-                v-for="hit in message.searchHits"
-                :key="`${message.id}-${hit.documentId}`"
-                class="rounded-md border border-white/10 px-3 py-2 text-sm"
-              >
-                <p class="font-medium">{{ hit.fileName }}</p>
-                <p class="opacity-70">{{ hit.sourceUrl }}</p>
-                <p v-if="hit.score !== null && hit.score !== undefined" class="opacity-60">Score: {{ hit.score.toFixed(3) }}</p>
-              </div>
-            </div>
-          </article>
-        </div>
+            >
+              {{ citation.fileName }}
+            </a>
+          </div>
+        </article>
+      </div>
 
         <div class="space-y-3">
           <textarea
@@ -113,6 +102,7 @@ const sessions = computed(() => getSessions(slug.value))
 const suggestions = computed(() => getSuggestions(slug.value))
 const streamingStatus = computed(() => getStreamingStatus(slug.value))
 const isStreaming = computed(() => getIsStreaming(slug.value))
+const latestAssistantMessage = computed(() => [...messages.value].reverse().find((message) => message.role === 'assistant') ?? null)
 
 const prompt = ref('')
 const feedbackComment = ref('')
@@ -138,7 +128,16 @@ const fillSuggestion = () => {
 }
 
 const handleFeedback = async (rating: 'positive' | 'negative') => {
-  await submitFeedback(slug.value, rating, feedbackComment.value || UI_MESSAGES.feedbackDefault)
+  if (!latestAssistantMessage.value?.id) {
+    return
+  }
+
+  await submitFeedback(
+    slug.value,
+    latestAssistantMessage.value.id,
+    rating,
+    feedbackComment.value || UI_MESSAGES.feedbackDefault
+  )
   feedbackComment.value = ''
 }
 

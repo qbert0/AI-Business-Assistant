@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 
-from app.agents.base import BaseAgent, AgentWorkflowState, clean_text, coerce_string_list, parse_json_object
+from app.agents.base import BaseAgent, AgentWorkflowState, clean_text, coerce_string_list, format_feedback_guidance, parse_json_object
 from app.config import AGENT_SETTINGS
 from app.services.model_service import create_inference
 
@@ -16,6 +16,8 @@ class PlannerAgent(BaseAgent):
             state.retrieval_queries = [state.question]
             state.needs_document_search = False
             return state
+
+        feedback_guidance = format_feedback_guidance(state.feedback_contexts)
 
         try:
             inference = create_inference(
@@ -35,7 +37,8 @@ class PlannerAgent(BaseAgent):
                         f"retrieval_queries must contain at most {AGENT_SETTINGS.retrieval.max_queries_per_attempt} short retrieval queries, "
                         "all written in the same language as the user's question. "
                         "Each query should represent a different useful phrasing or retrieval angle for the same request. "
-                        "Set needs_document_search to true when internal documents are required to answer reliably."
+                        "Set needs_document_search to true when internal documents are required to answer reliably. "
+                        + (f"\n\n{feedback_guidance}" if feedback_guidance else "")
                     ),
                     "metadata": {
                         "phase": "planner",

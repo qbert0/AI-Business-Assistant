@@ -29,5 +29,10 @@ agent:
     max_completion_tokens: 4096
     max_context_chars_for_model_verify: 5000
 
+  feedback:
+    history_limit: 6
+    comment_char_limit: 280
+    answer_char_limit: 360
+
   synthesizer:
     max_completion_tokens: 4096
