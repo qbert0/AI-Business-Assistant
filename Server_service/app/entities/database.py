@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -118,6 +118,7 @@ class ChatSession(Base):
     organization = relationship("Organization", back_populates="chat_sessions")
     user = relationship("User", back_populates="chat_sessions")
     messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
+    agent_runs = relationship("AgentRun", back_populates="session", cascade="all, delete-orphan")
 
 
 class ChatMessage(Base):
@@ -146,6 +147,48 @@ class ChatFeedback(Base):
 
     message = relationship("ChatMessage", back_populates="feedback")
     user = relationship("User")
+
+
+class AgentRun(Base):
+    __tablename__ = "agent_runs"
+
+    id = uuid_pk()
+    session_id = Column(String(36), ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    question = Column(Text, nullable=False)
+    final_answer = Column(Text, nullable=True)
+    status = Column(String(40), nullable=False, default="running", server_default="running")
+    retry_count = Column(Integer, nullable=False, default=0, server_default="0")
+    total_latency_ms = Column(Integer, nullable=True)
+    metadata_json = Column(Text, nullable=False, default="{}")
+    started_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+
+    session = relationship("ChatSession", back_populates="agent_runs")
+    organization = relationship("Organization")
+    user = relationship("User")
+    steps = relationship("AgentStep", back_populates="run", cascade="all, delete-orphan")
+
+
+class AgentStep(Base):
+    __tablename__ = "agent_steps"
+
+    id = uuid_pk()
+    run_id = Column(String(36), ForeignKey("agent_runs.id", ondelete="CASCADE"), nullable=False, index=True)
+    step_order = Column(Integer, nullable=False)
+    agent_name = Column(String(80), nullable=False, index=True)
+    phase = Column(String(80), nullable=False)
+    status = Column(String(40), nullable=False, default="completed", server_default="completed")
+    input_json = Column(Text, nullable=False, default="{}")
+    output_json = Column(Text, nullable=False, default="{}")
+    metadata_json = Column(Text, nullable=False, default="{}")
+    error_message = Column(Text, nullable=True)
+    latency_ms = Column(Integer, nullable=True)
+    started_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+
+    run = relationship("AgentRun", back_populates="steps")
 
 
 class Notification(Base):

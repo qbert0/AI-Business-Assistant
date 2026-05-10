@@ -11,7 +11,7 @@ from app.services.search_service import query_documents
 class RetrieverAgent(BaseAgent):
     name = "retriever"
     stage = "retrieval"
-    start_message = "Dang truy xuat tai lieu noi bo lien quan."
+    start_message = "Đang tìm tài liệu liên quan trong kho nội bộ."
     METADATA_PREVIEW_TEXT_LIMIT = 4000
 
     def __init__(self, db: Session) -> None:
@@ -171,10 +171,10 @@ class RetrieverAgent(BaseAgent):
 
     def finish_message(self, state: AgentWorkflowState) -> str:
         if not state.organization_id or not state.needs_document_search:
-            return "Khong can truy xuat tai lieu cho cau hoi nay."
+            return "Câu hỏi này không cần truy xuất tài liệu."
         if state.search_hits:
-            return "Da tim thay tai lieu lien quan de dua vao bo context."
-        return "Chua tim thay tai lieu phu hop trong kho noi bo."
+            return "Đã tìm thấy tài liệu liên quan để đưa vào ngữ cảnh trả lời."
+        return "Chưa tìm thấy tài liệu phù hợp trong kho nội bộ."
 
     def build_payload(self, state: AgentWorkflowState) -> dict[str, object]:
         return {
@@ -193,7 +193,7 @@ class RetrieverAgent(BaseAgent):
                 event_type="search_results",
                 stage=self.stage,
                 agent=self.name,
-                message="Da cap nhat ket qua truy xuat tai lieu.",
+                message="Đã cập nhật kết quả tìm tài liệu.",
                 payload={
                     "retrieval_queries": state.retrieval_queries,
                     "hits": [

@@ -8,7 +8,7 @@ from app.services.model_service import create_inference
 class SynthesizerAgent(BaseAgent):
     name = "synthesizer"
     stage = "synthesizing"
-    start_message = "Dang tong hop cau tra loi cuoi cung."
+    start_message = "Đang hoàn thiện câu trả lời cuối cùng."
 
     def _extract_answer_text(self, response_text: str) -> str:
         payload = parse_json_object(response_text)
@@ -84,8 +84,8 @@ class SynthesizerAgent(BaseAgent):
 
     def finish_message(self, state: AgentWorkflowState) -> str:
         if state.answer:
-            return "Da tong hop xong cau tra loi cuoi cung."
-        return "Chua co du du lieu de tong hop cau tra loi cuoi cung."
+            return "Đã hoàn thiện xong câu trả lời cuối cùng."
+        return "Chưa có đủ dữ liệu để hoàn thiện câu trả lời cuối cùng."
 
     def build_payload(self, state: AgentWorkflowState) -> dict[str, object]:
         return {

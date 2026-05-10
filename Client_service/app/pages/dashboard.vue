@@ -72,8 +72,14 @@
           </button>
         </div>
         <div class="chat-input-shell">
-          <textarea v-model="prompt" class="chat-input" rows="2" :placeholder="text.workspace.inputPlaceholder" />
-          <button class="btn-primary" type="button" :disabled="isStreaming" @click="handleAsk">{{ isStreaming ? 'Dang tra loi...' : text.workspace.send }}</button>
+          <textarea
+            v-model="prompt"
+            class="chat-input"
+            rows="2"
+            :placeholder="text.workspace.inputPlaceholder"
+            @keydown.enter.exact.prevent="handleAsk"
+          />
+          <button class="btn-primary" type="button" :disabled="isStreaming || !prompt.trim()" @click="handleAsk">{{ isStreaming ? 'Dang tra loi...' : text.workspace.send }}</button>
         </div>
         <p v-if="streamingStatus" class="text-sm opacity-70">{{ streamingStatus }}</p>
       </div>
@@ -99,12 +105,18 @@ const isStreaming = computed(() => getIsStreaming(selectedSlug.value))
 const prompt = ref('')
 
 const handleAsk = async () => {
-  if (!prompt.value.trim()) {
+  const currentPrompt = prompt.value.trim()
+  if (!currentPrompt || isStreaming.value) {
     return
   }
 
-  selectedSessionId.value = await askQuestion(selectedSlug.value, prompt.value.trim(), selectedSessionId.value)
   prompt.value = ''
+  try {
+    selectedSessionId.value = await askQuestion(selectedSlug.value, currentPrompt, selectedSessionId.value)
+  } catch (error) {
+    prompt.value = currentPrompt
+    throw error
+  }
 }
 
 onMounted(async () => {

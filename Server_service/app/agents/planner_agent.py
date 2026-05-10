@@ -8,7 +8,7 @@ from app.services.model_service import create_inference
 class PlannerAgent(BaseAgent):
     name = "planner"
     stage = "planning"
-    start_message = "Dang lap ke hoach va dat cau hoi truy xuat."
+    start_message = "Đang phân tích câu hỏi và lập kế hoạch truy xuất."
 
     def run(self, state: AgentWorkflowState) -> AgentWorkflowState:
         if not state.organization_id:
@@ -67,8 +67,8 @@ class PlannerAgent(BaseAgent):
 
     def finish_message(self, state: AgentWorkflowState) -> str:
         if state.needs_document_search:
-            return "Da co ke hoach va truy van tim kiem cho buoc truy xuat tai lieu."
-        return "Da co ke hoach tra loi truc tiep tu hoi thoai hien co."
+            return "Đã xác định kế hoạch và bộ truy vấn cho bước tìm tài liệu."
+        return "Đã xác định kế hoạch trả lời trực tiếp từ hội thoại hiện có."
 
     def build_payload(self, state: AgentWorkflowState) -> dict[str, object]:
         return {

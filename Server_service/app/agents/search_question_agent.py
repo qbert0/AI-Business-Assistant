@@ -10,7 +10,7 @@ from app.services.model_service import create_inference
 class SearchQuestionAgent(BaseAgent):
     name = "questioner"
     stage = "questioning"
-    start_message = "Dang dat lai cac cau hoi truy xuat de tim tai lieu phu hop."
+    start_message = "Đang xây dựng lại truy vấn tìm kiếm để tìm tài liệu phù hợp."
 
     def _previous_attempts_summary(self, state: AgentWorkflowState) -> str:
         if not state.search_attempts:
@@ -76,7 +76,7 @@ class SearchQuestionAgent(BaseAgent):
         return state
 
     def finish_message(self, state: AgentWorkflowState) -> str:
-        return "Da tao truy van va cac cau hoi truy xuat cho luot tim kiem nay."
+        return "Đã tạo bộ truy vấn cho lượt tìm kiếm này."
 
     def build_payload(self, state: AgentWorkflowState) -> dict[str, object]:
         return {

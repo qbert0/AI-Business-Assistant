@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
@@ -14,6 +15,7 @@ from app.agents import (
 )
 from app.config import AGENT_SETTINGS
 from app.entities.chat import CitationEntity
+from app.repositories import agent_trace_repository
 
 
 class AgentOrchestratorService:
@@ -25,6 +27,73 @@ class AgentOrchestratorService:
         self.answerer = AnswerAgent()
         self.verifier = VerifierAgent()
         self.synthesizer = SynthesizerAgent()
+        self._step_order = 0
+
+    def _utcnow(self) -> datetime:
+        return datetime.utcnow()
+
+    def _build_run_metadata(self, state: AgentWorkflowState) -> dict:
+        return {
+            "organization_id": state.organization_id,
+            "session_id": state.session_id,
+            "user_id": state.user_id,
+            "question": state.question,
+        }
+
+    def _build_completion_metadata(self, state: AgentWorkflowState) -> dict:
+        payload = agent_trace_repository.summarize_state(state)
+        payload["retry_count"] = max(0, len(state.search_attempts) - 1)
+        return payload
+
+    def _create_run(self, state: AgentWorkflowState):
+        run = agent_trace_repository.create_agent_run(
+            session_id=state.session_id,
+            organization_id=state.organization_id,
+            user_id=state.user_id,
+            question=state.question,
+            metadata=self._build_run_metadata(state),
+            db=self.db,
+        )
+        state.metadata["agent_run_id"] = run.id
+        return run
+
+    def _run_step(self, agent, state: AgentWorkflowState, run_id: str) -> AgentWorkflowState:
+        self._step_order += 1
+        started_at = self._utcnow()
+        input_payload = agent_trace_repository.summarize_state(state)
+        try:
+            state = agent.run(state)
+            finished_at = self._utcnow()
+            agent_trace_repository.save_agent_step(
+                run_id=run_id,
+                step_order=self._step_order,
+                agent=agent,
+                status="completed",
+                input_payload=input_payload,
+                output_payload=agent_trace_repository.summarize_state(state),
+                metadata=agent.build_payload(state),
+                started_at=started_at,
+                finished_at=finished_at,
+                error_message=None,
+                db=self.db,
+            )
+            return state
+        except Exception as exc:
+            finished_at = self._utcnow()
+            agent_trace_repository.save_agent_step(
+                run_id=run_id,
+                step_order=self._step_order,
+                agent=agent,
+                status="failed",
+                input_payload=input_payload,
+                output_payload=agent_trace_repository.summarize_state(state),
+                metadata=agent.build_payload(state),
+                started_at=started_at,
+                finished_at=finished_at,
+                error_message=str(exc),
+                db=self.db,
+            )
+            raise
 
     def _build_state(
         self,
@@ -47,16 +116,16 @@ class AgentOrchestratorService:
         citations = state.citations
         if citations:
             answer = (
-                "Toi tim thay cac tai lieu lien quan nhat trong Elasticsearch cho cau hoi cua ban: "
+                "Tôi tìm thấy các tài liệu liên quan nhất trong Elasticsearch cho câu hỏi của bạn: "
                 + " ".join([f"- {item.file_name} ({item.source_url})" for item in citations])
-                + " Ban co the mo cac nguon nay de doi chieu noi dung goc."
+                + " Bạn có thể mở các nguồn này để đối chiếu nội dung gốc."
             )
             return answer, citations
         if state.organization_id:
-            return "Chua tim thay tai lieu phu hop trong Elasticsearch cho cau hoi nay.", []
+            return "Chưa tìm thấy tài liệu phù hợp trong Elasticsearch cho câu hỏi này.", []
         return (
-            "Workspace ca nhan hien chua gan kho tai lieu noi bo. "
-            "Ban co the tao to chuc hoac chon workspace to chuc de hoi dap theo tai lieu."
+            "Workspace cá nhân hiện chưa gắn kho tài liệu nội bộ. "
+            "Bạn có thể tạo tổ chức hoặc chọn workspace tổ chức để hỏi đáp theo tài liệu."
         ), []
 
     def _apply_fallback(self, state: AgentWorkflowState) -> AgentWorkflowState:
@@ -73,8 +142,9 @@ class AgentOrchestratorService:
 
         total_attempts = AGENT_SETTINGS.retrieval.no_hit_retries + 1
         for _ in range(total_attempts):
-            state = self.questioner.run(state)
-            state = self.retriever.run(state)
+            run_id = state.metadata["agent_run_id"]
+            state = self._run_step(self.questioner, state, run_id)
+            state = self._run_step(self.retriever, state, run_id)
             if state.search_hits:
                 break
         return state
@@ -88,6 +158,7 @@ class AgentOrchestratorService:
         question: str,
         history: list[dict],
     ) -> AgentWorkflowState:
+        self._step_order = 0
         state = self._build_state(
             org_id=org_id,
             session_id=session_id,
@@ -95,12 +166,30 @@ class AgentOrchestratorService:
             question=question,
             history=history,
         )
-        state = self.planner.run(state)
-        state = self._run_retrieval_loop(state)
-        state = self.answerer.run(state)
-        state = self.verifier.run(state)
-        state = self.synthesizer.run(state)
-        return self._apply_fallback(state)
+        run = self._create_run(state)
+        try:
+            state = self._run_step(self.planner, state, run.id)
+            state = self._run_retrieval_loop(state)
+            state = self._run_step(self.answerer, state, run.id)
+            state = self._run_step(self.verifier, state, run.id)
+            state = self._run_step(self.synthesizer, state, run.id)
+            state = self._apply_fallback(state)
+            agent_trace_repository.complete_agent_run(
+                run=run,
+                final_answer=state.answer,
+                retry_count=max(0, len(state.search_attempts) - 1),
+                metadata=self._build_completion_metadata(state),
+                db=self.db,
+            )
+            return state
+        except Exception as exc:
+            agent_trace_repository.fail_agent_run(
+                run=run,
+                error_message=str(exc),
+                metadata=self._build_completion_metadata(state),
+                db=self.db,
+            )
+            raise
 
     def iter_run(
         self,
@@ -111,6 +200,7 @@ class AgentOrchestratorService:
         question: str,
         history: list[dict],
     ) -> Generator[AgentWorkflowEvent, None, AgentWorkflowState]:
+        self._step_order = 0
         state = self._build_state(
             org_id=org_id,
             session_id=session_id,
@@ -118,46 +208,64 @@ class AgentOrchestratorService:
             question=question,
             history=history,
         )
-        yield self.planner.start_event()
-        state = self.planner.run(state)
-        yield self.planner.finish_event(state)
+        run = self._create_run(state)
+        try:
+            yield self.planner.start_event()
+            state = self._run_step(self.planner, state, run.id)
+            yield self.planner.finish_event(state)
 
-        if state.organization_id and state.needs_document_search:
-            total_attempts = AGENT_SETTINGS.retrieval.no_hit_retries + 1
-            for attempt_index in range(total_attempts):
-                yield self.questioner.start_event()
-                state = self.questioner.run(state)
-                yield self.questioner.finish_event(state)
+            if state.organization_id and state.needs_document_search:
+                total_attempts = AGENT_SETTINGS.retrieval.no_hit_retries + 1
+                for attempt_index in range(total_attempts):
+                    yield self.questioner.start_event()
+                    state = self._run_step(self.questioner, state, run.id)
+                    yield self.questioner.finish_event(state)
 
-                yield self.retriever.start_event()
-                state = self.retriever.run(state)
-                yield self.retriever.finish_event(state)
-                for event in self.retriever.extra_events(state):
-                    yield event
-                if state.search_hits:
-                    break
-                if attempt_index < total_attempts - 1:
-                    yield AgentWorkflowEvent(
+                    yield self.retriever.start_event()
+                    state = self._run_step(self.retriever, state, run.id)
+                    yield self.retriever.finish_event(state)
+                    for event in self.retriever.extra_events(state):
+                        yield event
+                    if state.search_hits:
+                        break
+                    if attempt_index < total_attempts - 1:
+                        yield AgentWorkflowEvent(
                         event_type="status",
                         stage="retrieval_retry",
                         agent="orchestrator",
-                        message="Chua co hit phu hop, dang thu mot bo cau hoi truy xuat khac.",
+                        message="Chưa tìm thấy tài liệu phù hợp, đang thử một bộ truy vấn khác.",
                         payload={"attempt": attempt_index + 1, "remaining_retries": total_attempts - attempt_index - 1},
                     )
-        else:
-            yield self.retriever.start_event()
-            state = self.retriever.run(state)
-            yield self.retriever.finish_event(state)
+            else:
+                yield self.retriever.start_event()
+                state = self._run_step(self.retriever, state, run.id)
+                yield self.retriever.finish_event(state)
 
-        yield self.answerer.start_event()
-        state = self.answerer.run(state)
-        yield self.answerer.finish_event(state)
+            yield self.answerer.start_event()
+            state = self._run_step(self.answerer, state, run.id)
+            yield self.answerer.finish_event(state)
 
-        yield self.verifier.start_event()
-        state = self.verifier.run(state)
-        yield self.verifier.finish_event(state)
+            yield self.verifier.start_event()
+            state = self._run_step(self.verifier, state, run.id)
+            yield self.verifier.finish_event(state)
 
-        yield self.synthesizer.start_event()
-        state = self.synthesizer.run(state)
-        yield self.synthesizer.finish_event(state)
-        return self._apply_fallback(state)
+            yield self.synthesizer.start_event()
+            state = self._run_step(self.synthesizer, state, run.id)
+            yield self.synthesizer.finish_event(state)
+            state = self._apply_fallback(state)
+            agent_trace_repository.complete_agent_run(
+                run=run,
+                final_answer=state.answer,
+                retry_count=max(0, len(state.search_attempts) - 1),
+                metadata=self._build_completion_metadata(state),
+                db=self.db,
+            )
+            return state
+        except Exception as exc:
+            agent_trace_repository.fail_agent_run(
+                run=run,
+                error_message=str(exc),
+                metadata=self._build_completion_metadata(state),
+                db=self.db,
+            )
+            raise

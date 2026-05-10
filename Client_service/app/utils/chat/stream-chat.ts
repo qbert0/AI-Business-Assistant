@@ -15,9 +15,9 @@ export const streamChatAnswer = async (
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
     body: JSON.stringify({
-      user_id: body.userId,
       question: body.question,
-      session_id: body.sessionId || null
+      userId: body.userId,
+      sessionId: body.sessionId || null
     })
   })
 

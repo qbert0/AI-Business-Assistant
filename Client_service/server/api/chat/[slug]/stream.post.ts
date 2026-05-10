@@ -5,6 +5,7 @@ import { getBackendBaseUrl, getBackendUser } from '../../../utils/backend'
 const streamSchema = z.object({
   question: z.string().min(1).max(4000),
   sessionId: z.string().nullable().optional(),
+  session_id: z.string().nullable().optional(),
   userId: z.string().optional()
 })
 
@@ -25,7 +26,7 @@ export default defineEventHandler(async (event) => {
     body: JSON.stringify({
       user_id: user.id,
       question: body.question,
-      session_id: body.sessionId || null
+      session_id: body.sessionId ?? body.session_id ?? null
     })
   })
 

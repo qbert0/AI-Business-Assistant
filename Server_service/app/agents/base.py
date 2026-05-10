@@ -94,7 +94,7 @@ class AgentWorkflowState:
 class BaseAgent(ABC):
     name = "base"
     stage = "base"
-    start_message = "Dang xu ly."
+    start_message = "Đang xử lý."
 
     @abstractmethod
     def run(self, state: AgentWorkflowState) -> AgentWorkflowState:
@@ -118,7 +118,7 @@ class BaseAgent(ABC):
         )
 
     def finish_message(self, state: AgentWorkflowState) -> str:
-        return "Da xu ly xong buoc nay."
+        return "Đã xử lý xong bước này."
 
     def build_payload(self, state: AgentWorkflowState) -> dict[str, Any]:
         return {}

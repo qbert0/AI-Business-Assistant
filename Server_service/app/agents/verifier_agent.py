@@ -8,7 +8,7 @@ from app.services.model_service import create_inference
 class VerifierAgent(BaseAgent):
     name = "verifier"
     stage = "verifying"
-    start_message = "Dang doi chieu ban nhap voi context va kiem tra do tin cay."
+    start_message = "Đang đối chiếu bản nháp với tài liệu đã truy xuất."
 
     def run(self, state: AgentWorkflowState) -> AgentWorkflowState:
         if not state.draft_answer:
@@ -73,8 +73,8 @@ class VerifierAgent(BaseAgent):
 
     def finish_message(self, state: AgentWorkflowState) -> str:
         if state.verified_answer:
-            return "Da doi chieu xong ban nhap voi context truy xuat."
-        return "Khong co ban nhap de doi chieu."
+            return "Đã đối chiếu xong bản nháp với ngữ cảnh truy xuất."
+        return "Không có bản nháp để đối chiếu."
 
     def build_payload(self, state: AgentWorkflowState) -> dict[str, object]:
         return {

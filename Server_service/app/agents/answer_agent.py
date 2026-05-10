@@ -8,7 +8,7 @@ from app.services.model_service import create_inference
 class AnswerAgent(BaseAgent):
     name = "answerer"
     stage = "drafting"
-    start_message = "Dang soan ban nhap cau tra loi tu context hien co."
+    start_message = "Đang soạn bản nháp câu trả lời từ ngữ cảnh hiện có."
 
     def _extract_answer_text(self, response_text: str) -> str:
         payload = parse_json_object(response_text)
@@ -80,8 +80,8 @@ class AnswerAgent(BaseAgent):
 
     def finish_message(self, state: AgentWorkflowState) -> str:
         if state.draft_answer:
-            return "Da soan xong ban nhap cau tra loi."
-        return "Chua tao duoc ban nhap cau tra loi tu model."
+            return "Đã soạn xong bản nháp câu trả lời."
+        return "Chưa tạo được bản nháp câu trả lời từ mô hình."
 
     def build_payload(self, state: AgentWorkflowState) -> dict[str, object]:
         return {

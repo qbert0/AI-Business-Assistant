@@ -53,10 +53,16 @@
         </div>
 
         <div class="space-y-3">
-          <textarea v-model="prompt" class="app-textarea" rows="4" :placeholder="UI_MESSAGES.chatPlaceholder" />
+          <textarea
+            v-model="prompt"
+            class="app-textarea"
+            rows="4"
+            :placeholder="UI_MESSAGES.chatPlaceholder"
+            @keydown.enter.exact.prevent="handleAsk"
+          />
           <p v-if="streamingStatus" class="text-sm opacity-70">{{ streamingStatus }}</p>
           <div class="flex flex-wrap gap-2.5">
-            <button class="btn-primary" :disabled="isStreaming" @click="handleAsk">{{ isStreaming ? 'Dang tra loi...' : text.chatPage.send }}</button>
+            <button class="btn-primary" :disabled="isStreaming || !prompt.trim()" @click="handleAsk">{{ isStreaming ? 'Dang tra loi...' : text.chatPage.send }}</button>
             <button class="btn-secondary" @click="fillSuggestion">{{ text.chatPage.useSuggestion }}</button>
           </div>
         </div>
@@ -113,12 +119,18 @@ const feedbackComment = ref('')
 const selectedSessionId = ref<string | null>(null)
 
 const handleAsk = async () => {
-  if (!prompt.value) {
+  const currentPrompt = prompt.value.trim()
+  if (!currentPrompt || isStreaming.value) {
     return
   }
 
-  selectedSessionId.value = await askQuestion(slug.value, prompt.value, selectedSessionId.value)
   prompt.value = ''
+  try {
+    selectedSessionId.value = await askQuestion(slug.value, currentPrompt, selectedSessionId.value)
+  } catch (error) {
+    prompt.value = currentPrompt
+    throw error
+  }
 }
 
 const fillSuggestion = () => {
