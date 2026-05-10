@@ -17,8 +17,6 @@ agent:
     max_merged_hits: 15
     max_context_items: 10
     context_char_limit: 2400
-    snippet_prefix_chars: 500
-    snippet_suffix_chars: 1100
 
   answerer:
     max_completion_tokens: 4096

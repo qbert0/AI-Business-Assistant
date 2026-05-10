@@ -5,43 +5,32 @@
     - Cột giữa: thread chat + composer
     - Cột phải: gợi ý câu hỏi + feedback
   -->
-  <div v-if="organization" class="space-y-6">
-    <section class="chat-layout">
+  <div v-if="organization" class="org-chat-workspace">
+    <section class="chat-layout org-chat-layout">
       <!-- Left rail: organization chat sessions -->
-      <ChatSessionSidebar
-        :slug="slug"
-        v-model:selected-session-id="selectedSessionId"
-        :sessions="sessions"
-      />
-
-      <!-- Main column: thread + composer -->
-      <section class="surface-card space-y-4">
-        <h1 class="page-title">{{ organization.name }} Workspace</h1>
-
-        <div class="chat-thread">
-          <article
-            v-for="message in messages"
-            :key="message.id"
-            :class="message.role === 'assistant' ? 'chat-bubble assistant' : 'chat-bubble user'"
-          >
-            <p>{{ message.content }}</p>
-            <p v-if="message.activity" class="mt-2 text-sm opacity-70">{{ message.activity }}</p>
-            <div v-if="message.citations?.length" class="mt-3 flex flex-wrap gap-2">
-              <a
-                v-for="citation in message.citations"
-                :key="`${message.id}-${citation.documentId}-${citation.fileName}`"
-                class="pill"
-                :href="citation.sourceUrl || undefined"
-                target="_blank"
-                rel="noreferrer"
-            >
-              {{ citation.fileName }}
-            </a>
-          </div>
-        </article>
+      <div class="org-chat-sidebar-shell">
+        <ChatSessionSidebar
+          :slug="slug"
+          v-model:selected-session-id="selectedSessionId"
+          :sessions="sessions"
+        />
       </div>
 
-        <div class="space-y-3">
+      <!-- Main column: thread + composer -->
+      <section class="surface-card org-chat-main-panel">
+        <div class="org-chat-main-header">
+          <h1 class="page-title">{{ organization.name }} Workspace</h1>
+        </div>
+
+        <div class="chat-thread org-chat-thread">
+          <ChatMessageBubble
+            v-for="message in messages"
+            :key="message.id"
+            :message="message"
+          />
+        </div>
+
+        <div class="org-chat-composer">
           <textarea
             v-model="prompt"
             class="app-textarea"
@@ -58,8 +47,8 @@
       </section>
 
       <!-- Right rail: suggestion + feedback -->
-      <aside class="space-y-3">
-        <section class="surface-card space-y-3">
+      <aside class="org-chat-rail">
+        <section class="surface-card org-chat-rail-card space-y-3">
           <h2 class="panel-title">{{ text.chatPage.suggestionsTitle }}</h2>
           <div class="flex flex-wrap gap-2.5">
             <button v-for="item in suggestions" :key="item.id" class="question-chip" @click="prompt = item.question">
@@ -68,7 +57,7 @@
           </div>
         </section>
 
-        <section class="surface-card space-y-3">
+        <section class="surface-card org-chat-rail-card space-y-3">
           <h2 class="panel-title">{{ text.chatPage.feedbackTitle }}</h2>
           <textarea v-model="feedbackComment" class="app-textarea" rows="3" :placeholder="text.chatPage.feedbackPlaceholder" />
           <div class="flex flex-wrap gap-2.5">
@@ -82,6 +71,7 @@
 </template>
 
 <script setup lang="ts">
+import ChatMessageBubble from '@/components/shared/chat/ChatMessageBubble.vue'
 import ChatSessionSidebar from '@/components/shared/chat/ChatSessionSidebar.vue'
 import { UI_MESSAGES } from '@/constants/messages'
 

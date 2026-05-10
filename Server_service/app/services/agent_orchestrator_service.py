@@ -117,10 +117,25 @@ class AgentOrchestratorService:
     def _fallback_answer(self, state: AgentWorkflowState) -> tuple[str, list[CitationEntity]]:
         citations = state.citations
         if citations:
+            file_names = ", ".join([item.file_name for item in citations])
+            answerer_failure_reason = str(state.metadata.get("answerer_failure_reason") or "").strip()
+
+            if not state.contexts:
+                return (
+                    "Mình đã tìm thấy tài liệu liên quan, nhưng hiện chưa trích xuất được đủ nội dung văn bản để tạo câu trả lời trực tiếp. "
+                    f"Các tài liệu đã tìm thấy gồm: {file_names}. Bạn có thể mở các nguồn này để đối chiếu, hoặc mình có thể giúp kiểm tra lại pipeline trích xuất nội dung."
+                ), citations
+
+            if answerer_failure_reason in {"model_inference_http_error", "empty_model_output"}:
+                return (
+                    "Mình đã tìm thấy tài liệu liên quan và đã lấy được ngữ cảnh cần thiết, nhưng bước tổng hợp câu trả lời từ mô hình chưa thành công. "
+                    f"Các tài liệu đã tìm thấy gồm: {file_names}. Bạn có thể thử hỏi lại, hoặc mình có thể giúp kiểm tra cấu hình Model Service và policy `chat_multi_agent`."
+                ), citations
+
             answer = (
-                "Tôi tìm thấy các tài liệu liên quan nhất trong Elasticsearch cho câu hỏi của bạn: "
-                + " ".join([f"- {item.file_name} ({item.source_url})" for item in citations])
-                + " Bạn có thể mở các nguồn này để đối chiếu nội dung gốc."
+                "Mình đã tìm thấy các tài liệu liên quan nhất cho câu hỏi của bạn. "
+                f"Các tài liệu đã tìm thấy gồm: {file_names}. "
+                "Bạn có thể mở các nguồn này để đối chiếu nội dung gốc."
             )
             return answer, citations
         if state.organization_id:

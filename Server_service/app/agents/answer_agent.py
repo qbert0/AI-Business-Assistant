@@ -69,6 +69,7 @@ class AnswerAgent(BaseAgent):
 
     def run(self, state: AgentWorkflowState) -> AgentWorkflowState:
         if state.organization_id and not state.contexts:
+            state.metadata["answerer_failure_reason"] = "no_retrieved_context"
             state.draft_answer = ""
             return state
 
@@ -76,7 +77,12 @@ class AnswerAgent(BaseAgent):
             state.draft_answer = self._run_inference(state, state.contexts)
             if not state.draft_answer and state.contexts:
                 state.draft_answer = self._run_inference(state, self._build_compact_contexts(state))
+            if state.draft_answer:
+                state.metadata.pop("answerer_failure_reason", None)
+            else:
+                state.metadata["answerer_failure_reason"] = "empty_model_output"
         except HTTPException:
+            state.metadata["answerer_failure_reason"] = "model_inference_http_error"
             state.draft_answer = ""
 
         return state

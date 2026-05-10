@@ -32,54 +32,10 @@ class RetrieverAgent(BaseAgent):
             for hit in hits
         ]
 
-    def _build_phrase_candidates(self, state: AgentWorkflowState) -> list[str]:
-        candidates: list[str] = []
-        for value in [*state.retrieval_queries, state.question]:
-            cleaned = (value or "").strip()
-            if cleaned and cleaned not in candidates:
-                candidates.append(cleaned)
-
-        for value in [*state.retrieval_queries, state.question]:
-            for token in (value or "").replace("\n", " ").split():
-                cleaned = token.strip(" ,.:;!?()[]{}\"'").lower()
-                if len(cleaned) < 4:
-                    continue
-                if cleaned not in candidates:
-                    candidates.append(cleaned)
-        return candidates[:12]
-
-    def _build_relevant_excerpt(self, content: str, state: AgentWorkflowState) -> str:
+    def _build_relevant_excerpt(self, content: str) -> str:
         normalized_content = (content or "").strip()
         if len(normalized_content) <= AGENT_SETTINGS.retrieval.context_char_limit:
             return normalized_content
-
-        lowered_content = normalized_content.lower()
-        excerpts: list[str] = []
-        ranges: list[tuple[int, int]] = []
-
-        for phrase in self._build_phrase_candidates(state):
-            lowered_phrase = phrase.lower()
-            if not lowered_phrase:
-                continue
-            index = lowered_content.find(lowered_phrase)
-            if index < 0:
-                continue
-
-            start = max(0, index - AGENT_SETTINGS.retrieval.snippet_prefix_chars)
-            end = min(
-                len(normalized_content),
-                index + len(phrase) + AGENT_SETTINGS.retrieval.snippet_suffix_chars,
-            )
-            if any(not (end <= used_start or start >= used_end) for used_start, used_end in ranges):
-                continue
-
-            ranges.append((start, end))
-            excerpts.append(normalized_content[start:end].strip())
-            if len(excerpts) >= 2:
-                break
-
-        if excerpts:
-            return "\n...\n".join(excerpts)[: AGENT_SETTINGS.retrieval.context_char_limit]
         return normalized_content[: AGENT_SETTINGS.retrieval.context_char_limit]
 
     def _to_context_items(self, hits: list[SearchHitEntity], state: AgentWorkflowState) -> list[dict]:
@@ -92,7 +48,7 @@ class RetrieverAgent(BaseAgent):
                 content = metadata.get("content_text") or metadata.get("preview_text") or ""
             if not content:
                 continue
-            excerpt = self._build_relevant_excerpt(content, state)
+            excerpt = self._build_relevant_excerpt(content)
             if not excerpt:
                 continue
             context_items.append(

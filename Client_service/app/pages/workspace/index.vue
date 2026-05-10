@@ -31,26 +31,11 @@
           </div>
         </article>
 
-        <article
+        <ChatMessageBubble
           v-for="message in messages"
           :key="message.id"
-          :class="message.role === 'assistant' ? 'chat-bubble assistant' : 'chat-bubble user'"
-        >
-          <p>{{ message.content }}</p>
-          <p v-if="message.activity" class="mt-2 text-sm opacity-70">{{ message.activity }}</p>
-          <div v-if="message.citations?.length" class="mt-3 flex flex-wrap gap-2">
-            <a
-              v-for="citation in message.citations"
-              :key="`${message.id}-${citation.documentId}-${citation.fileName}`"
-              class="pill"
-              :href="citation.sourceUrl || undefined"
-              target="_blank"
-              rel="noreferrer"
-            >
-              {{ citation.fileName }}
-            </a>
-          </div>
-        </article>
+          :message="message"
+        />
       </div>
 
       <!-- Composer area -->
@@ -77,6 +62,7 @@
 </template>
 
 <script setup lang="ts">
+import ChatMessageBubble from '@/components/shared/chat/ChatMessageBubble.vue'
 import ChatSessionSidebar from '@/components/shared/chat/ChatSessionSidebar.vue'
 import type { ChatSession, OrganizationSummary } from '@/types/organization'
 

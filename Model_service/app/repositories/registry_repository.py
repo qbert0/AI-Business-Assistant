@@ -466,14 +466,16 @@ class RegistryRepository:
         model = (
             self.db.query(db_models.RegisteredModel)
             .options(joinedload(db_models.RegisteredModel.provider))
-            .filter(db_models.RegisteredModel.is_active.is_(True))
+            .filter(
+                db_models.RegisteredModel.is_active.is_(True),
+                db_models.RegisteredModel.capabilities_json.like('%"chat"%'),
+            )
             .order_by(db_models.RegisteredModel.is_default.desc(), db_models.RegisteredModel.priority.asc())
             .first()
         )
         if not model:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Khong co model active nao de phuc vu inference.",
+                detail="Khong co chat model active nao de phuc vu inference.",
             )
         return model, policy
-

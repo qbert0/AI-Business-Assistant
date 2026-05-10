@@ -70,8 +70,6 @@ class RetrievalAgentSettings:
     max_merged_hits: int
     max_context_items: int
     context_char_limit: int
-    snippet_prefix_chars: int
-    snippet_suffix_chars: int
 
 
 @dataclass(frozen=True)
@@ -124,8 +122,6 @@ AGENT_SETTINGS = AgentSettings(
         max_merged_hits=_nested_int(AGENT_CONFIG_SECTION, ["retrieval", "max_merged_hits"], 5),
         max_context_items=_nested_int(AGENT_CONFIG_SECTION, ["retrieval", "max_context_items"], 3),
         context_char_limit=_nested_int(AGENT_CONFIG_SECTION, ["retrieval", "context_char_limit"], 2400),
-        snippet_prefix_chars=_nested_int(AGENT_CONFIG_SECTION, ["retrieval", "snippet_prefix_chars"], 500),
-        snippet_suffix_chars=_nested_int(AGENT_CONFIG_SECTION, ["retrieval", "snippet_suffix_chars"], 1100),
     ),
     answerer=AnswererAgentSettings(
         max_completion_tokens=_nested_int(AGENT_CONFIG_SECTION, ["answerer", "max_completion_tokens"], 350),
