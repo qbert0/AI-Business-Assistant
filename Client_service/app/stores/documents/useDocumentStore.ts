@@ -15,6 +15,8 @@ export const useDocumentStore = defineStore('documents', () => {
     loadDocuments: library.loadDocuments,
     loadPipeline: library.loadPipeline,
     uploadDocument: library.uploadDocument,
+    startAnalysis: library.startAnalysis,
+    stopAnalysis: library.stopAnalysis,
     getOpenDocumentIds: viewer.getOpenDocumentIds,
     getSelectedDocumentId: viewer.getSelectedDocumentId,
     getPreview: viewer.getPreview,

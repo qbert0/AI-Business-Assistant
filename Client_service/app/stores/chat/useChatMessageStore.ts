@@ -1,6 +1,9 @@
 import { useAuthStore } from '@/stores/auth/useAuthStore'
 import { useChatSessionStore } from '@/stores/chat/useChatSessionStore'
 import { streamChatAnswer } from '@/utils/chat-stream'
+import { useApiChat } from '@/composables/api/chat/useApiChat'
+import { useAuthStore } from '@/stores/auth/useAuthStore'
+import { useChatSessionStore } from '@/stores/chat/useChatSessionStore'
 import type { ChatMessage, ChatSearchHit, ChatSession } from '@/types/organization'
 
 interface StreamSessionPayload {
@@ -70,6 +73,7 @@ const mapStreamSession = (session: StreamSessionPayload): ChatSession => ({
 })
 
 export const useChatMessageStore = defineStore('chat-messages', () => {
+  const api = useApiChat()
   const contexts = ref<Record<string, ChatMessageContextState>>({})
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -99,7 +103,6 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
     }
 
     const context = ensureContext(slug)
-    const api = useApiChat()
     const response = await api.messages(slug, sessionId, 0, 20)
     context.messagesBySession[sessionId] = response.messages
     context.messageCursorBySession[sessionId] = response.nextCursor
@@ -112,7 +115,6 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
       return
     }
 
-    const api = useApiChat()
     const response = await api.messages(slug, sessionId, cursor, 20)
     context.messagesBySession[sessionId] = [
       ...response.messages,

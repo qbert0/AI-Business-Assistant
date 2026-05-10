@@ -1,6 +1,9 @@
 import type { KnowledgeDocument, PipelineStep } from '@/types/organization'
 
+import { useApiDocuments } from '@/composables/api/documents/useApiDocuments'
+
 export const useDocumentLibraryStore = defineStore('document-library', () => {
+  const api = useApiDocuments()
   const documentsByOrg = ref<Record<string, KnowledgeDocument[]>>({})
   const pipelineByOrg = ref<Record<string, PipelineStep[]>>({})
   const isLoading = ref(false)
@@ -10,7 +13,6 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
   const getPipeline = (slug: string) => pipelineByOrg.value[slug] ?? []
 
   const loadDocuments = async (slug: string) => {
-    const api = useApiDocuments()
     isLoading.value = true
     error.value = null
 
@@ -28,7 +30,6 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
   }
 
   const loadPipeline = async (slug: string) => {
-    const api = useApiDocuments()
     const response = await api.pipeline(slug)
     pipelineByOrg.value = {
       ...pipelineByOrg.value,
@@ -36,12 +37,48 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
     }
   }
 
+  const replaceDocument = (slug: string, document: KnowledgeDocument) => {
+    documentsByOrg.value = {
+      ...documentsByOrg.value,
+      [slug]: getDocuments(slug).map((item) => item.id === document.id ? document : item)
+    }
+  }
+
   const uploadDocument = async (slug: string, file: string | File) => {
-    const api = useApiDocuments()
     const response = await api.upload(slug, file)
     documentsByOrg.value = {
       ...documentsByOrg.value,
       [slug]: [response.document, ...getDocuments(slug)]
+    }
+  }
+
+  const startAnalysis = async (slug: string, documentId: string) => {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      const response = await api.startAnalysis(slug, documentId)
+      replaceDocument(slug, response.document)
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Cannot start document analysis'
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  const stopAnalysis = async (slug: string, documentId: string) => {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      const response = await api.stopAnalysis(slug, documentId)
+      replaceDocument(slug, response.document)
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Cannot stop document analysis'
+      throw err
+    } finally {
+      isLoading.value = false
     }
   }
 
@@ -54,6 +91,8 @@ export const useDocumentLibraryStore = defineStore('document-library', () => {
     getPipeline,
     loadDocuments,
     loadPipeline,
-    uploadDocument
+    uploadDocument,
+    startAnalysis,
+    stopAnalysis
   }
 })

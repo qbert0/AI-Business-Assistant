@@ -122,6 +122,9 @@
 </template>
 
 <script setup lang="ts">
+import { useAuth } from '@/composables/auth/useAuth'
+import { useChatbot } from '@/composables/chat/useChatbot'
+import { useAppLocale } from '@/composables/system/useAppLocale'
 import { APP_ROUTES, getContextChatRoute } from '@/constants/navigation'
 import type { ChatSession, OrganizationSummary } from '@/types/organization'
 import { createInitials, getAvatarToneClass } from '@/utils/avatar'

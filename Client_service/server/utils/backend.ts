@@ -145,7 +145,16 @@ const mapDocumentStatus = (status: string): KnowledgeDocument['status'] => {
     return 'indexed'
   }
 
-  if (status === 'embedded' || status === 'chunked' || status === 'indexed') {
+  if (
+    status === 'uploaded'
+    || status === 'processing'
+    || status === 'chunked'
+    || status === 'embedded'
+    || status === 'indexing'
+    || status === 'indexed'
+    || status === 'failed'
+    || status === 'cancelled'
+  ) {
     return status
   }
 
@@ -162,7 +171,10 @@ export const mapDocument = (document: BackendDocument): KnowledgeDocument => ({
   embeddingModel: document.embedding_model,
   vectorIndex: document.vector_index || '',
   sourceStorage: document.source_url,
-  status: mapDocumentStatus(document.status)
+  status: mapDocumentStatus(document.status),
+  analysis: (document.metadata?.analysis && typeof document.metadata.analysis === 'object')
+    ? document.metadata.analysis as KnowledgeDocument['analysis']
+    : undefined
 })
 
 export const mapPipelineEvent = (event: BackendPipelineEvent): PipelineStep => ({

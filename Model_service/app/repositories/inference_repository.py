@@ -37,6 +37,8 @@ class InferenceRepository:
     STORED_RESPONSE_CHARS = 4000
     STORED_HISTORY_LIMIT = 12
     STORED_CONTEXT_ITEM_LIMIT = 4
+    MAX_STORED_TEXT_LENGTH = 4000
+    MAX_STORED_ITEMS = 50
 
     def __init__(self, db: Session, settings: Settings) -> None:
         self.db = db
@@ -208,7 +210,7 @@ class InferenceRepository:
                 }
             )
 
-        return {
+        payload = {
             "system_prompt": self._truncate_text(context.system_prompt, self.STORED_SYSTEM_PROMPT_CHARS),
             "messages": input_messages,
             "context_items": [
@@ -222,6 +224,7 @@ class InferenceRepository:
             "latest_assistant_message": self._truncate_text(response_text, self.STORED_RESPONSE_CHARS),
             "error_message": self._truncate_text(error_message, self.STORED_ERROR_CHARS),
         }
+        return self._shrink_for_storage(payload)
 
     def _build_snapshot_items(
         self,
@@ -269,7 +272,19 @@ class InferenceRepository:
                 }
             )
 
-        return items
+        return self._shrink_for_storage(items)
+
+    @classmethod
+    def _shrink_for_storage(cls, value):
+        if isinstance(value, str):
+            if len(value) <= cls.MAX_STORED_TEXT_LENGTH:
+                return value
+            return value[: cls.MAX_STORED_TEXT_LENGTH] + "...[truncated]"
+        if isinstance(value, list):
+            return [cls._shrink_for_storage(item) for item in value[: cls.MAX_STORED_ITEMS]]
+        if isinstance(value, dict):
+            return {key: cls._shrink_for_storage(item) for key, item in value.items()}
+        return value
 
     def create_inference(self, payload: InferenceCreate) -> InferenceResult:
         if payload.model_id or payload.model:

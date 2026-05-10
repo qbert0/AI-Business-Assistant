@@ -18,6 +18,8 @@
 </template>
 
 <script setup lang="ts">
+import { useAuth } from '@/composables/auth/useAuth'
+import { useAppLocale } from '@/composables/system/useAppLocale'
 import { createInitials, getAvatarToneClass } from '@/utils/avatar'
 
 const { text } = useAppLocale()

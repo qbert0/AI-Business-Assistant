@@ -13,8 +13,9 @@ from app.config import (
     MINIO_PRESIGN_EXPIRES_SECONDS,
     MINIO_SECRET_KEY,
     MINIO_SECURE,
+    STORAGE_PUBLIC_ENDPOINT,
 )
-from app.entities.storage import MinioObjectEntity
+from app.entities.storage import MinioObjectEntity, ObjectMetadata
 
 try:
     import boto3
@@ -41,6 +42,8 @@ def get_minio_client():
 
 def _rewrite_presigned_url_for_public_access(url: str) -> str:
     public_endpoint = (MINIO_PUBLIC_ENDPOINT or "").strip()
+    if not public_endpoint and STORAGE_PUBLIC_ENDPOINT:
+        return _rewrite_presigned_url(url)
     if not public_endpoint:
         return url
 
@@ -70,11 +73,120 @@ def ensure_minio_bucket(client) -> None:
         client.create_bucket(Bucket=MINIO_BUCKET)
 
 
+def build_object_key(org_id: str, file_name: str | None) -> str:
+    safe_name = quote(file_name or "document", safe="._-")
+    return f"organizations/{org_id}/{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{safe_name}"
+
+
+def _rewrite_presigned_url(presigned_url: str) -> str:
+    if not STORAGE_PUBLIC_ENDPOINT:
+        return _rewrite_presigned_url_for_minio_public_endpoint(presigned_url)
+
+    parsed = urlparse(presigned_url)
+    public_parsed = urlparse(STORAGE_PUBLIC_ENDPOINT)
+    public_scheme = public_parsed.scheme or "http"
+    public_netloc = public_parsed.netloc or public_parsed.path
+    new_path = f"/storage{parsed.path}"
+
+    return urlunparse(
+        (
+            public_scheme,
+            public_netloc,
+            new_path,
+            parsed.params,
+            parsed.query,
+            parsed.fragment,
+        )
+    )
+
+
+def _rewrite_presigned_url_for_minio_public_endpoint(url: str) -> str:
+    public_endpoint = (MINIO_PUBLIC_ENDPOINT or "").strip()
+    if not public_endpoint:
+        return url
+
+    try:
+        original = urlparse(url)
+        public = urlparse(public_endpoint)
+        if not public.scheme or not public.netloc:
+            return url
+        return urlunparse(
+            (
+                public.scheme,
+                public.netloc,
+                original.path,
+                original.params,
+                original.query,
+                original.fragment,
+            )
+        )
+    except Exception:
+        return url
+
+
+def get_presigned_url(bucket_name: str, object_name: str, expires: int = 3600) -> str:
+    client = get_minio_client()
+    try:
+        presigned_url = client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket_name, "Key": object_name},
+            ExpiresIn=expires,
+        )
+    except (BotoCoreError, ClientError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"{messages.MINIO_DOWNLOAD_FAILED}: {exc}",
+        )
+    return _rewrite_presigned_url(presigned_url)
+
+
+def get_presigned_upload_url(
+    bucket_name: str,
+    object_name: str,
+    expires: int = 3600,
+    content_type: str | None = None,
+) -> str:
+    client = get_minio_client()
+    ensure_minio_bucket(client)
+    params = {"Bucket": bucket_name, "Key": object_name}
+    if content_type:
+        params["ContentType"] = content_type
+    try:
+        presigned_url = client.generate_presigned_url(
+            "put_object",
+            Params=params,
+            ExpiresIn=expires,
+            HttpMethod="PUT",
+        )
+    except (BotoCoreError, ClientError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Khong tao duoc presigned upload URL: {exc}",
+        )
+    return _rewrite_presigned_url(presigned_url)
+
+
+def get_object_metadata(bucket_name: str, object_name: str) -> ObjectMetadata:
+    client = get_minio_client()
+    try:
+        response = client.head_object(Bucket=bucket_name, Key=object_name)
+    except (BotoCoreError, ClientError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Khong lay duoc metadata tu MinIO: {exc}",
+        )
+    return ObjectMetadata(
+        size=response.get("ContentLength") or 0,
+        content_type=response.get("ContentType"),
+        last_modified=response.get("LastModified"),
+        etag=(response.get("ETag") or "").strip('"') or None,
+    )
+
+
 def upload_file_to_minio(org_id: str, file: UploadFile) -> MinioObjectEntity:
     client = get_minio_client()
     ensure_minio_bucket(client)
-    safe_name = quote(file.filename or "document", safe="._-")
-    object_key = f"organizations/{org_id}/{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{safe_name}"
+    object_key = build_object_key(org_id, file.filename)
     try:
         file.file.seek(0)
         client.upload_fileobj(

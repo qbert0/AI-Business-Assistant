@@ -3,7 +3,10 @@ import { getDefaultPermissionsByRole, type OrganizationPermission } from '@/cons
 import type { CompanyForm, JoinRequest, OrganizationMember, OrganizationSummary } from '@/types/organization'
 import { includesSearchTerm } from '@/utils/search'
 
+import { useApiOrganizations } from '@/composables/api/organizations/useApiOrganizations'
+
 export const useOrganizationStore = defineStore('organizations', () => {
+  const api = useApiOrganizations()
   const organizations = ref<OrganizationSummary[]>([])
   const joinRequests = ref<JoinRequest[]>([])
   const membersByOrg = ref<Record<string, OrganizationMember[]>>({})
@@ -18,7 +21,6 @@ export const useOrganizationStore = defineStore('organizations', () => {
     error.value = null
 
     try {
-      const api = useApiOrganizations()
       const response = await api.list()
       organizations.value = response.organizations
       joinRequests.value = response.joinRequests
@@ -30,7 +32,6 @@ export const useOrganizationStore = defineStore('organizations', () => {
   }
 
   const loadMembers = async (slug: string) => {
-    const api = useApiOrganizations()
     const response = await api.members(slug)
     membersByOrg.value = {
       ...membersByOrg.value,
@@ -60,14 +61,12 @@ export const useOrganizationStore = defineStore('organizations', () => {
   }
 
   const createOrganization = async (payload: CompanyForm) => {
-    const api = useApiOrganizations()
     const response = await api.create(payload)
     organizations.value = [response.organization, ...organizations.value]
     return response.organization.slug
   }
 
   const addEmployee = async (slug: string, payload: Omit<OrganizationMember, 'id' | 'status'>) => {
-    const api = useApiOrganizations()
     const response = await api.addMember(slug, payload)
     membersByOrg.value = {
       ...membersByOrg.value,
@@ -76,7 +75,6 @@ export const useOrganizationStore = defineStore('organizations', () => {
   }
 
   const removeEmployee = async (slug: string, memberId: string) => {
-    const api = useApiOrganizations()
     await api.removeMember(slug, memberId)
     membersByOrg.value = {
       ...membersByOrg.value,
@@ -85,7 +83,6 @@ export const useOrganizationStore = defineStore('organizations', () => {
   }
 
   const updateEmployeeRole = async (slug: string, memberId: string, role: string, permissions = getDefaultPermissionsByRole(role === 'admin' ? 'admin' : 'user')) => {
-    const api = useApiOrganizations()
     await api.patchMember(slug, memberId, {
       role,
       permissions: [...permissions]
@@ -105,7 +102,6 @@ export const useOrganizationStore = defineStore('organizations', () => {
     memberId: string,
     payload: Pick<OrganizationMember, 'department' | 'title' | 'role' | 'permissions'>
   ) => {
-    const api = useApiOrganizations()
     await api.patchMember(slug, memberId, payload)
     membersByOrg.value = {
       ...membersByOrg.value,
@@ -114,7 +110,6 @@ export const useOrganizationStore = defineStore('organizations', () => {
   }
 
   const updateEmployeePermissions = async (slug: string, memberId: string, permissions: OrganizationPermission[]) => {
-    const api = useApiOrganizations()
     await api.patchMember(slug, memberId, { permissions })
     membersByOrg.value = {
       ...membersByOrg.value,

@@ -18,6 +18,7 @@
 </template>
 
 <script setup lang="ts">
+import { useAppLocale } from '@/composables/system/useAppLocale'
 import type { StatItem } from '@/types/dashboard'
 
 const { text } = useAppLocale()

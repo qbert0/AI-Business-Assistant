@@ -19,6 +19,9 @@
 </template>
 
 <script setup lang="ts">
+import { useAppNotifications } from '@/composables/system/useAppNotifications'
+import { useAppLocale } from '@/composables/system/useAppLocale'
+
 const { text } = useAppLocale()
 const { notifications } = useAppNotifications()
 </script>

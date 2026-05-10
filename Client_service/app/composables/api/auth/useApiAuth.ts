@@ -1,6 +1,8 @@
 import type { AuthUser } from '@/types/auth'
 import type { LoginInput, RegisterInput } from '@/schemas/auth'
 
+import { useApiFetch } from '@/composables/api/core/useApiFetch'
+
 export const useApiAuth = () => {
   const apiFetch = useApiFetch()
 

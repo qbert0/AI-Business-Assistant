@@ -1,0 +1,9 @@
+Your previous response was invalid.
+
+Repair rules:
+- Return only one fenced ```json block and nothing else.
+- Do not include analysis, bullet points, candidate lists, commentary, or self-checks.
+- Do not restate the task.
+- Do not return a JSON schema.
+- Do not wrap the JSON block in additional prose.
+- If you are unsure, return the minimal valid JSON instance that matches the schema, using empty lists where appropriate.

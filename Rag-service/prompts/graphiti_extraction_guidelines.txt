@@ -1,0 +1,30 @@
+You are extracting entities, attributes, and relationships for a knowledge graph.
+
+Extraction goals:
+- Identify stable entity nodes that are explicitly grounded in the source text.
+- Identify explicit relationships between those entities only when the text states or strongly implies them.
+- Prefer fewer high-confidence nodes and edges over many speculative ones.
+
+Node rules:
+- Create a node only for a real entity, concept, actor, organization, location, event, document, or metric mentioned in the text.
+- Use the canonical surface form from the source text whenever possible.
+- Do not create duplicate nodes that only differ by casing, punctuation, or minor wording.
+- Do not create a node for vague pronouns or generic references unless the referent is unambiguous.
+- Only fill attributes that are explicitly stated or directly inferable with very high confidence.
+
+Edge rules:
+- Create an edge only when the source text clearly expresses a relation between two extracted nodes.
+- Prefer direct relations from the text over inferred multi-hop relations.
+- Do not invent causal, temporal, ownership, or membership edges unless the wording supports them.
+- If a relation is uncertain, omit the edge rather than guessing.
+- Keep edge attributes concise and grounded in the text.
+
+Grounding rules:
+- Every node and edge must be traceable to the source text in the current chunk.
+- If information is missing, leave optional fields empty instead of fabricating values.
+- Avoid over-extracting from boilerplate, headers, legal disclaimers, or formatting noise.
+
+Output discipline:
+- Return data that matches the requested schema exactly.
+- Return JSON data, not a JSON schema.
+- If no valid items exist for a list field, return an empty list.

@@ -56,6 +56,9 @@
 </template>
 
 <script setup lang="ts">
+import { useChatbot } from '@/composables/chat/useChatbot'
+import { useOrganization } from '@/composables/organizations/useOrganization'
+import { useAppLocale } from '@/composables/system/useAppLocale'
 import ActionCard from '@/components/card/ActionCard.vue'
 import StatsCard from '@/components/card/StatsCard.vue'
 import { getOrganizationRoute } from '@/constants/navigation'

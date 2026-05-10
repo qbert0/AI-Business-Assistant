@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app import models
+from app.constants.documents import DOCUMENT_INDEXED_STATUSES
 from app.entities.api import AnalyticsEntity
 from app.entities import database as db_entities
 from app.repositories.common import get_org_or_404, require_permission
@@ -22,7 +23,7 @@ def get_analytics(org_id: str, acting_user_id: str, db: Session) -> AnalyticsEnt
         employee_count=db.query(db_entities.OrganizationMember).filter(db_entities.OrganizationMember.organization_id == org_id).count(),
         document_count=db.query(db_entities.Document).filter(db_entities.Document.organization_id == org_id).count(),
         indexed_document_count=db.query(db_entities.Document)
-        .filter(db_entities.Document.organization_id == org_id, db_entities.Document.status == "completed")
+        .filter(db_entities.Document.organization_id == org_id, db_entities.Document.status.in_(DOCUMENT_INDEXED_STATUSES))
         .count(),
         chat_session_count=db.query(db_entities.ChatSession).filter(db_entities.ChatSession.organization_id == org_id).count(),
         question_count=db.query(db_entities.ChatMessage)

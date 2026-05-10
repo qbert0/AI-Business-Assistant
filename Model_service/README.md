@@ -43,7 +43,8 @@ Model_service/
     api/routes/              # FastAPI routes
     core/                    # config, security, serialization helpers
     db/                      # SQLAlchemy models and DB session
-    infrastructure/llm/      # adapters for openai_compatible and ollama
+    infrastructure/llm/      # chat/inference adapters for openai_compatible and ollama
+    infrastructure/embedding/# embedding adapters for retrieval/indexing
     schemas/                 # request/response schemas
     services/                # business logic
     main.py                  # FastAPI app
@@ -150,6 +151,10 @@ docker compose up --build
 - `GET /api/v1/contexts`
 - `GET /api/v1/contexts/{request_id}`
 
+### Embeddings
+
+- `POST /api/v1/embeddings`
+
 ### Inferences
 
 - `POST /api/v1/inferences`
@@ -174,10 +179,11 @@ To test the APIs quickly with linked examples, use this order:
 3. Run a health check on the `model`
 4. Create a `policy`
 5. Build a `context`
-6. Run an `inference`
-7. Retrieve the stored `context` by `request_id`
-8. Submit `feedback`
-9. View `metrics`
+6. Create `embeddings` if the caller needs retrieval/indexing vectors
+7. Run an `inference`
+8. Retrieve the stored `context` by `request_id`
+9. Submit `feedback`
+10. View `metrics`
 
 In the examples below, values copied from a previous response are represented as:
 
@@ -693,6 +699,64 @@ Output:
 
 ### 6. Inference APIs
 
+### 6. Embedding APIs
+
+#### `POST /api/v1/embeddings`
+
+Purpose:
+- Resolves a model and calls the upstream embedding endpoint.
+- Useful for document indexing, retrieval, or RAG pipelines.
+
+Notes:
+- If `model_id` is provided, the service uses that model directly.
+- If `model_id` is omitted, the service resolves the model through `use_case`, defaulting to `embeddings`.
+- The current implementation supports `openai_compatible` providers.
+
+Example input:
+
+```json
+{
+  "model_id": "MODEL_ID",
+  "organization_id": "org-002",
+  "use_case": "embeddings",
+  "input": [
+    "Quarterly revenue increased 8% year over year.",
+    "Operating margin remained flat due to marketing spend."
+  ],
+  "dimensions": 1024,
+  "metadata": {
+    "source": "rag-indexer"
+  }
+}
+```
+
+Example response:
+
+```json
+{
+  "model_id": "MODEL_ID",
+  "model_name": "text-embedding-3-large",
+  "provider_type": "openai_compatible",
+  "dimensions": 1024,
+  "data": [
+    {
+      "index": 0,
+      "embedding": [0.0123, -0.0456]
+    },
+    {
+      "index": 1,
+      "embedding": [0.0789, -0.0111]
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 18,
+    "total_tokens": 18
+  }
+}
+```
+
+### 7. Inference APIs
+
 #### `POST /api/v1/inferences`
 
 Purpose:
@@ -826,7 +890,7 @@ Purpose:
 Input:
 - `request_id`.
 
-### 7. Feedback APIs
+### 8. Feedback APIs
 
 #### `POST /api/v1/feedback`
 
@@ -885,7 +949,7 @@ Example:
 curl "http://localhost:8888/api/v1/feedback?conversation_id=test-conv-002&limit=20"
 ```
 
-### 8. Metrics API
+### 9. Metrics API
 
 #### `GET /api/v1/metrics/summary`
 
@@ -1026,6 +1090,24 @@ curl -X POST "http://localhost:8888/api/v1/inferences" \
       }
     ],
     "metadata": {"trace_id": "demo-trace-001"}
+  }'
+```
+
+### Create embeddings
+
+```bash
+curl -X POST "http://localhost:8888/api/v1/embeddings" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model_id": "MODEL_ID",
+    "organization_id": "org-002",
+    "use_case": "embeddings",
+    "input": [
+      "Quarterly revenue increased 8% year over year.",
+      "Operating margin remained flat due to marketing spend."
+    ],
+    "dimensions": 1024,
+    "metadata": {"source": "rag-indexer"}
   }'
 ```
 

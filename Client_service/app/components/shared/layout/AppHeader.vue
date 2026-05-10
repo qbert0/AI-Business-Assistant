@@ -123,11 +123,15 @@
 </template>
 
 <script setup lang="ts">
+import { useAuth } from '@/composables/auth/useAuth'
+import { useOrganization } from '@/composables/organizations/useOrganization'
+import { useAppLocale } from '@/composables/system/useAppLocale'
+import { useUiState } from '@/composables/system/useUiState'
 import { APP_ROUTES, getOrganizationRoute } from '@/constants/navigation'
 import type { AppLocale } from '@/locales'
 import { createInitials, getAvatarToneClass } from '@/utils/avatar'
 
-const { text, locale, supportedLocales, setLocale, hydrateLocale } = useAppLocale()
+const { text, locale, supportedLocales, setLocale } = useAppLocale()
 
 const route = useRoute()
 const router = useRouter()
@@ -202,11 +206,6 @@ const handleLogout = async () => {
 const handleLocaleChange = () => {
   setLocale(selectedLocale.value)
 }
-
-onMounted(() => {
-  hydrateLocale()
-  selectedLocale.value = locale.value
-})
 
 watch(locale, (value: AppLocale) => {
   selectedLocale.value = value

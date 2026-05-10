@@ -49,7 +49,13 @@
           :key="document.id"
           :class="['document-tab', selectedDocumentId === document.id && 'active']"
         >
-          <button class="document-tab-select" type="button" @click="selectDocumentInStore(slug.value, document)">
+          <button
+            class="document-tab-select"
+            type="button"
+            @pointerdown.prevent="selectOpenDocument(document)"
+            @mousedown.prevent="selectOpenDocument(document)"
+            @click="selectOpenDocument(document)"
+          >
             <Icon :name="getDocumentIcon(document.title)" />
             <span>{{ document.title }}</span>
           </button>
@@ -69,7 +75,27 @@
             <p class="section-kicker">{{ selectedDocument.status }}</p>
             <h2>{{ selectedDocument.title }}</h2>
           </div>
-          <span :class="statusClass(selectedDocument.status)">{{ selectedDocument.status }}</span>
+          <div class="document-analysis-actions">
+            <span :class="statusClass(selectedDocument.status)">{{ selectedDocument.status }}</span>
+            <button
+              v-if="isAnalysisRunning(selectedDocument)"
+              class="btn-secondary document-analysis-button"
+              type="button"
+              @click="handleStopAnalysis(selectedDocument)"
+            >
+              <Icon name="lucide:square" />
+              <span>Dừng xử lý</span>
+            </button>
+            <button
+              v-else
+              class="btn-dark document-analysis-button"
+              type="button"
+              @click="handleStartAnalysis(selectedDocument)"
+            >
+              <Icon name="lucide:play" />
+              <span>Bắt đầu phân tích</span>
+            </button>
+          </div>
         </div>
 
         <div class="document-meta-grid">
@@ -91,7 +117,41 @@
           </div>
         </div>
 
-        <article class="document-preview">
+        <section class="document-analysis-panel" aria-label="Document analysis progress">
+          <p v-if="analysisActionError || error" class="document-analysis-error">
+            {{ analysisActionError || error }}
+          </p>
+          <div class="document-analysis-summary">
+            <div>
+              <p class="section-kicker">Pipeline</p>
+              <strong>{{ selectedDocument.analysis?.message || getAnalysisStateLabel(selectedDocument) }}</strong>
+            </div>
+            <span v-if="selectedDocument.analysis?.locked" class="status-badge status-warning">Đang khóa xử lý</span>
+            <span v-else class="status-badge status-info">Có thể xử lý</span>
+          </div>
+          <div class="analysis-progress-grid">
+            <div class="analysis-progress">
+              <div class="analysis-progress-label">
+                <span>Parse / Chunking Worker</span>
+                <strong>{{ getAnalysisProgress(selectedDocument, 'parse') }}%</strong>
+              </div>
+              <div class="analysis-progress-track">
+                <span :style="{ width: `${getAnalysisProgress(selectedDocument, 'parse')}%` }" />
+              </div>
+            </div>
+            <div class="analysis-progress">
+              <div class="analysis-progress-label">
+                <span>Graph / Search RAG</span>
+                <strong>{{ getAnalysisProgress(selectedDocument, 'graph') }}%</strong>
+              </div>
+              <div class="analysis-progress-track">
+                <span :style="{ width: `${getAnalysisProgress(selectedDocument, 'graph')}%` }" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <article :class="['document-preview', selectedDocumentPreview?.kind === 'text' && 'text-preview-mode']">
           <p>{{ text.documents.previewLead }}</p>
           <iframe
             v-if="isPdfDocument(selectedDocument)"
@@ -105,7 +165,9 @@
             :alt="selectedDocument.title"
             class="document-preview-image"
           />
-          <pre v-else-if="selectedDocumentPreview?.kind === 'text'" class="document-preview-text">{{ selectedDocumentPreview.content }}</pre>
+          <div v-else-if="selectedDocumentPreview?.kind === 'text'" class="document-preview-text-shell">
+            <pre class="document-preview-text">{{ selectedDocumentPreview.content }}</pre>
+          </div>
           <p v-else-if="selectedDocumentPreview?.message">{{ selectedDocumentPreview.message }}</p>
           <p v-else>{{ getDocumentPreview(selectedDocument) }}</p>
         </article>
@@ -145,11 +207,15 @@
           @dragleave.prevent="isDragging = false"
           @drop.prevent="handleDrop"
         >
-          <input class="sr-only" multiple type="file" @change="handleFileInput" />
+          <input class="sr-only" multiple type="file" :accept="SUPPORTED_UPLOAD_ACCEPT" @change="handleFileInput" />
           <Icon :class="isDragging && 'active'" name="lucide:cloud-upload" />
           <strong>{{ text.documents.dropzoneTitle }}</strong>
-          <span>{{ text.documents.dropzoneDescription }}</span>
+          <span>Chỉ hỗ trợ PDF, DOCX, XLSX/CSV và TXT.</span>
         </label>
+
+        <p v-if="uploadValidationError" class="upload-validation-error">
+          {{ uploadValidationError }}
+        </p>
 
         <div v-if="pendingUploads.length" class="upload-file-list">
           <div v-for="file in pendingUploads" :key="`${file.name}-${file.size}`" class="upload-file-row">
@@ -170,6 +236,9 @@
 </template>
 
 <script setup lang="ts">
+import { useDocuments } from '@/composables/documents/useDocuments'
+import { useOrganization } from '@/composables/organizations/useOrganization'
+import { useAppLocale } from '@/composables/system/useAppLocale'
 import type { KnowledgeDocument } from '@/types/organization'
 import { DOCUMENT_FOLDER_IDS, DOCUMENT_FOLDER_KEYWORDS } from '@/constants/documents'
 
@@ -189,12 +258,15 @@ const { text } = useAppLocale()
 const route = useRoute()
 const { loadOrganizations, getOrganizationBySlug } = useOrganization()
 const {
+  error,
   getDocuments,
   getOpenDocumentIds,
   getSelectedDocumentId,
   getPreview,
   loadDocuments,
   uploadDocument,
+  startAnalysis,
+  stopAnalysis,
   openDocument: openDocumentInStore,
   selectDocument: selectDocumentInStore,
   closeDocument: closeDocumentInStore,
@@ -211,6 +283,12 @@ const expandedFolders = ref(new Set<string>())
 const isUploadOpen = ref(false)
 const isDragging = ref(false)
 const pendingUploads = ref<File[]>([])
+const uploadValidationError = ref<string | null>(null)
+const analysisActionError = ref<string | null>(null)
+let analysisPollTimer: ReturnType<typeof setInterval> | null = null
+
+const SUPPORTED_UPLOAD_EXTENSIONS = new Set(['pdf', 'docx', 'xlsx', 'csv', 'txt'])
+const SUPPORTED_UPLOAD_ACCEPT = '.pdf,.docx,.xlsx,.csv,.txt'
 
 const folderDefinitions = computed(() => [
   { id: DOCUMENT_FOLDER_IDS.people, name: text.documents.peopleFolder },
@@ -278,6 +356,10 @@ const toggleFolder = (folderId: string) => {
 
 const openDocument = (document: KnowledgeDocument) => openDocumentInStore(slug.value, document)
 
+const selectOpenDocument = (document: KnowledgeDocument) => {
+  selectDocumentInStore(slug.value, document)
+}
+
 const closeDocument = (documentId: string) => {
   closeDocumentInStore(slug.value, documentId)
 }
@@ -300,11 +382,23 @@ const getDocumentIcon = (title: string) => {
   return 'lucide:file'
 }
 
+const isSupportedUploadFile = (file: File) => {
+  const extension = file.name.split('.').pop()?.toLowerCase() || ''
+  return SUPPORTED_UPLOAD_EXTENSIONS.has(extension)
+}
+
 const syncPendingFiles = (files: FileList | File[]) => {
   const nextFiles = Array.from(files)
+  const supportedFiles = nextFiles.filter(isSupportedUploadFile)
+  const rejectedCount = nextFiles.length - supportedFiles.length
+
+  uploadValidationError.value = rejectedCount
+    ? `Đã bỏ qua ${rejectedCount} file không hỗ trợ. Chỉ nhận PDF, DOCX, XLSX/CSV và TXT.`
+    : null
+
   const byKey = new Map(pendingUploads.value.map((file: File) => [`${file.name}-${file.size}`, file] as const))
 
-  for (const file of nextFiles) {
+  for (const file of supportedFiles) {
     byKey.set(`${file.name}-${file.size}`, file)
   }
 
@@ -331,6 +425,7 @@ const handleFileInput = (event: Event) => {
 
 const clearUploadModal = () => {
   pendingUploads.value = []
+  uploadValidationError.value = null
   isDragging.value = false
   isUploadOpen.value = false
 }
@@ -343,16 +438,75 @@ const handleUpload = async () => {
   clearUploadModal()
 }
 
+const handleStartAnalysis = async (document: KnowledgeDocument) => {
+  analysisActionError.value = null
+
+  try {
+    await startAnalysis(slug.value, document.id)
+  } catch (err) {
+    analysisActionError.value = getActionErrorMessage(err, 'Không bắt đầu được phân tích tài liệu.')
+  }
+}
+
+const handleStopAnalysis = async (document: KnowledgeDocument) => {
+  analysisActionError.value = null
+
+  try {
+    await stopAnalysis(slug.value, document.id)
+  } catch (err) {
+    analysisActionError.value = getActionErrorMessage(err, 'Không dừng được phân tích tài liệu.')
+  }
+}
+
+const getActionErrorMessage = (err: unknown, fallback: string) => {
+  if (err && typeof err === 'object' && 'data' in err) {
+    const data = (err as { data?: { detail?: string, message?: string, statusMessage?: string } }).data
+    return data?.detail || data?.message || data?.statusMessage || fallback
+  }
+
+  return err instanceof Error ? err.message : fallback
+}
+
 const statusClass = (status: string) => {
   if (status === 'indexed') {
     return 'status-badge status-success'
   }
 
-  if (status === 'embedded' || status === 'chunked') {
+  if (status === 'embedded' || status === 'chunked' || status === 'processing' || status === 'indexing') {
     return 'status-badge status-info'
   }
 
   return 'status-badge status-warning'
+}
+
+const getAnalysisProgress = (document: KnowledgeDocument, key: 'parse' | 'graph') => {
+  const rawValue = document.analysis?.progress?.[key]
+  const numericValue = typeof rawValue === 'number' ? rawValue : 0
+
+  return Math.max(0, Math.min(100, Math.round(numericValue)))
+}
+
+const isAnalysisRunning = (document: KnowledgeDocument) =>
+  Boolean(document.analysis?.locked || document.status === 'processing' || document.status === 'indexing')
+
+const getAnalysisStateLabel = (document: KnowledgeDocument) => {
+  if (document.status === 'uploaded') {
+    return 'Tài liệu đã upload, chưa chạy phân tích.'
+  }
+
+  if (document.status === 'indexed') {
+    return 'Tài liệu đã sẵn sàng tìm kiếm.'
+  }
+
+  if (document.status === 'cancelled') {
+    return 'Pipeline đã dừng.'
+  }
+
+  if (document.status === 'failed') {
+    return document.analysis?.error || 'Pipeline xử lý thất bại.'
+  }
+
+  return document.analysis?.state || document.status
 }
 
 const getDocumentPreview = (document: KnowledgeDocument) =>
@@ -366,13 +520,26 @@ const isImageDocument = (document: KnowledgeDocument) =>
   ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'].some((extension) => document.title.toLowerCase().endsWith(extension))
 
 const getDocumentContentUrl = (document: KnowledgeDocument) =>
-  `/api/documents/${encodeURIComponent(slug.value)}/${encodeURIComponent(document.id)}/content`
+  getPreview(slug.value, document.id)?.url || ''
 
 onMounted(async () => {
   await loadOrganizations()
   await loadDocuments(slug.value)
 
   expandedFolders.value = new Set(folderDefinitions.value.map((folder: DocumentFolder) => folder.id))
+
+  analysisPollTimer = setInterval(() => {
+    if (documents.value.some(isAnalysisRunning)) {
+      void loadDocuments(slug.value)
+    }
+  }, 3000)
+})
+
+onBeforeUnmount(() => {
+  if (analysisPollTimer) {
+    clearInterval(analysisPollTimer)
+    analysisPollTimer = null
+  }
 })
 
 watch(selectedDocument, (document: KnowledgeDocument | null) => {

@@ -1,0 +1,40 @@
+Return exactly one final answer.
+
+Format contract:
+- The final answer must be a single fenced markdown block that starts with ```json and ends with ```.
+- Inside that fenced block, return exactly one valid JSON object that matches the requested schema.
+- Return a JSON instance, not a JSON schema.
+- Do not output any text before the opening ```json fence.
+- Do not output any text after the closing ``` fence.
+- Do not include explanations, reasoning, candidate lists, self-checks, comments, or examples.
+- Do not return keys like "$defs", "properties", "required", "title", or "type" unless they are actual data fields in the target instance.
+- If a list field has no items, return an empty list.
+- Do not omit required fields.
+- The real answer must be inside the ```json fenced block. If you accidentally think aloud, do not include that text in the final answer.
+
+Critical failure modes to avoid:
+- Do NOT echo the target schema back to the user.
+- Do NOT output a schema-like wrapper and then place the real answer inside `properties`.
+- Do NOT return a top-level object containing schema metadata such as `$defs`, `properties`, `required`, `title`, `type`, `items`, `anyOf`, `oneOf`, or `allOf`.
+- Do NOT mix schema keys with real answer keys in the same object.
+- Do NOT say "here is the JSON", "I will return", "the correct response is", or any similar lead-in.
+- Do NOT return multiple fenced blocks.
+- Do NOT return markdown bullets, numbered lists, XML tags, or prose anywhere outside the one final ```json block.
+
+Required output behavior:
+- Think silently and produce only the final answer.
+- Use the target schema only as an internal guide for the shape of the answer.
+- The final JSON object must contain only actual response fields.
+- If a field from the schema is required, include it in the final object.
+- If a required list has no valid items, return that field with an empty list.
+- If the target object has one primary list field, return that field directly in the final JSON object rather than wrapping it in schema metadata.
+
+Schema interpretation rules:
+- `$defs`, `$ref`, `properties`, `required`, `title`, and `type` belong to the schema description, not to the final answer.
+- The final answer must instantiate the schema, not describe the schema.
+- If the schema says an object has a field named `edges`, return `{ "edges": [...] }`, not a schema for `edges`.
+- If the schema says an object has a field named `extracted_entities`, return `{ "extracted_entities": [...] }`, not a schema for `extracted_entities`.
+- If the schema says an object has a field named `entity_resolutions`, return `{ "entity_resolutions": [...] }`, not a schema for `entity_resolutions`.
+
+Target response schema:
+__RESPONSE_SCHEMA__

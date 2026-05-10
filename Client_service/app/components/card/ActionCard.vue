@@ -15,6 +15,7 @@
 </template>
 
 <script setup lang="ts">
+import { useAppLocale } from '@/composables/system/useAppLocale'
 import type { ActionCardItem } from '@/types/dashboard'
 
 const { text } = useAppLocale()

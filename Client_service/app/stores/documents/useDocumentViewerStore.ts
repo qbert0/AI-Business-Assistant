@@ -4,6 +4,7 @@ interface DocumentPreviewPayload {
   kind: string
   content?: string | null
   message?: string | null
+  url?: string | null
 }
 
 interface DocumentViewerState {
@@ -18,7 +19,10 @@ const createViewerState = (): DocumentViewerState => ({
   previewsByDocumentId: {}
 })
 
+import { useApiDocuments } from '@/composables/api/documents/useApiDocuments'
+
 export const useDocumentViewerStore = defineStore('document-viewer', () => {
+  const api = useApiDocuments()
   const stateByOrg = ref<Record<string, DocumentViewerState>>({})
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -78,22 +82,33 @@ export const useDocumentViewerStore = defineStore('document-viewer', () => {
     const isPdf = lowerTitle.endsWith('.pdf')
     const isImage = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'].some((extension) => lowerTitle.endsWith(extension))
 
-    if (isPdf || isImage || state.previewsByDocumentId[document.id]) {
+    if (state.previewsByDocumentId[document.id]) {
       return
     }
 
-    const api = useApiDocuments()
     isLoading.value = true
     error.value = null
 
     try {
-      const preview = await api.preview(slug, document.id)
+      const preview = isPdf || isImage
+        ? await api.downloadUrl(slug, document.id).then((response) => ({
+            kind: isPdf ? 'pdf' : 'image',
+            url: response.download_url
+          }))
+        : await api.preview(slug, document.id)
       state.previewsByDocumentId = {
         ...state.previewsByDocumentId,
         [document.id]: preview
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Cannot load document preview'
+      state.previewsByDocumentId = {
+        ...state.previewsByDocumentId,
+        [document.id]: {
+          kind: 'error',
+          message: error.value
+        }
+      }
     } finally {
       isLoading.value = false
     }

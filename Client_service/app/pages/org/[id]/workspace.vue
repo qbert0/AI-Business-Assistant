@@ -72,6 +72,9 @@
 
 <script setup lang="ts">
 import ChatMessageBubble from '@/components/shared/chat/ChatMessageBubble.vue'
+import { useChatbot } from '@/composables/chat/useChatbot'
+import { useOrganization } from '@/composables/organizations/useOrganization'
+import { useAppLocale } from '@/composables/system/useAppLocale'
 import ChatSessionSidebar from '@/components/shared/chat/ChatSessionSidebar.vue'
 import { UI_MESSAGES } from '@/constants/messages'
 
@@ -98,6 +101,17 @@ const latestAssistantMessage = computed(() => [...messages.value].reverse().find
 const prompt = ref('')
 const feedbackComment = ref('')
 const selectedSessionId = ref<string | null>(null)
+
+const primeWorkspace = async () => {
+  try {
+    await loadOrganizations()
+    await loadContext(slug.value)
+    selectedSessionId.value = getSessions(slug.value)[0]?.id ?? null
+    await loadMessages(slug.value, selectedSessionId.value)
+  } catch {
+    selectedSessionId.value = null
+  }
+}
 
 const handleAsk = async () => {
   const currentPrompt = prompt.value.trim()
@@ -132,11 +146,8 @@ const handleFeedback = async (rating: 'positive' | 'negative') => {
   feedbackComment.value = ''
 }
 
-onMounted(async () => {
-  await loadOrganizations()
-  await loadContext(slug.value)
-  selectedSessionId.value = sessions.value[0]?.id ?? null
-  await loadMessages(slug.value, selectedSessionId.value)
+onMounted(() => {
+  primeWorkspace()
 })
 
 /*

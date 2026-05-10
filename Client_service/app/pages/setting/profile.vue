@@ -50,6 +50,9 @@
 </template>
 
 <script setup lang="ts">
+import { useAuth } from '@/composables/auth/useAuth'
+import { useAppLocale } from '@/composables/system/useAppLocale'
+import { useSettingsForms } from '@/composables/settings/useSettingsForms'
 import { APP_ROUTES } from '@/constants/navigation'
 
 definePageMeta({

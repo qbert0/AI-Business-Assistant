@@ -70,6 +70,9 @@
 </template>
 
 <script setup lang="ts">
+import { useOrganization } from '@/composables/organizations/useOrganization'
+import { useAppLocale } from '@/composables/system/useAppLocale'
+import { useSettingsForms } from '@/composables/settings/useSettingsForms'
 import { APP_ROUTES, getContextChatRoute, getOrganizationRoute } from '@/constants/navigation'
 import type { OrganizationSummary } from '@/types/organization'
 

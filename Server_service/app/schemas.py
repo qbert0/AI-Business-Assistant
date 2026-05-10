@@ -3,6 +3,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
+DocumentStatus = Literal["uploaded", "processing", "processed", "indexing", "indexed", "completed", "failed", "cancelled"]
+
 
 Permission = Literal[
     "access_org_settings",
@@ -117,13 +119,49 @@ class DocumentCreate(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class DocumentPresignedUploadRequest(BaseModel):
+    acting_user_id: str = Field(..., description="User xin URL upload, can quyen upload_documents.")
+    file_name: str = Field(..., min_length=1, examples=["employee-handbook.pdf"])
+    content_type: str | None = Field(None, examples=["application/pdf"])
+    expires: int = Field(3600, ge=60, le=86400, description="So giay hieu luc cua presigned URL.")
+
+
+class DocumentPresignedUploadRead(BaseModel):
+    bucket: str
+    object_key: str
+    upload_url: str
+    source_url: str
+    expires_in: int
+    content_type: str | None = None
+
+
+class DocumentPresignedUploadCompleteRequest(BaseModel):
+    acting_user_id: str = Field(..., description="User hoan tat upload, can quyen upload_documents.")
+    file_name: str = Field(..., min_length=1, examples=["employee-handbook.pdf"])
+    bucket: str = Field(..., min_length=1)
+    object_key: str = Field(..., min_length=1)
+    source_url: str = Field(..., min_length=1, examples=["s3://business-documents/organizations/org-1/file.pdf"])
+    content_type: str | None = Field(None, examples=["application/pdf"])
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class DocumentPresignedDownloadRead(BaseModel):
+    document_id: str
+    file_name: str
+    download_url: str
+    expires_in: int
+
+
 class DocumentStatusPatch(BaseModel):
-    status: Literal["processing", "completed", "failed"] | None = None
+    status: DocumentStatus | None = None
     chunk_count: int | None = Field(None, ge=0)
     embedding_model: str | None = None
     vector_index: str | None = None
     stage: str | None = Field(None, description="Pipeline stage vua cap nhat, vi du chunking/embedding/indexing.")
     message: str | None = None
+    progress: dict[str, Any] | None = Field(None, description="Patch metadata.analysis.progress cho UI.")
+    analysis: dict[str, Any] | None = Field(None, description="Patch metadata.analysis.")
+    metadata: dict[str, Any] | None = Field(None, description="Patch metadata tai lieu.")
 
 
 class PipelineEventRead(BaseModel):

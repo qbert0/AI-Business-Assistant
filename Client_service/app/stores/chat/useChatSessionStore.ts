@@ -14,7 +14,10 @@ const createSessionContextState = (): ChatSessionContextState => ({
   popularQuestions: []
 })
 
+import { useApiChat } from '@/composables/api/chat/useApiChat'
+
 export const useChatSessionStore = defineStore('chat-sessions', () => {
+  const api = useApiChat()
   const contexts = ref<Record<string, ChatSessionContextState>>({})
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -32,7 +35,6 @@ export const useChatSessionStore = defineStore('chat-sessions', () => {
   const getPopularQuestions = (slug: string) => ensureContext(slug).popularQuestions
 
   const loadContext = async (slug: string) => {
-    const api = useApiChat()
     isLoading.value = true
     error.value = null
 
@@ -59,7 +61,6 @@ export const useChatSessionStore = defineStore('chat-sessions', () => {
       return
     }
 
-    const api = useApiChat()
     const response = await api.sessions(slug, context.sessionCursor, 8)
     context.sessions = [...context.sessions, ...response.sessions]
     context.sessionCursor = response.nextCursor

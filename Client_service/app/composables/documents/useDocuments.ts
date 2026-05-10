@@ -14,6 +14,8 @@ export const useDocuments = () => {
     loadDocuments: store.loadDocuments,
     loadPipeline: store.loadPipeline,
     uploadDocument: store.uploadDocument,
+    startAnalysis: store.startAnalysis,
+    stopAnalysis: store.stopAnalysis,
     openDocument: store.openDocument,
     selectDocument: store.selectDocument,
     closeDocument: store.closeDocument,
