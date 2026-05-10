@@ -919,6 +919,111 @@ class GraphitiService:
             "episode_count": int(episode_record["count"]) if episode_record else 0,
         }
 
+    async def get_document_graph(self, document_id: str, *, limit: int = 80) -> dict[str, Any]:
+        group_id = self._build_safe_group_id(document_id)
+        graph = await self.get_groups_graph([group_id], limit=limit)
+
+        return {
+            "document_id": document_id,
+            "group_id": group_id,
+            **graph,
+        }
+
+    async def get_documents_graph(
+        self,
+        document_ids: list[str],
+        *,
+        scope_id: str = "documents",
+        limit: int = 160,
+    ) -> dict[str, Any]:
+        group_ids = [self._build_safe_group_id(document_id) for document_id in document_ids if document_id]
+        graph = await self.get_groups_graph(group_ids, limit=limit)
+
+        return {
+            "document_id": scope_id,
+            "group_id": ",".join(group_ids),
+            "document_ids": document_ids,
+            **graph,
+        }
+
+    async def get_groups_graph(self, group_ids: list[str], *, limit: int = 160) -> dict[str, Any]:
+        await self.ensure_schema()
+        graphiti = self._require_graphiti()
+        driver = graphiti.driver
+        safe_group_ids = [group_id for group_id in group_ids if group_id]
+
+        if not safe_group_ids:
+            return {
+                "nodes": [],
+                "edges": [],
+                "episodes": [],
+                "counts": {
+                    "nodes": 0,
+                    "edges": 0,
+                    "episodes": 0,
+                },
+            }
+
+        async with driver.session() as session:
+            nodes_result = await session.run(
+                """
+                MATCH (n)
+                WHERE n.group_id IN $group_ids AND NOT n:Episodic
+                RETURN n.uuid AS id,
+                       coalesce(n.name, n.uuid) AS label,
+                       coalesce(n.summary, '') AS summary,
+                       labels(n) AS labels,
+                       n.group_id AS group_id
+                LIMIT $limit
+                """,
+                {"group_ids": safe_group_ids, "limit": limit},
+            )
+            nodes = [record.data() async for record in nodes_result]
+
+            edges_result = await session.run(
+                """
+                MATCH (a)-[r]->(b)
+                WHERE a.group_id IN $group_ids
+                  AND b.group_id IN $group_ids
+                  AND NOT a:Episodic
+                  AND NOT b:Episodic
+                RETURN coalesce(r.uuid, elementId(r)) AS id,
+                       a.uuid AS source,
+                       b.uuid AS target,
+                       type(r) AS type,
+                       coalesce(r.fact, r.name, '') AS label,
+                       coalesce(a.group_id, b.group_id, '') AS group_id
+                LIMIT $limit
+                """,
+                {"group_ids": safe_group_ids, "limit": limit * 2},
+            )
+            edges = [record.data() async for record in edges_result]
+
+            episodes_result = await session.run(
+                """
+                MATCH (e:Episodic)
+                WHERE e.group_id IN $group_ids
+                RETURN e.uuid AS id,
+                       coalesce(e.name, e.uuid) AS label,
+                       coalesce(e.source_description, '') AS source_description,
+                       e.group_id AS group_id
+                LIMIT $limit
+                """,
+                {"group_ids": safe_group_ids, "limit": limit},
+            )
+            episodes = [record.data() async for record in episodes_result]
+
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "episodes": episodes,
+            "counts": {
+                "nodes": len(nodes),
+                "edges": len(edges),
+                "episodes": len(episodes),
+            },
+        }
+
     async def close(self) -> None:
         if self.graphiti is not None and hasattr(self.graphiti, "close"):
             await self.graphiti.close()

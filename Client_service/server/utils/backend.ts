@@ -4,6 +4,7 @@ import type { AuthUser } from '../../app/types/auth'
 import type {
   ChatMessage,
   ChatSession,
+  DocumentGraph,
   KnowledgeDocument,
   OrganizationMember,
   OrganizationSummary,
@@ -173,7 +174,46 @@ export const mapDocument = (document: BackendDocument): KnowledgeDocument => ({
   status: mapDocumentStatus(document.status),
   analysis: (document.metadata?.analysis && typeof document.metadata.analysis === 'object')
     ? document.metadata.analysis as KnowledgeDocument['analysis']
-    : undefined
+    : undefined,
+  chunks: Array.isArray(document.metadata?.chunks)
+    ? document.metadata.chunks as KnowledgeDocument['chunks']
+    : []
+})
+
+export const mapDocumentGraph = (graph: any): DocumentGraph => ({
+  documentId: String(graph.document_id || ''),
+  groupId: String(graph.group_id || ''),
+  nodes: Array.isArray(graph.nodes)
+    ? graph.nodes.map((node: any, index: number) => ({
+        id: String(node.id || node.uuid || `node-${index}`),
+        label: String(node.label || node.name || node.id || `Node ${index + 1}`),
+        summary: node.summary ? String(node.summary) : '',
+        labels: Array.isArray(node.labels) ? node.labels.map(String) : [],
+        x: 50 + (index % 5) * 170,
+        y: 70 + Math.floor(index / 5) * 120
+      }))
+    : [],
+  edges: Array.isArray(graph.edges)
+    ? graph.edges.map((edge: any, index: number) => ({
+        id: String(edge.id || edge.uuid || `edge-${index}`),
+        source: String(edge.source || edge.source_node_uuid || ''),
+        target: String(edge.target || edge.target_node_uuid || ''),
+        type: edge.type ? String(edge.type) : '',
+        label: edge.label ? String(edge.label) : ''
+      }))
+    : [],
+  episodes: Array.isArray(graph.episodes)
+    ? graph.episodes.map((episode: any, index: number) => ({
+        id: String(episode.id || episode.uuid || `episode-${index}`),
+        label: String(episode.label || episode.name || `Episode ${index + 1}`),
+        source_description: episode.source_description ? String(episode.source_description) : ''
+      }))
+    : [],
+  counts: {
+    nodes: Number(graph.counts?.nodes || graph.nodes?.length || 0),
+    edges: Number(graph.counts?.edges || graph.edges?.length || 0),
+    episodes: Number(graph.counts?.episodes || graph.episodes?.length || 0)
+  }
 })
 
 export const mapPipelineEvent = (event: BackendPipelineEvent): PipelineStep => ({

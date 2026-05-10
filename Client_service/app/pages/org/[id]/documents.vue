@@ -9,6 +9,15 @@
         </button>
       </div>
 
+      <button
+        :class="['document-org-graph-trigger', isOrganizationGraphView && 'active']"
+        type="button"
+        @click="openOrganizationGraph"
+      >
+        <Icon name="lucide:network" />
+        <span>Graph tổ chức</span>
+      </button>
+
       <div class="document-tree">
         <div v-for="folder in documentTree" :key="folder.id" class="document-folder">
           <button
@@ -69,7 +78,40 @@
         </button>
       </div>
 
-      <div v-if="selectedDocument" class="document-content">
+      <div v-if="isOrganizationGraphView" class="document-content">
+        <div class="document-content-header">
+          <div class="min-w-0">
+            <p class="section-kicker">Organization graph</p>
+            <h2>{{ organization.name }}</h2>
+          </div>
+          <div class="document-analysis-actions">
+            <span class="status-badge status-info">{{ indexedDocumentCount }} tài liệu indexed</span>
+            <button class="btn-dark document-analysis-button" type="button" @click="refreshOrganizationGraph">
+              <Icon name="lucide:refresh-cw" />
+              <span>Tải graph</span>
+            </button>
+          </div>
+        </div>
+
+        <article class="document-insight-card full mt-4">
+          <div class="document-insight-heading">
+            <div>
+              <p class="section-kicker">Neo4j graph</p>
+              <h3>Cây quan hệ toàn tổ chức</h3>
+            </div>
+            <div class="document-insight-actions">
+              <span>{{ organizationGraph?.counts.nodes || 0 }} nodes</span>
+              <span>{{ organizationGraph?.counts.edges || 0 }} edges</span>
+            </div>
+          </div>
+          <div v-if="organizationGraph?.nodes.length" ref="graphContainerRef" class="document-graph-canvas" />
+          <p v-else class="document-insight-empty">
+            Chưa có graph tổ chức. Hãy chạy phân tích cho tài liệu trước, sau đó bấm Tải graph.
+          </p>
+        </article>
+      </div>
+
+      <div v-else-if="selectedDocument" class="document-content">
         <div class="document-content-header">
           <div class="min-w-0">
             <p class="section-kicker">{{ selectedDocument.status }}</p>
@@ -151,7 +193,62 @@
           </div>
         </section>
 
-        <article :class="['document-preview', selectedDocumentPreview?.kind === 'text' && 'text-preview-mode']">
+        <nav class="document-view-mode-tabs" aria-label="Document view modes">
+          <button
+            v-for="mode in documentViewModes"
+            :key="mode.id"
+            :class="['document-view-mode-tab', activeDocumentView === mode.id && 'active']"
+            type="button"
+            @click="setDocumentView(mode.id)"
+          >
+            <Icon :name="mode.icon" />
+            <span>{{ mode.label }}</span>
+          </button>
+        </nav>
+
+        <section v-if="activeDocumentView === 'chunks'" class="document-mode-panel">
+          <article class="document-insight-card full">
+            <div class="document-insight-heading">
+              <div>
+                <p class="section-kicker">Chunks</p>
+                <h3>Đoạn đã tách</h3>
+              </div>
+              <span>{{ selectedDocument.chunks?.length || selectedDocument.chunkCount }}</span>
+            </div>
+            <div v-if="selectedDocument.chunks?.length" class="document-chunk-list">
+              <details v-for="chunk in selectedDocument.chunks" :key="chunk.id" class="document-chunk-item">
+                <summary>Chunk {{ chunk.index }} <small>{{ chunk.length || chunk.content.length }} ký tự</small></summary>
+                <p>{{ chunk.content }}</p>
+              </details>
+            </div>
+            <p v-else class="document-insight-empty">
+              Chưa có chunk preview. Hãy chạy lại phân tích để worker ghi chunk metadata.
+            </p>
+          </article>
+        </section>
+
+        <section v-else-if="activeDocumentView === 'graph'" class="document-mode-panel">
+          <article class="document-insight-card full">
+            <div class="document-insight-heading">
+              <div>
+                <p class="section-kicker">Neo4j graph</p>
+                <h3>Cây quan hệ tài liệu</h3>
+              </div>
+              <div class="document-insight-actions">
+                <span>{{ selectedDocumentGraph?.counts.nodes || 0 }} nodes</span>
+                <button class="document-insight-action" type="button" @click="refreshDocumentGraph(selectedDocument)">
+                  Tải lại
+                </button>
+              </div>
+            </div>
+            <div v-if="selectedDocumentGraph?.nodes.length" ref="graphContainerRef" class="document-graph-canvas" />
+            <p v-else class="document-insight-empty">
+              Chưa có graph hoặc chưa tải dữ liệu Neo4j cho tài liệu này.
+            </p>
+          </article>
+        </section>
+
+        <article v-else :class="['document-preview', selectedDocumentPreview?.kind === 'text' && 'text-preview-mode']">
           <p>{{ text.documents.previewLead }}</p>
           <iframe
             v-if="isPdfDocument(selectedDocument)"
@@ -239,7 +336,7 @@
 import { useDocuments } from '@/composables/documents/useDocuments'
 import { useOrganization } from '@/composables/organizations/useOrganization'
 import { useAppLocale } from '@/composables/system/useAppLocale'
-import type { KnowledgeDocument } from '@/types/organization'
+import type { DocumentGraph, KnowledgeDocument } from '@/types/organization'
 import { DOCUMENT_FOLDER_IDS, DOCUMENT_FOLDER_KEYWORDS } from '@/constants/documents'
 
 definePageMeta({
@@ -263,7 +360,11 @@ const {
   getOpenDocumentIds,
   getSelectedDocumentId,
   getPreview,
+  getDocumentGraph,
+  getOrganizationGraph,
   loadDocuments,
+  loadDocumentGraph,
+  loadOrganizationGraph,
   uploadDocument,
   startAnalysis,
   stopAnalysis,
@@ -286,9 +387,22 @@ const pendingUploads = ref<File[]>([])
 const uploadValidationError = ref<string | null>(null)
 const analysisActionError = ref<string | null>(null)
 let analysisPollTimer: ReturnType<typeof setInterval> | null = null
+type DocumentViewMode = 'document' | 'chunks' | 'graph'
+const activeDocumentView = ref<DocumentViewMode>('document')
+const graphLoadRequests = ref(new Set<string>())
+const isOrganizationGraphView = ref(false)
+const isOrganizationGraphLoading = ref(false)
+const graphContainerRef = ref<HTMLElement | null>(null)
+let graphNetwork: { destroy: () => void, fit: (options?: unknown) => void, once: (event: string, callback: () => void) => void } | null = null
+let graphRenderRun = 0
 
 const SUPPORTED_UPLOAD_EXTENSIONS = new Set(['pdf', 'docx', 'xlsx', 'csv', 'txt'])
 const SUPPORTED_UPLOAD_ACCEPT = '.pdf,.docx,.xlsx,.csv,.txt'
+const documentViewModes: Array<{ id: DocumentViewMode, label: string, icon: string }> = [
+  { id: 'document', label: 'Tài liệu', icon: 'lucide:file-text' },
+  { id: 'chunks', label: 'Chunks', icon: 'lucide:braces' },
+  { id: 'graph', label: 'Graph', icon: 'lucide:network' }
+]
 
 const folderDefinitions = computed(() => [
   { id: DOCUMENT_FOLDER_IDS.people, name: text.documents.peopleFolder },
@@ -341,6 +455,10 @@ const openDocuments = computed(() =>
 
 const selectedDocument = computed(() => documents.value.find((document: KnowledgeDocument) => document.id === selectedDocumentId.value) ?? null)
 const selectedDocumentPreview = computed(() => (selectedDocument.value ? getPreview(slug.value, selectedDocument.value.id) : null))
+const selectedDocumentGraph = computed(() => (selectedDocument.value ? getDocumentGraph(selectedDocument.value.id) : null))
+const organizationGraph = computed(() => getOrganizationGraph(slug.value))
+const visibleGraph = computed<DocumentGraph | null>(() => isOrganizationGraphView.value ? organizationGraph.value : selectedDocumentGraph.value)
+const indexedDocumentCount = computed(() => documents.value.filter((document) => document.status === 'indexed').length)
 
 const toggleFolder = (folderId: string) => {
   const next = new Set(expandedFolders.value)
@@ -354,9 +472,13 @@ const toggleFolder = (folderId: string) => {
   expandedFolders.value = next
 }
 
-const openDocument = (document: KnowledgeDocument) => openDocumentInStore(slug.value, document)
+const openDocument = (document: KnowledgeDocument) => {
+  isOrganizationGraphView.value = false
+  openDocumentInStore(slug.value, document)
+}
 
 const selectOpenDocument = (document: KnowledgeDocument) => {
+  isOrganizationGraphView.value = false
   selectDocumentInStore(slug.value, document)
 }
 
@@ -366,6 +488,70 @@ const closeDocument = (documentId: string) => {
 
 const closeAllDocuments = () => {
   closeAllDocumentsInStore(slug.value)
+}
+
+const openOrganizationGraph = async () => {
+  isOrganizationGraphView.value = true
+  activeDocumentView.value = 'graph'
+  await refreshOrganizationGraph()
+}
+
+const setDocumentView = (mode: DocumentViewMode) => {
+  isOrganizationGraphView.value = false
+  activeDocumentView.value = mode
+  if (mode === 'graph' && selectedDocument.value) {
+    void ensureDocumentGraphLoaded(selectedDocument.value)
+  }
+}
+
+const ensureDocumentGraphLoaded = async (document: KnowledgeDocument) => {
+  const currentGraph = getDocumentGraph(document.id)
+  const hasGraphData = Boolean(
+    currentGraph
+    && (
+      currentGraph.nodes.length
+      || currentGraph.edges.length
+      || currentGraph.episodes.length
+    )
+  )
+
+  if (hasGraphData || graphLoadRequests.value.has(document.id)) {
+    return
+  }
+
+  await refreshDocumentGraph(document)
+}
+
+const refreshDocumentGraph = async (document: KnowledgeDocument) => {
+  if (graphLoadRequests.value.has(document.id)) {
+    return
+  }
+
+  graphLoadRequests.value = new Set([...graphLoadRequests.value, document.id])
+  try {
+    await loadDocumentGraph(slug.value, document.id)
+    await nextTick()
+    await renderGraphNetwork()
+  } finally {
+    const next = new Set(graphLoadRequests.value)
+    next.delete(document.id)
+    graphLoadRequests.value = next
+  }
+}
+
+const refreshOrganizationGraph = async () => {
+  if (isOrganizationGraphLoading.value) {
+    return
+  }
+
+  isOrganizationGraphLoading.value = true
+  try {
+    await loadOrganizationGraph(slug.value)
+    await nextTick()
+    await renderGraphNetwork()
+  } finally {
+    isOrganizationGraphLoading.value = false
+  }
 }
 
 const getDocumentIcon = (title: string) => {
@@ -522,6 +708,173 @@ const isImageDocument = (document: KnowledgeDocument) =>
 const getDocumentContentUrl = (document: KnowledgeDocument) =>
   getPreview(slug.value, document.id)?.url || ''
 
+const getGraphNodeColor = (labels?: string[]) => {
+  const normalizedLabels = labels?.map((label) => label.toLowerCase()) ?? []
+
+  if (normalizedLabels.some((label) => label.includes('episode'))) {
+    return { background: '#ffb020', border: '#d98900', highlight: { background: '#ffc857', border: '#b56f00' } }
+  }
+
+  if (normalizedLabels.some((label) => label.includes('community') || label.includes('document'))) {
+    return { background: '#34c759', border: '#22863a', highlight: { background: '#63d981', border: '#19692c' } }
+  }
+
+  return { background: '#007aff', border: '#005ecb', highlight: { background: '#35a1ff', border: '#004a9f' } }
+}
+
+const getGraphNodeGroup = (labels?: string[]) => labels?.[0] || 'Entity'
+
+const truncateGraphCanvasLabel = (label: string, maxLength = 26) =>
+  label.length > maxLength ? `${label.slice(0, maxLength - 1)}…` : label
+
+const escapeGraphTooltip = (value: string) =>
+  value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
+
+const createGraphTooltip = (title: string, detail?: string) => {
+  const safeTitle = escapeGraphTooltip(title)
+  const safeDetail = detail ? escapeGraphTooltip(detail) : ''
+
+  return safeDetail
+    ? `<strong>${safeTitle}</strong><br><span>${safeDetail}</span>`
+    : safeTitle
+}
+
+const renderGraphNetwork = async () => {
+  const graph = visibleGraph.value
+  const container = graphContainerRef.value
+
+  if (!import.meta.client || (!isOrganizationGraphView.value && activeDocumentView.value !== 'graph') || !graph?.nodes.length || !container) {
+    return
+  }
+
+  const currentRun = ++graphRenderRun
+  const { DataSet, Network } = await import('vis-network/standalone')
+
+  if (currentRun !== graphRenderRun || !graphContainerRef.value) {
+    return
+  }
+
+  graphNetwork?.destroy()
+
+  const degreeByNode = new Map<string, number>()
+  for (const edge of graph.edges) {
+    degreeByNode.set(edge.source, (degreeByNode.get(edge.source) ?? 0) + 1)
+    degreeByNode.set(edge.target, (degreeByNode.get(edge.target) ?? 0) + 1)
+  }
+
+  const nodes = new DataSet(graph.nodes.map((node) => {
+    const degree = degreeByNode.get(node.id) ?? 1
+
+    return {
+      id: node.id,
+      label: truncateGraphCanvasLabel(node.label),
+      title: createGraphTooltip(node.label, node.summary),
+      group: getGraphNodeGroup(node.labels),
+      value: Math.min(45, 14 + degree * 5),
+      shape: 'dot',
+      color: getGraphNodeColor(node.labels),
+      font: {
+        color: '#2b2b2b',
+        face: 'Open Sans',
+        size: 13,
+        vadjust: 4
+      }
+    }
+  }))
+
+  const edges = new DataSet(graph.edges.map((edge) => ({
+    id: edge.id,
+    from: edge.source,
+    to: edge.target,
+    title: createGraphTooltip(edge.type || 'Relationship', edge.label),
+    arrows: {
+      to: {
+        enabled: true,
+        scaleFactor: 0.55
+      }
+    },
+    color: {
+      color: 'rgba(43, 43, 43, 0.28)',
+      highlight: '#007aff',
+      hover: '#007aff'
+    },
+    font: {
+      align: 'middle',
+      color: '#6e6e73',
+      face: 'Open Sans',
+      size: 0,
+      strokeWidth: 4,
+      strokeColor: '#ffffff'
+    },
+    smooth: {
+      enabled: true,
+      type: 'dynamic'
+    }
+  })))
+
+  graphNetwork = new Network(
+    graphContainerRef.value,
+    { nodes, edges },
+    {
+      autoResize: true,
+      interaction: {
+        tooltipDelay: 140,
+        hover: true,
+        multiselect: true,
+        navigationButtons: true,
+        keyboard: true
+      },
+      layout: {
+        improvedLayout: true
+      },
+      nodes: {
+        borderWidth: 2,
+        shadow: {
+          enabled: true,
+          color: 'rgba(0,0,0,0.12)',
+          size: 8,
+          x: 0,
+          y: 3
+        }
+      },
+      edges: {
+        width: 1.4,
+        selectionWidth: 2.4
+      },
+      physics: {
+        enabled: true,
+        stabilization: {
+          enabled: true,
+          iterations: 180,
+          updateInterval: 20
+        },
+        barnesHut: {
+          gravitationalConstant: -5200,
+          centralGravity: 0.18,
+          springLength: 170,
+          springConstant: 0.035,
+          damping: 0.18,
+          avoidOverlap: 0.35
+        }
+      }
+    }
+  )
+
+  graphNetwork.once('stabilizationIterationsDone', () => {
+    graphNetwork?.fit({
+      animation: {
+        duration: 420,
+        easingFunction: 'easeInOutQuad'
+      }
+    })
+  })
+}
+
 onMounted(async () => {
   await loadOrganizations()
   await loadDocuments(slug.value)
@@ -540,11 +893,34 @@ onBeforeUnmount(() => {
     clearInterval(analysisPollTimer)
     analysisPollTimer = null
   }
+
+  graphNetwork?.destroy()
+  graphNetwork = null
 })
 
 watch(selectedDocument, (document: KnowledgeDocument | null) => {
-  if (document) {
+  if (document && !isOrganizationGraphView.value) {
     selectDocumentInStore(slug.value, document)
+    activeDocumentView.value = 'document'
+  }
+})
+
+watch(activeDocumentView, (mode) => {
+  if (mode === 'graph' && selectedDocument.value) {
+    void ensureDocumentGraphLoaded(selectedDocument.value)
+    void nextTick(renderGraphNetwork)
+  }
+})
+
+watch(selectedDocumentGraph, () => {
+  if (activeDocumentView.value === 'graph') {
+    void nextTick(renderGraphNetwork)
+  }
+})
+
+watch(organizationGraph, () => {
+  if (isOrganizationGraphView.value) {
+    void nextTick(renderGraphNetwork)
   }
 })
 </script>

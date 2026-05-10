@@ -1,4 +1,4 @@
-import type { KnowledgeDocument, PipelineStep } from '@/types/organization'
+import type { DocumentGraph, KnowledgeDocument, PipelineStep } from '@/types/organization'
 
 import { useApiFetch } from '@/composables/api/core/useApiFetch'
 import { getClientAuthToken } from '@/utils/auth-token'
@@ -121,6 +121,12 @@ export const useApiDocuments = () => {
       method: 'POST'
     })
 
+  const graph = (slug: string, documentId: string) =>
+    apiFetch<{ graph: DocumentGraph }>(`/api/documents/${slug}/${documentId}/graph`)
+
+  const organizationGraph = (slug: string) =>
+    apiFetch<{ graph: DocumentGraph }>(`/api/documents/${slug}/graph`)
+
   return {
     list,
     upload,
@@ -128,6 +134,8 @@ export const useApiDocuments = () => {
     preview,
     downloadUrl,
     startAnalysis,
-    stopAnalysis
+    stopAnalysis,
+    graph,
+    organizationGraph
   }
 }
