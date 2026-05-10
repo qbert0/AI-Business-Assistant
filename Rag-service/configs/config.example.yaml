@@ -34,3 +34,6 @@ ingest_queue:
   concurrent: 1
   batch_size: 1
   block_ms: 5000
+
+server_service:
+  url: http://server_service:8000

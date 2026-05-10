@@ -102,6 +102,13 @@ export const useDocumentViewerStore = defineStore('document-viewer', () => {
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Cannot load document preview'
+      state.previewsByDocumentId = {
+        ...state.previewsByDocumentId,
+        [document.id]: {
+          kind: 'error',
+          message: error.value
+        }
+      }
     } finally {
       isLoading.value = false
     }

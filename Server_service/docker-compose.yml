@@ -16,6 +16,12 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
       MINIO_BUCKET: ${MINIO_BUCKET:-business-documents}
       MINIO_SECURE: ${MINIO_SECURE:-false}
+      SERVER_INTERNAL_URL: ${SERVER_INTERNAL_URL:-http://server_service:8000}
+      WORKER_REDIS_HOST: ${WORKER_REDIS_HOST:-redis}
+      WORKER_REDIS_PORT: ${WORKER_REDIS_PORT:-6379}
+      WORKER_REDIS_DB: ${WORKER_REDIS_DB:-0}
+      WORKER_REDIS_PASSWORD: ${WORKER_REDIS_PASSWORD:-}
+      WORKER_QUEUE_NAME: ${WORKER_QUEUE_NAME:-file-preprocess}
       SEARCH_SERVICE_URL: ${SEARCH_SERVICE_URL:-http://search-service:8000}
       SEARCH_SERVICE_TIMEOUT: ${SEARCH_SERVICE_TIMEOUT:-10}
       MODEL_SERVICE_URL: ${MODEL_SERVICE_URL:-http://model_service:8888}
@@ -28,6 +34,8 @@ services:
       mariadb:
         condition: service_healthy
       minio:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       search-service:
         condition: service_healthy

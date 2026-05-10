@@ -37,6 +37,10 @@ services:
     depends_on:
       neo4j:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      server_service:
+        condition: service_started
 
   rag-worker:
     build:
@@ -52,6 +56,10 @@ services:
     depends_on:
       neo4j:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      server_service:
+        condition: service_started
 
 volumes:
   rag_neo4j_data:

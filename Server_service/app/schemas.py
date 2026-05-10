@@ -3,7 +3,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
-DocumentStatus = Literal["uploaded", "processing", "processed", "indexing", "indexed", "completed", "failed"]
+DocumentStatus = Literal["uploaded", "processing", "processed", "indexing", "indexed", "completed", "failed", "cancelled"]
 
 
 Permission = Literal[
@@ -159,6 +159,9 @@ class DocumentStatusPatch(BaseModel):
     vector_index: str | None = None
     stage: str | None = Field(None, description="Pipeline stage vua cap nhat, vi du chunking/embedding/indexing.")
     message: str | None = None
+    progress: dict[str, Any] | None = Field(None, description="Patch metadata.analysis.progress cho UI.")
+    analysis: dict[str, Any] | None = Field(None, description="Patch metadata.analysis.")
+    metadata: dict[str, Any] | None = Field(None, description="Patch metadata tai lieu.")
 
 
 class PipelineEventRead(BaseModel):

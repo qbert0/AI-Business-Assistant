@@ -218,8 +218,9 @@ class GraphitiModelServiceLLMClient(LLMClient):  # type: ignore[misc]
 
     @staticmethod
     def _parse_structured_json_response(response_text: str) -> dict[str, Any]:
+        json_text = ""
         try:
-            json_text = OutputParser.parse_code(response_text, "json")
+            json_text = GraphitiModelServiceLLMClient._extract_structured_json_text(response_text)
             parsed = json.loads(json_text)
         except Exception as fenced_exc:
             cls_or_self = GraphitiModelServiceLLMClient
@@ -277,6 +278,67 @@ class GraphitiModelServiceLLMClient(LLMClient):  # type: ignore[misc]
             raise StructuredOutputFormatError("Model service returned an empty JSON object for structured output")
 
         return parsed
+
+    @staticmethod
+    def _extract_structured_json_text(response_text: str) -> str:
+        try:
+            return OutputParser.parse_code(response_text, "json").strip()
+        except Exception:
+            pass
+
+        fenced_match = re.search(r"```json\s*(.*?)(?:```|$)", response_text, re.DOTALL | re.IGNORECASE)
+        if fenced_match:
+            candidate = fenced_match.group(1).strip()
+            if candidate:
+                try:
+                    json.loads(candidate)
+                    return candidate
+                except json.JSONDecodeError:
+                    balanced_candidate = GraphitiModelServiceLLMClient._extract_balanced_json_object(candidate)
+                    if balanced_candidate:
+                        return balanced_candidate
+
+        balanced_response = GraphitiModelServiceLLMClient._extract_balanced_json_object(response_text)
+        if balanced_response:
+            return balanced_response
+
+        raise StructuredOutputFormatError("No JSON object found in model response")
+
+    @staticmethod
+    def _extract_balanced_json_object(text: str) -> str | None:
+        start = text.find("{")
+        if start < 0:
+            return None
+
+        depth = 0
+        in_string = False
+        escaped = False
+        for index in range(start, len(text)):
+            char = text[index]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == "\"":
+                    in_string = False
+                continue
+
+            if char == "\"":
+                in_string = True
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = text[start : index + 1].strip()
+                    try:
+                        json.loads(candidate)
+                        return candidate
+                    except json.JSONDecodeError:
+                        return None
+
+        return None
 
     @classmethod
     def _build_structured_system_prompt(

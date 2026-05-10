@@ -111,11 +111,23 @@ export const useApiDocuments = () => {
       )
     })()
 
+  const startAnalysis = (slug: string, documentId: string) =>
+    apiFetch<{ document: KnowledgeDocument }>(`/api/documents/${slug}/${documentId}/analysis/start`, {
+      method: 'POST'
+    })
+
+  const stopAnalysis = (slug: string, documentId: string) =>
+    apiFetch<{ document: KnowledgeDocument }>(`/api/documents/${slug}/${documentId}/analysis/stop`, {
+      method: 'POST'
+    })
+
   return {
     list,
     upload,
     pipeline,
     preview,
-    downloadUrl
+    downloadUrl,
+    startAnalysis,
+    stopAnalysis
   }
 }

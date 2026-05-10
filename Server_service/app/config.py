@@ -11,6 +11,13 @@ MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
 MINIO_BUCKET = os.getenv("MINIO_BUCKET", "business-documents")
 MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
 STORAGE_PUBLIC_ENDPOINT = os.getenv("STORAGE_PUBLIC_ENDPOINT", "").rstrip("/")
+SERVER_INTERNAL_URL = os.getenv("SERVER_INTERNAL_URL", "http://server_service:8000").rstrip("/")
+
+WORKER_REDIS_HOST = os.getenv("WORKER_REDIS_HOST", "redis")
+WORKER_REDIS_PORT = int(os.getenv("WORKER_REDIS_PORT", "6379"))
+WORKER_REDIS_DB = int(os.getenv("WORKER_REDIS_DB", "0"))
+WORKER_REDIS_PASSWORD = os.getenv("WORKER_REDIS_PASSWORD") or None
+WORKER_QUEUE_NAME = os.getenv("WORKER_QUEUE_NAME", "file-preprocess")
 
 SEARCH_SERVICE_URL = os.getenv("SEARCH_SERVICE_URL", "http://search-service:8000").rstrip("/")
 SEARCH_SERVICE_TIMEOUT = int(os.getenv("SEARCH_SERVICE_TIMEOUT", "10"))

@@ -1,17 +1,20 @@
 import json
+from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app import messages, models
-from app.config import MINIO_BUCKET
+from app.config import MINIO_BUCKET, SERVER_INTERNAL_URL
 from app.constants.documents import (
     DOCUMENT_STATUS_INDEXED,
     DOCUMENT_STATUS_INDEXING,
     DOCUMENT_STATUS_PROCESSING,
+    DOCUMENT_STATUS_CANCELLED,
     DOCUMENT_STATUS_UPLOADED,
     PIPELINE_STAGE_CHUNKING,
+    PIPELINE_STAGE_GRAPH,
     PIPELINE_STAGE_INDEXING,
     PIPELINE_STAGE_INGEST,
     PIPELINE_STAGE_PARSING,
@@ -31,6 +34,7 @@ from app.services.storage import (
     get_presigned_url,
     upload_file_to_minio,
 )
+from app.services.worker_queue import publish_document_analysis_job
 
 
 class DocumentsService:
@@ -66,6 +70,43 @@ class DocumentsService:
     def _ensure_org_exists(self, org_id: str) -> None:
         if not documents_repository.get_organization(org_id, self.db):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.ORGANIZATION_NOT_FOUND)
+
+    @staticmethod
+    def _analysis_metadata_patch(
+        *,
+        state: str,
+        locked: bool,
+        parse_progress: int | None = None,
+        graph_progress: int | None = None,
+        stage: str | None = None,
+        message: str | None = None,
+        cancel_requested: bool | None = None,
+        run_id: str | None = None,
+        worker_message_id: str | None = None,
+        error: str | None = None,
+    ) -> dict:
+        progress: dict[str, int] = {}
+        if parse_progress is not None:
+            progress["parse"] = max(0, min(100, parse_progress))
+        if graph_progress is not None:
+            progress["graph"] = max(0, min(100, graph_progress))
+
+        analysis: dict[str, object] = {"state": state, "locked": locked}
+        if progress:
+            analysis["progress"] = progress
+        if stage is not None:
+            analysis["stage"] = stage
+        if message is not None:
+            analysis["message"] = message
+        if cancel_requested is not None:
+            analysis["cancel_requested"] = cancel_requested
+        if run_id is not None:
+            analysis["run_id"] = run_id
+        if worker_message_id is not None:
+            analysis["worker_message_id"] = worker_message_id
+        if error is not None:
+            analysis["error"] = error
+        return {"analysis": analysis}
 
     def _mark_document_indexed(
         self,
@@ -262,6 +303,96 @@ class DocumentsService:
         documents_repository.save_document(self.db)
         return documents_repository.refresh_document(document, self.db)
 
+    def start_document_analysis(self, document_id: str, acting_user_id: str) -> db_entities.Document:
+        document = self._get_document_or_404(document_id)
+        self._require_permission(document.organization_id, acting_user_id, "upload_documents")
+        if document.status in {DOCUMENT_STATUS_PROCESSING, DOCUMENT_STATUS_INDEXING}:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Tai lieu dang duoc xu ly.")
+
+        metadata = parse_json_dict(document.metadata_json)
+        bucket = metadata.get("bucket")
+        object_key = metadata.get("object_key")
+        if not bucket or not object_key:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=messages.DOCUMENT_STORAGE_METADATA_INVALID)
+
+        run_id = str(uuid4())
+        document.status = DOCUMENT_STATUS_PROCESSING
+        documents_repository.merge_document_metadata(
+            document,
+            self._analysis_metadata_patch(
+                state="queued",
+                locked=True,
+                parse_progress=0,
+                graph_progress=0,
+                stage=PIPELINE_STAGE_INGEST,
+                message=messages.DOCUMENT_ANALYSIS_QUEUED,
+                cancel_requested=False,
+                run_id=run_id,
+                error=None,
+            ),
+        )
+        documents_repository.create_pipeline_event(
+            organization_id=document.organization_id,
+            document_id=document.id,
+            actor_user_id=acting_user_id,
+            stage=PIPELINE_STAGE_INGEST,
+            status=DOCUMENT_STATUS_PROCESSING,
+            message=messages.DOCUMENT_ANALYSIS_QUEUED,
+            db=self.db,
+        )
+
+        worker_message_id = publish_document_analysis_job(
+            {
+                "document_id": document.id,
+                "organization_id": document.organization_id,
+                "acting_user_id": acting_user_id,
+                "run_id": run_id,
+                "file_name": document.file_name,
+                "source_url": document.source_url,
+                "bucket": bucket,
+                "object_key": object_key,
+                "content_url": f"{SERVER_INTERNAL_URL}/documents/{document.id}/content?acting_user_id={acting_user_id}",
+            }
+        )
+        documents_repository.merge_document_metadata(
+            document,
+            self._analysis_metadata_patch(
+                state="queued",
+                locked=True,
+                worker_message_id=worker_message_id,
+            ),
+        )
+        documents_repository.save_document(self.db)
+        return documents_repository.refresh_document(document, self.db)
+
+    def stop_document_analysis(self, document_id: str, acting_user_id: str) -> db_entities.Document:
+        document = self._get_document_or_404(document_id)
+        self._require_permission(document.organization_id, acting_user_id, "upload_documents")
+        if document.status not in {DOCUMENT_STATUS_PROCESSING, DOCUMENT_STATUS_INDEXING}:
+            return document
+
+        documents_repository.merge_document_metadata(
+            document,
+            self._analysis_metadata_patch(
+                state="stopping",
+                locked=True,
+                stage="stopping",
+                message=messages.DOCUMENT_ANALYSIS_STOP_REQUESTED,
+                cancel_requested=True,
+            ),
+        )
+        documents_repository.create_pipeline_event(
+            organization_id=document.organization_id,
+            document_id=document.id,
+            actor_user_id=acting_user_id,
+            stage="stopping",
+            status=document.status,
+            message=messages.DOCUMENT_ANALYSIS_STOP_REQUESTED,
+            db=self.db,
+        )
+        documents_repository.save_document(self.db)
+        return documents_repository.refresh_document(document, self.db)
+
     def list_documents(
         self,
         org_id: str,
@@ -305,6 +436,15 @@ class DocumentsService:
             embedding_model=payload.embedding_model,
             vector_index=payload.vector_index,
         )
+        metadata_patch: dict = {}
+        if payload.metadata:
+            metadata_patch.update(payload.metadata)
+        if payload.analysis:
+            metadata_patch.setdefault("analysis", {}).update(payload.analysis)
+        if payload.progress:
+            metadata_patch.setdefault("analysis", {}).setdefault("progress", {}).update(payload.progress)
+        if metadata_patch:
+            documents_repository.merge_document_metadata(document, metadata_patch)
         if payload.stage:
             documents_repository.create_pipeline_event(
                 organization_id=document.organization_id,

@@ -132,6 +132,26 @@ def get_document_pipeline(
     return document_dto.to_document_pipeline_model(entity)
 
 
+@router.post("/documents/{document_id}/analysis/start", response_model=models.DocumentRead, tags=["Documents"], summary="Bat dau phan tich tai lieu bang worker/rag pipeline")
+def start_document_analysis(
+    document_id: str,
+    acting_user_id: str = Query(..., description="Can quyen upload_documents."),
+    db: Session = Depends(get_db),
+) -> models.DocumentRead:
+    document = DocumentsService(db).start_document_analysis(document_id, acting_user_id)
+    return document_dto.to_document_model(document)
+
+
+@router.post("/documents/{document_id}/analysis/stop", response_model=models.DocumentRead, tags=["Documents"], summary="Yeu cau dung pipeline phan tich tai lieu")
+def stop_document_analysis(
+    document_id: str,
+    acting_user_id: str = Query(..., description="Can quyen upload_documents."),
+    db: Session = Depends(get_db),
+) -> models.DocumentRead:
+    document = DocumentsService(db).stop_document_analysis(document_id, acting_user_id)
+    return document_dto.to_document_model(document)
+
+
 @router.patch("/documents/{document_id}/status", response_model=models.DocumentRead, tags=["Documents"], summary="Cap nhat pipeline/status tai lieu")
 def update_document_status(
     document_id: str,
