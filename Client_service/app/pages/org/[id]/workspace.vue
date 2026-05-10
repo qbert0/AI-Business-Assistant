@@ -22,10 +22,12 @@
           <h1 class="page-title">{{ organization.name }} Workspace</h1>
         </div>
 
-        <div class="chat-thread org-chat-thread">
+        <div ref="chatThreadRef" class="chat-thread org-chat-thread">
           <ChatMessageBubble
             v-for="message in messages"
             :key="message.id"
+            :data-message-id="message.id"
+            :data-message-role="message.role"
             :message="message"
           />
         </div>
@@ -100,6 +102,24 @@ const latestAssistantMessage = computed(() => [...messages.value].reverse().find
 const prompt = ref('')
 const feedbackComment = ref('')
 const selectedSessionId = ref<string | null>(null)
+const chatThreadRef = ref<HTMLElement | null>(null)
+const shouldScrollToSubmittedMessage = ref(false)
+
+const scrollToSubmittedMessage = async () => {
+  await nextTick()
+  const threadElement = chatThreadRef.value
+  if (!threadElement) {
+    return
+  }
+
+  const latestUserMessage = [...threadElement.querySelectorAll<HTMLElement>('[data-message-role="user"]')].at(-1)
+  if (latestUserMessage) {
+    latestUserMessage.scrollIntoView({ block: 'end', behavior: 'smooth' })
+    return
+  }
+
+  threadElement.scrollTo({ top: threadElement.scrollHeight, behavior: 'smooth' })
+}
 
 const primeWorkspace = async () => {
   try {
@@ -119,6 +139,7 @@ const handleAsk = async () => {
   }
 
   prompt.value = ''
+  shouldScrollToSubmittedMessage.value = true
   try {
     selectedSessionId.value = await askQuestion(
       slug.value,
@@ -131,6 +152,7 @@ const handleAsk = async () => {
       }
     )
   } catch (error) {
+    shouldScrollToSubmittedMessage.value = false
     prompt.value = currentPrompt
     throw error
   }
@@ -161,6 +183,24 @@ onMounted(() => {
 watch(selectedSessionId, (sessionId: string | null) => {
   loadMessages(slug.value, sessionId)
 })
+
+watch(
+  () => messages.value.map((message) => `${message.id}:${message.role}`).join('|'),
+  async () => {
+    if (!shouldScrollToSubmittedMessage.value) {
+      return
+    }
+
+    const hasSubmittedUserMessage = messages.value.some((message) => message.role === 'user')
+    if (!hasSubmittedUserMessage) {
+      return
+    }
+
+    shouldScrollToSubmittedMessage.value = false
+    await scrollToSubmittedMessage()
+  },
+  { flush: 'post' }
+)
 
 /*
 Layout map
