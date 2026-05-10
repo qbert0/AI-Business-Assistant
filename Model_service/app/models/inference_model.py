@@ -18,7 +18,7 @@ class InferenceCreate(BaseModel):
     external_contexts: list[ContextItem] = Field(default_factory=list)
     system_prompt: str | None = None
     temperature: float | None = Field(None, ge=0.0, le=2.0)
-    max_tokens: int | None = Field(None, ge=1, le=8192)
+    max_tokens: int | None = Field(None, ge=1, le=40000)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

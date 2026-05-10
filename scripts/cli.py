@@ -20,7 +20,8 @@ from scripts.utils.graph_status import (
 )
 from scripts.utils.neo4j_maintenance import purge_graph_namespace
 from scripts.utils.rag_index import ingest_graph
-from scripts.utils.vector_index import create_embeddings, index_elasticsearch
+from scripts.utils.redis_maintenance import delete_stream
+from scripts.utils.vector_index import create_embeddings, delete_elasticsearch_index, index_elasticsearch
 
 
 DEFAULT_CONFIG_PATH = "scripts/configs/config.yml"
@@ -110,6 +111,24 @@ def add_benchmark_parser(subparsers: argparse._SubParsersAction) -> None:
     status_parser.add_argument("--interval", type=float, default=10.0)
     status_parser.add_argument("--timeout", type=float, default=3600.0)
 
+    clean_parser = benchmark_subparsers.add_parser("clean", help="Clean benchmark graph/vector state")
+    clean_parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
+    clean_parser.add_argument("--target", choices=["graph", "vector", "all"], default="graph")
+    clean_parser.add_argument("--document-namespace")
+    clean_parser.add_argument("--redis-host")
+    clean_parser.add_argument("--redis-port", type=int)
+    clean_parser.add_argument("--redis-db", type=int)
+    clean_parser.add_argument("--redis-password")
+    clean_parser.add_argument("--redis-queue")
+    clean_parser.add_argument("--neo4j-uri")
+    clean_parser.add_argument("--neo4j-username")
+    clean_parser.add_argument("--neo4j-password")
+    clean_parser.add_argument("--elasticsearch-url")
+    clean_parser.add_argument("--elasticsearch-username")
+    clean_parser.add_argument("--elasticsearch-password")
+    clean_parser.add_argument("--elasticsearch-verify-certs", action="store_true")
+    clean_parser.add_argument("--index-name")
+
 
 def resolve_index_options(args: argparse.Namespace) -> argparse.Namespace:
     config = load_config(args.config)
@@ -156,6 +175,25 @@ def resolve_graph_status_options(args: argparse.Namespace) -> argparse.Namespace
     args.neo4j_uri = args.neo4j_uri or env_or_config("BENCHMARK_NEO4J_URI", config, "benchmark.neo4j.uri", "bolt://localhost:7687")
     args.neo4j_username = args.neo4j_username or env_or_config("BENCHMARK_NEO4J_USERNAME", config, "benchmark.neo4j.username", "neo4j")
     args.neo4j_password = args.neo4j_password or env_or_config("BENCHMARK_NEO4J_PASSWORD", config, "benchmark.neo4j.password", "pleaseletmein")
+    return args
+
+
+def resolve_clean_options(args: argparse.Namespace) -> argparse.Namespace:
+    config = load_config(args.config)
+    args.document_namespace = args.document_namespace or cfg(config, "benchmark.document_namespace", "benchmark")
+    args.redis_host = args.redis_host or env_or_config("BENCHMARK_REDIS_HOST", config, "benchmark.redis.host", "localhost")
+    args.redis_port = args.redis_port or int(env_or_config("BENCHMARK_REDIS_PORT", config, "benchmark.redis.port", 6379))
+    args.redis_db = args.redis_db if args.redis_db is not None else int(env_or_config("BENCHMARK_REDIS_DB", config, "benchmark.redis.db", 0))
+    args.redis_password = args.redis_password or env_or_config("BENCHMARK_REDIS_PASSWORD", config, "benchmark.redis.password")
+    args.redis_queue = args.redis_queue or env_or_config("BENCHMARK_REDIS_QUEUE", config, "benchmark.redis.ingest_queue", "rag-ingest")
+    args.neo4j_uri = args.neo4j_uri or env_or_config("BENCHMARK_NEO4J_URI", config, "benchmark.neo4j.uri", "bolt://localhost:7687")
+    args.neo4j_username = args.neo4j_username or env_or_config("BENCHMARK_NEO4J_USERNAME", config, "benchmark.neo4j.username", "neo4j")
+    args.neo4j_password = args.neo4j_password or env_or_config("BENCHMARK_NEO4J_PASSWORD", config, "benchmark.neo4j.password", "pleaseletmein")
+    args.elasticsearch_url = args.elasticsearch_url or env_or_config("BENCHMARK_ELASTICSEARCH_URL", config, "benchmark.elasticsearch.url", "http://localhost:9200")
+    args.elasticsearch_username = args.elasticsearch_username or env_or_config("BENCHMARK_ELASTICSEARCH_USERNAME", config, "benchmark.elasticsearch.username")
+    args.elasticsearch_password = args.elasticsearch_password or env_or_config("BENCHMARK_ELASTICSEARCH_PASSWORD", config, "benchmark.elasticsearch.password")
+    args.elasticsearch_verify_certs = args.elasticsearch_verify_certs or bool(cfg(config, "benchmark.elasticsearch.verify_certs", False))
+    args.index_name = args.index_name or env_or_config("BENCHMARK_ELASTICSEARCH_INDEX", config, "benchmark.elasticsearch.index_name", "benchmark_vector")
     return args
 
 
@@ -281,6 +319,34 @@ def run_graph_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_benchmark_clean(args: argparse.Namespace) -> int:
+    args = resolve_clean_options(args)
+    if args.target in {"graph", "all"}:
+        delete_stream(
+            host=args.redis_host,
+            port=args.redis_port,
+            db=args.redis_db,
+            password=args.redis_password,
+            queue_name=args.redis_queue,
+        )
+        purge_graph_namespace(
+            uri=args.neo4j_uri,
+            username=args.neo4j_username,
+            password=args.neo4j_password,
+            document_namespace=args.document_namespace,
+        )
+
+    if args.target in {"vector", "all"}:
+        delete_elasticsearch_index(
+            url=args.elasticsearch_url,
+            username=args.elasticsearch_username,
+            password=args.elasticsearch_password,
+            verify_certs=args.elasticsearch_verify_certs,
+            index_name=args.index_name,
+        )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Project maintenance and benchmark CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -295,6 +361,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_benchmark_index(args)
     if args.command == "benchmark" and args.benchmark_command == "graph-status":
         return run_graph_status(args)
+    if args.command == "benchmark" and args.benchmark_command == "clean":
+        return run_benchmark_clean(args)
     parser.error("Unknown command")
     return 2
 
