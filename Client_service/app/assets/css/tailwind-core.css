@@ -1157,6 +1157,43 @@
     @apply mt-2 text-sm opacity-70;
   }
 
+  .chat-feedback-shell {
+    @apply -mt-1 max-w-[760px] self-start pl-2;
+  }
+
+  .chat-feedback-toolbar {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .chat-feedback-trigger {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-cream bg-white px-3 py-1.5 text-caption font-semibold text-stone shadow-ring transition hover:border-focus/30 hover:text-focus;
+  }
+
+  .chat-feedback-trigger--icon {
+    @apply h-8 w-8 justify-center px-0 py-0;
+  }
+
+  .chat-feedback-panel {
+    @apply mt-2 rounded-[14px] border border-dashed border-cream bg-[#fbfbfc] p-3 shadow-ring;
+  }
+
+  .chat-feedback-heading {
+    @apply mb-2 flex items-center justify-between gap-3 text-caption font-semibold text-olive;
+  }
+
+  .chat-feedback-close {
+    @apply inline-flex items-center justify-center rounded-full border border-cream bg-white text-olive transition hover:border-focus/30 hover:text-focus;
+    @apply h-7 w-7;
+  }
+
+  .chat-feedback-actions {
+    @apply mt-2 flex flex-wrap items-center gap-2;
+  }
+
+  .chat-feedback-saved {
+    @apply text-caption font-semibold text-olive;
+  }
+
   .chat-report-artifact {
     @apply flex flex-col gap-1 rounded-[14px] border border-cream bg-[#f7f9fc] px-4 py-3 text-left transition hover:border-focus/30 hover:bg-white;
   }

@@ -3,7 +3,7 @@
     Layout page:
     - Cột trái: sidebar của chat trong workspace tổ chức
     - Cột giữa: thread chat + composer
-    - Cột phải: gợi ý câu hỏi + feedback
+    - Cột phải: gợi ý câu hỏi
   -->
   <div v-if="organization" class="org-chat-workspace">
     <section class="chat-layout org-chat-layout">
@@ -29,6 +29,18 @@
             :data-message-id="message.id"
             :data-message-role="message.role"
             :message="message"
+            :is-latest-assistant="message.id === latestAssistantMessage?.id"
+            :feedback-expanded="Boolean(expandedFeedbackMessageIds[message.id])"
+            :feedback-comment="feedbackDrafts[message.id] ?? ''"
+            :feedback-pending="feedbackPendingMessageId === message.id"
+            :feedback-submitted="Boolean(submittedFeedbackMessageIds[message.id])"
+            :feedback-title="text.chatPage.feedbackTitle"
+            :feedback-placeholder="text.chatPage.feedbackPlaceholder"
+            :positive-label="text.chatPage.positive"
+            :negative-label="text.chatPage.negative"
+            @toggle-feedback="toggleFeedback"
+            @submit-feedback="handleFeedback"
+            @update:feedback-comment="setFeedbackComment(message.id, $event)"
           />
         </div>
 
@@ -48,7 +60,7 @@
         </div>
       </section>
 
-      <!-- Right rail: suggestion + feedback -->
+      <!-- Right rail: suggestion chips -->
       <aside class="org-chat-rail">
         <section class="surface-card org-chat-rail-card space-y-3">
           <h2 class="panel-title">{{ text.chatPage.suggestionsTitle }}</h2>
@@ -56,15 +68,6 @@
             <button v-for="item in suggestions" :key="item.id" class="question-chip" @click="prompt = item.question">
               {{ item.question }}
             </button>
-          </div>
-        </section>
-
-        <section class="surface-card org-chat-rail-card space-y-3">
-          <h2 class="panel-title">{{ text.chatPage.feedbackTitle }}</h2>
-          <textarea v-model="feedbackComment" class="app-textarea" rows="3" :placeholder="text.chatPage.feedbackPlaceholder" />
-          <div class="flex flex-wrap gap-2.5">
-            <button class="btn-primary" @click="handleFeedback('positive')">{{ text.chatPage.positive }}</button>
-            <button class="btn-secondary" @click="handleFeedback('negative')">{{ text.chatPage.negative }}</button>
           </div>
         </section>
       </aside>
@@ -100,10 +103,13 @@ const isStreaming = computed(() => getIsStreaming(slug.value))
 const latestAssistantMessage = computed(() => [...messages.value].reverse().find((message) => message.role === 'assistant') ?? null)
 
 const prompt = ref('')
-const feedbackComment = ref('')
 const selectedSessionId = ref<string | null>(null)
 const chatThreadRef = ref<HTMLElement | null>(null)
 const shouldScrollToSubmittedMessage = ref(false)
+const feedbackDrafts = ref<Record<string, string>>({})
+const expandedFeedbackMessageIds = ref<Record<string, boolean>>({})
+const submittedFeedbackMessageIds = ref<Record<string, boolean>>({})
+const feedbackPendingMessageId = ref<string | null>(null)
 
 const scrollToSubmittedMessage = async () => {
   await nextTick()
@@ -164,18 +170,48 @@ const fillSuggestion = () => {
   prompt.value = suggestions.value[0]?.question ?? ''
 }
 
-const handleFeedback = async (rating: 'positive' | 'negative') => {
-  if (!latestAssistantMessage.value?.id) {
+const setFeedbackComment = (messageId: string, value: string) => {
+  feedbackDrafts.value = {
+    ...feedbackDrafts.value,
+    [messageId]: value
+  }
+}
+
+const toggleFeedback = (messageId: string) => {
+  expandedFeedbackMessageIds.value = {
+    ...expandedFeedbackMessageIds.value,
+    [messageId]: !expandedFeedbackMessageIds.value[messageId]
+  }
+}
+
+const handleFeedback = async (messageId: string, rating: 'positive' | 'negative') => {
+  if (!messageId || feedbackPendingMessageId.value) {
     return
   }
 
-  await submitFeedback(
-    slug.value,
-    latestAssistantMessage.value.id,
-    rating,
-    feedbackComment.value || UI_MESSAGES.feedbackDefault
-  )
-  feedbackComment.value = ''
+  feedbackPendingMessageId.value = messageId
+  try {
+    await submitFeedback(
+      slug.value,
+      messageId,
+      rating,
+      feedbackDrafts.value[messageId] || UI_MESSAGES.feedbackDefault
+    )
+    submittedFeedbackMessageIds.value = {
+      ...submittedFeedbackMessageIds.value,
+      [messageId]: true
+    }
+    feedbackDrafts.value = {
+      ...feedbackDrafts.value,
+      [messageId]: ''
+    }
+    expandedFeedbackMessageIds.value = {
+      ...expandedFeedbackMessageIds.value,
+      [messageId]: false
+    }
+  } finally {
+    feedbackPendingMessageId.value = null
+  }
 }
 
 onMounted(() => {
@@ -208,7 +244,7 @@ watch(
 Layout map
 
 +-------------------------------------------------------------------+
-| Session sidebar | Chat thread + composer | Suggestions + feedback |
+| Session sidebar | Chat thread + composer | Suggestions             |
 +-------------------------------------------------------------------+
 */
 </script>

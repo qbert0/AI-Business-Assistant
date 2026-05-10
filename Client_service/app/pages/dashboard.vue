@@ -37,6 +37,18 @@
           :data-message-id="message.id"
           :data-message-role="message.role"
           :message="message"
+          :is-latest-assistant="message.id === latestAssistantMessage?.id"
+          :feedback-expanded="Boolean(expandedFeedbackMessageIds[message.id])"
+          :feedback-comment="feedbackDrafts[message.id] ?? ''"
+          :feedback-pending="feedbackPendingMessageId === message.id"
+          :feedback-submitted="Boolean(submittedFeedbackMessageIds[message.id])"
+          :feedback-title="text.chatPage.feedbackTitle"
+          :feedback-placeholder="text.chatPage.feedbackPlaceholder"
+          :positive-label="text.chatPage.positive"
+          :negative-label="text.chatPage.negative"
+          @toggle-feedback="toggleFeedback"
+          @submit-feedback="handleFeedback"
+          @update:feedback-comment="setFeedbackComment(message.id, $event)"
         />
       </div>
 
@@ -74,7 +86,7 @@ import type { ChatSession, OrganizationSummary } from '@/types/organization'
 
 const { text } = useAppLocale()
 const { organizations } = useOrganization()
-const { getMessages, getSessions, getSuggestions, askQuestion, loadContext, loadMessages, getIsStreaming } = useChatbot()
+const { getMessages, getSessions, getSuggestions, askQuestion, submitFeedback, loadContext, loadMessages, getIsStreaming } = useChatbot()
 
 const selectedSlug = ref('personal')
 const selectedSessionId = ref<string | null>(null)
@@ -82,9 +94,14 @@ const messages = computed(() => getMessages(selectedSlug.value, selectedSessionI
 const sessions = computed(() => getSessions(selectedSlug.value))
 const suggestions = computed(() => getSuggestions(selectedSlug.value))
 const isStreaming = computed(() => getIsStreaming(selectedSlug.value))
+const latestAssistantMessage = computed(() => [...messages.value].reverse().find((message) => message.role === 'assistant') ?? null)
 const prompt = ref('')
 const chatThreadRef = ref<HTMLElement | null>(null)
 const shouldScrollToSubmittedMessage = ref(false)
+const feedbackDrafts = ref<Record<string, string>>({})
+const expandedFeedbackMessageIds = ref<Record<string, boolean>>({})
+const submittedFeedbackMessageIds = ref<Record<string, boolean>>({})
+const feedbackPendingMessageId = ref<string | null>(null)
 
 const scrollToSubmittedMessage = async () => {
   await nextTick()
@@ -137,6 +154,50 @@ const handleAsk = async () => {
     shouldScrollToSubmittedMessage.value = false
     prompt.value = currentPrompt
     throw error
+  }
+}
+
+const setFeedbackComment = (messageId: string, value: string) => {
+  feedbackDrafts.value = {
+    ...feedbackDrafts.value,
+    [messageId]: value
+  }
+}
+
+const toggleFeedback = (messageId: string) => {
+  expandedFeedbackMessageIds.value = {
+    ...expandedFeedbackMessageIds.value,
+    [messageId]: !expandedFeedbackMessageIds.value[messageId]
+  }
+}
+
+const handleFeedback = async (messageId: string, rating: 'positive' | 'negative') => {
+  if (!messageId || feedbackPendingMessageId.value) {
+    return
+  }
+
+  feedbackPendingMessageId.value = messageId
+  try {
+    await submitFeedback(
+      selectedSlug.value,
+      messageId,
+      rating,
+      feedbackDrafts.value[messageId] || UI_MESSAGES.feedbackDefault
+    )
+    submittedFeedbackMessageIds.value = {
+      ...submittedFeedbackMessageIds.value,
+      [messageId]: true
+    }
+    feedbackDrafts.value = {
+      ...feedbackDrafts.value,
+      [messageId]: ''
+    }
+    expandedFeedbackMessageIds.value = {
+      ...expandedFeedbackMessageIds.value,
+      [messageId]: false
+    }
+  } finally {
+    feedbackPendingMessageId.value = null
   }
 }
 
