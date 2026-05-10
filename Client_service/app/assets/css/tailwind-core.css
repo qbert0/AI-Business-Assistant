@@ -1397,6 +1397,14 @@
     @apply min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-caption font-semibold text-near;
   }
 
+  .document-org-graph-trigger {
+    @apply mb-3 flex min-h-9 w-full items-center gap-2 rounded-[8px] bg-white px-3 text-left text-caption font-semibold text-near hover:bg-badge hover:text-focus;
+  }
+
+  .document-org-graph-trigger.active {
+    @apply bg-notion text-white;
+  }
+
   .document-upload-trigger {
     @apply inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[8px] bg-black px-2.5 text-micro font-semibold text-white hover:bg-near;
   }
@@ -1552,6 +1560,95 @@
 
   .analysis-progress-track span {
     @apply block h-full rounded-full bg-notion transition-all duration-300;
+  }
+
+  .document-view-mode-tabs {
+    @apply mb-4 flex shrink-0 items-center gap-2 border-b border-black/10 pb-3;
+  }
+
+  .document-view-mode-tab {
+    @apply inline-flex h-8 items-center gap-2 rounded-full bg-[#f5f5f7] px-3 text-caption font-semibold text-olive hover:bg-badge hover:text-focus;
+  }
+
+  .document-view-mode-tab.active {
+    @apply bg-notion text-white;
+  }
+
+  .document-mode-panel {
+    @apply flex min-h-0 flex-1 flex-col overflow-hidden;
+  }
+
+  .document-insight-card {
+    @apply min-w-0 overflow-hidden rounded-[12px] border border-black/10 bg-[#f5f5f7] p-3;
+  }
+
+  .document-insight-card.full {
+    @apply flex min-h-0 flex-1 flex-col;
+  }
+
+  .document-insight-heading {
+    @apply mb-3 flex items-start justify-between gap-3;
+  }
+
+  .document-insight-heading h3 {
+    @apply text-caption font-semibold text-near;
+  }
+
+  .document-insight-heading > span,
+  .document-insight-action {
+    @apply inline-flex h-7 shrink-0 items-center rounded-full bg-white px-2.5 text-micro font-semibold text-focus;
+  }
+
+  .document-insight-actions {
+    @apply flex shrink-0 items-center gap-2;
+  }
+
+  .document-insight-actions > span {
+    @apply inline-flex h-7 items-center rounded-full bg-white px-2.5 text-micro font-semibold text-focus;
+  }
+
+  .document-insight-action {
+    @apply hover:bg-badge;
+  }
+
+  .document-chunk-list {
+    @apply flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1;
+  }
+
+  .document-chunk-item {
+    @apply rounded-[9px] bg-white px-3 py-2 text-caption text-near;
+  }
+
+  .document-chunk-item summary {
+    @apply cursor-pointer font-semibold;
+  }
+
+  .document-chunk-item small {
+    @apply ml-2 font-normal text-stone;
+  }
+
+  .document-chunk-item p {
+    @apply mt-2 whitespace-pre-wrap break-words font-mono text-[0.82rem] leading-5 text-olive;
+  }
+
+  .document-insight-empty {
+    @apply rounded-[9px] bg-white px-3 py-3 text-caption text-olive;
+  }
+
+  .document-graph-canvas {
+    @apply min-h-[620px] flex-1 overflow-hidden rounded-[12px] border border-black/10 bg-white;
+    background:
+      radial-gradient(circle at 16px 16px, rgba(0, 122, 255, 0.07) 1px, transparent 1px),
+      linear-gradient(180deg, #ffffff 0%, #fbfbfd 100%);
+    background-size: 32px 32px, auto;
+  }
+
+  .document-graph-canvas .vis-network {
+    @apply h-full w-full outline-none;
+  }
+
+  .document-graph-canvas canvas {
+    outline: none;
   }
 
   .document-preview {

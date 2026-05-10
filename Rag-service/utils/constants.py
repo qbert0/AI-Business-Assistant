@@ -50,6 +50,9 @@ MODEL_SERVICE_EMBEDDING_USE_CASE = MODEL_SERVICE_CONFIG.get(
     "embedding_use_case",
     "embeddings",
 )
+MODEL_SERVICE_TIMEOUT_SECONDS = float(MODEL_SERVICE_CONFIG.get("timeout_seconds", 180))
+MODEL_SERVICE_MAX_RETRIES = int(MODEL_SERVICE_CONFIG.get("max_retries", 1))
+MODEL_SERVICE_RETRY_BACKOFF_SECONDS = float(MODEL_SERVICE_CONFIG.get("retry_backoff_seconds", 2.0))
 
 REDIS_HOST = REDIS_CONFIG.get("host", "redis")
 REDIS_PORT = int(REDIS_CONFIG.get("port", 6379))

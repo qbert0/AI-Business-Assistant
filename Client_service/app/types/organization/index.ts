@@ -61,6 +61,46 @@ export interface KnowledgeDocument {
       graph?: number
     }
   }
+  chunks?: Array<{
+    id: string
+    index: number
+    content: string
+    length?: number
+  }>
+}
+
+export interface DocumentGraphNode {
+  id: string
+  label: string
+  summary?: string
+  labels?: string[]
+  x?: number
+  y?: number
+}
+
+export interface DocumentGraphEdge {
+  id: string
+  source: string
+  target: string
+  type?: string
+  label?: string
+}
+
+export interface DocumentGraph {
+  documentId: string
+  groupId: string
+  nodes: DocumentGraphNode[]
+  edges: DocumentGraphEdge[]
+  episodes: Array<{
+    id: string
+    label: string
+    source_description?: string
+  }>
+  counts: {
+    nodes: number
+    edges: number
+    episodes: number
+  }
 }
 
 export interface PipelineStep {

@@ -138,6 +138,15 @@ class PayloadParserWorker:
                     "parser_name": parsed_document.parser_name,
                     "worker_message_id": message.id,
                     "file_type": Path(file_name).suffix.lstrip(".").lower(),
+                    "chunks": [
+                        {
+                            "id": f"{document_id}-chunk-{index}",
+                            "index": index,
+                            "content": chunk[:4000],
+                            "length": len(chunk),
+                        }
+                        for index, chunk in enumerate(chunks, start=1)
+                    ],
                 },
             )
 
