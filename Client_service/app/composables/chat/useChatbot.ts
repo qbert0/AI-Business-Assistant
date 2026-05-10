@@ -1,3 +1,5 @@
+import { useChatStore } from '@/stores/chat/useChatStore'
+
 export const useChatbot = () => {
   const store = useChatStore()
 

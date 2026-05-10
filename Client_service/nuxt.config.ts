@@ -14,6 +14,28 @@ export default defineNuxtConfig({
     '@nuxtjs/google-fonts',
     '@pinia/nuxt'
   ],
+  imports: {
+    dirs: [
+      '~/composables',
+      '~/composables/**',
+      '~/stores',
+      '~/stores/**',
+      '~/utils',
+      '~/utils/**',
+      'composables',
+      'composables/**',
+      'stores',
+      'stores/**',
+      'utils',
+      'utils/**',
+      'app/composables',
+      'app/composables/**',
+      'app/stores',
+      'app/stores/**',
+      'app/utils',
+      'app/utils/**'
+    ]
+  },
   devtools: { enabled: true },
   runtimeConfig: {
     backendApiBaseUrl: process.env.NUXT_BACKEND_API_BASE_URL || 'http://localhost:8000',

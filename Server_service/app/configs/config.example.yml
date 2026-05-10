@@ -2,3 +2,32 @@ oauth:
   google:
     client_id: your-google-oauth-client-id.apps.googleusercontent.com
     client_secret: your-google-oauth-client-secret
+
+agent:
+  planner:
+    history_limit: 8
+
+  questioner:
+    history_limit: 8
+
+  retrieval:
+    no_hit_retries: 2
+    max_queries_per_attempt: 3
+    hits_per_query: 5
+    max_merged_hits: 15
+    max_context_items: 10
+    context_char_limit: 2400
+    snippet_prefix_chars: 500
+    snippet_suffix_chars: 1100
+
+  answerer:
+    max_completion_tokens: 4096
+    compact_context_items: 7
+    compact_context_chars: 2000
+
+  verifier:
+    max_completion_tokens: 4096
+    max_context_chars_for_model_verify: 5000
+
+  synthesizer:
+    max_completion_tokens: 4096

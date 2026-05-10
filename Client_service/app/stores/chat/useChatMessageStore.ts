@@ -1,3 +1,5 @@
+import { useAuthStore } from '@/stores/auth/useAuthStore'
+import { useChatSessionStore } from '@/stores/chat/useChatSessionStore'
 import { streamChatAnswer } from '@/utils/chat-stream'
 import type { ChatMessage, ChatSearchHit, ChatSession } from '@/types/organization'
 

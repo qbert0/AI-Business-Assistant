@@ -1,4 +1,6 @@
 import type { OrganizationPermission } from '@/constants/rbac'
+import { useAuthStore } from '@/stores/auth/useAuthStore'
+import { useOrganizationStore } from '@/stores/organizations/useOrganizationStore'
 
 const SEGMENT_PERMISSION_MAP: Record<string, OrganizationPermission | null> = {
   dashboard: null,

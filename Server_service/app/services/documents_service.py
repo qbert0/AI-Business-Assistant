@@ -15,8 +15,15 @@ from app.services.storage import get_file_from_minio, upload_file_to_minio
 
 
 class DocumentsService:
+    METADATA_PREVIEW_TEXT_LIMIT = 4000
+
     def __init__(self, db: Session) -> None:
         self.db = db
+
+    def _build_metadata_preview_text(self, content_text: str | None) -> str:
+        if not content_text:
+            return ""
+        return content_text[: self.METADATA_PREVIEW_TEXT_LIMIT]
 
     def _get_membership(self, org_id: str, user_id: str) -> db_entities.OrganizationMember | None:
         return (
@@ -112,7 +119,7 @@ class DocumentsService:
             "storage_provider": "minio",
             "bucket": stored_object.bucket,
             "object_key": stored_object.object_key,
-            "content_text": extracted_text or "",
+            "preview_text": self._build_metadata_preview_text(extracted_text),
         }
         document = documents_repository.create_document(
             org_id=org_id,

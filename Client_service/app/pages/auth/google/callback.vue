@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AuthUser } from '@/types/auth'
 import { APP_ROUTES } from '@/constants/navigation'
+import { useAuthStore } from '@/stores/auth/useAuthStore'
 import { persistClientAuthToken } from '@/utils/auth-token'
 
 definePageMeta({

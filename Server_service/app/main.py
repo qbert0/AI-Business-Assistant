@@ -15,6 +15,7 @@ from app.controllers import (
     system_controller,
     users_controller,
 )
+from app.config import CORS_ALLOWED_ORIGIN_REGEX, CORS_ALLOWED_ORIGINS
 from app.database import Base, engine
 
 
@@ -33,11 +34,19 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=CORS_ALLOWED_ORIGINS,
+        allow_origin_regex=CORS_ALLOWED_ORIGIN_REGEX,
         allow_credentials=True,
+        allow_private_network=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def add_private_network_cors_headers(request, call_next):
+        response = await call_next(request)
+        response.headers["Access-Control-Allow-Private-Network"] = "true"
+        return response
 
     app.include_router(system_controller.router)
     app.include_router(auth_controller.router)

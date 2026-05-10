@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.orm import Session, joinedload
 
 from app.db import models as db_models
@@ -23,35 +24,35 @@ class MetricsRepository:
         estimated_cost: float,
     ) -> None:
         bucket_start = finished_at.astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0, tzinfo=None)
-        rollup = (
-            self.db.query(db_models.MetricRollup)
-            .filter(
-                db_models.MetricRollup.model_id == model_id,
-                db_models.MetricRollup.bucket_start == bucket_start,
-                db_models.MetricRollup.bucket_granularity == "hour",
-            )
-            .first()
+        table = db_models.MetricRollup.__table__
+        insert_stmt = mysql_insert(table).values(
+            model_id=model_id,
+            bucket_start=bucket_start,
+            bucket_granularity="hour",
+            request_count=1,
+            success_count=1 if success else 0,
+            error_count=0 if success else 1,
+            avg_latency_ms=float(latency_ms),
+            total_latency_ms=latency_ms,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            estimated_cost=round(float(estimated_cost), 6),
         )
-        if not rollup:
-            rollup = db_models.MetricRollup(
-                model_id=model_id,
-                bucket_start=bucket_start,
-                bucket_granularity="hour",
-            )
-            self.db.add(rollup)
-            self.db.flush()
-
-        new_request_count = int(rollup.request_count or 0) + 1
-        new_total_latency = int(rollup.total_latency_ms or 0) + latency_ms
-        rollup.request_count = new_request_count
-        rollup.success_count = int(rollup.success_count or 0) + (1 if success else 0)
-        rollup.error_count = int(rollup.error_count or 0) + (0 if success else 1)
-        rollup.total_latency_ms = new_total_latency
-        rollup.avg_latency_ms = round(new_total_latency / new_request_count, 2)
-        rollup.prompt_tokens = int(rollup.prompt_tokens or 0) + prompt_tokens
-        rollup.completion_tokens = int(rollup.completion_tokens or 0) + completion_tokens
-        rollup.total_tokens = int(rollup.total_tokens or 0) + total_tokens
-        rollup.estimated_cost = round(float(rollup.estimated_cost or 0.0) + estimated_cost, 6)
+        update_stmt = insert_stmt.on_duplicate_key_update(
+            request_count=table.c.request_count + 1,
+            success_count=table.c.success_count + (1 if success else 0),
+            error_count=table.c.error_count + (0 if success else 1),
+            total_latency_ms=table.c.total_latency_ms + latency_ms,
+            avg_latency_ms=(
+                (table.c.total_latency_ms + latency_ms) / (table.c.request_count + 1)
+            ),
+            prompt_tokens=table.c.prompt_tokens + prompt_tokens,
+            completion_tokens=table.c.completion_tokens + completion_tokens,
+            total_tokens=table.c.total_tokens + total_tokens,
+            estimated_cost=table.c.estimated_cost + round(float(estimated_cost), 6),
+        )
+        self.db.execute(update_stmt)
 
     def summarize(self, hours: int = 24, model_id: str | None = None) -> MetricSummaryResponse:
         threshold = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=hours)
@@ -64,4 +65,3 @@ class MetricsRepository:
             query = query.filter(db_models.MetricRollup.model_id == model_id)
 
         return to_metric_summary_response_model(query.all(), bucket_granularity="hour")
-
