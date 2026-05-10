@@ -57,6 +57,10 @@ interface ChatMessageContextState {
   isStreaming: boolean
 }
 
+interface AskQuestionOptions {
+  onSession?: (sessionId: string) => void
+}
+
 const createMessageContextState = (): ChatMessageContextState => ({
   messagesBySession: {},
   messageCursorBySession: {},
@@ -71,6 +75,52 @@ const mapStreamSession = (session: StreamSessionPayload): ChatSession => ({
   updatedAt: String(session.updated_at || '').slice(0, 16).replace('T', ' '),
   preview: session.title,
   isPinned: Boolean(session.is_pinned)
+})
+
+const isEphemeralMessage = (message: ChatMessage) =>
+  message.id.startsWith('local-user-')
+  || message.id.startsWith('stream-')
+  || message.status === 'thinking'
+  || message.status === 'streaming'
+
+const mergePersistedWithEphemeralMessages = (
+  persistedMessages: ChatMessage[],
+  existingMessages: ChatMessage[],
+) => {
+  const merged = [...persistedMessages]
+  const knownIds = new Set(persistedMessages.map((message) => message.id))
+
+  for (const message of existingMessages) {
+    if (!isEphemeralMessage(message) || knownIds.has(message.id)) {
+      continue
+    }
+    merged.push(message)
+    knownIds.add(message.id)
+  }
+
+  return merged
+}
+
+const createLocalUserMessage = (id: string, content: string): ChatMessage => ({
+  id,
+  role: 'user',
+  content,
+  citations: [],
+  artifacts: [],
+  searchHits: [],
+  status: 'complete',
+  activity: null
+})
+
+const createStreamingAssistantMessage = (sessionId: string, activity: string | null): ChatMessage => ({
+  id: `stream-${sessionId}`,
+  role: 'assistant',
+  content: '',
+  citations: [],
+  artifacts: [],
+  searchHits: [],
+  status: 'thinking',
+  activity
 })
 
 export const useChatMessageStore = defineStore('chat-messages', () => {
@@ -102,10 +152,15 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
     if (!sessionId) {
       return
     }
+    if (sessionId.startsWith('local-session-')) {
+      return
+    }
 
     const context = ensureContext(slug)
+    const existingMessages = context.messagesBySession[sessionId] ?? []
     const response = await api.messages(slug, sessionId, 0, 20)
-    context.messagesBySession[sessionId] = response.messages
+    const mergedMessages = mergePersistedWithEphemeralMessages(response.messages, existingMessages)
+    context.messagesBySession[sessionId] = mergedMessages
     context.messageCursorBySession[sessionId] = response.nextCursor
   }
 
@@ -132,7 +187,12 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
     context.messageCursorBySession = remainingCursors
   }
 
-  const askQuestion = async (slug: string, prompt: string, sessionId?: string | null) => {
+  const askQuestion = async (
+    slug: string,
+    prompt: string,
+    sessionId?: string | null,
+    options?: AskQuestionOptions,
+  ) => {
     const context = ensureContext(slug)
     const auth = useAuthStore()
     const sessions = useChatSessionStore()
@@ -146,9 +206,18 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
     context.isStreaming = true
     context.streamingStatus = 'Đang chuẩn bị câu trả lời.'
 
-    let activeSessionId = sessionId ?? null
-    let tempAssistantMessage: ChatMessage | null = null
     const localUserMessageId = `local-user-${Date.now()}`
+    const localSessionId = sessionId ?? `local-session-${Date.now()}`
+    let activeSessionId = localSessionId
+    let localMessagesSessionId = localSessionId
+    let tempAssistantMessage: ChatMessage | null = null
+    tempAssistantMessage = createStreamingAssistantMessage(localSessionId, context.streamingStatus)
+    context.messagesBySession[localSessionId] = [
+      ...(context.messagesBySession[localSessionId] ?? []),
+      createLocalUserMessage(localUserMessageId, prompt),
+      tempAssistantMessage
+    ]
+    options?.onSession?.(localSessionId)
 
     try {
       await streamChatAnswer(
@@ -164,37 +233,18 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
               return
             }
             const session = mapStreamSession(event.session)
-            activeSessionId = session.id
-            sessions.upsertSession(slug, session)
-            const existingMessages = context.messagesBySession[session.id] ?? []
-            tempAssistantMessage = {
-              id: `stream-${session.id}`,
-              role: 'assistant',
-              content: '',
-              citations: [],
-              artifacts: [],
-              searchHits: [],
-              status: 'thinking',
-              activity: context.streamingStatus
+            const localMessages = context.messagesBySession[localMessagesSessionId] ?? []
+            if (localMessagesSessionId !== session.id) {
+              context.messagesBySession[session.id] = mergePersistedWithEphemeralMessages(
+                context.messagesBySession[session.id] ?? [],
+                localMessages,
+              )
+              delete context.messagesBySession[localMessagesSessionId]
+              localMessagesSessionId = session.id
             }
-            context.messagesBySession[session.id] = [
-              ...existingMessages,
-              {
-                id: localUserMessageId,
-                role: 'user',
-                content: prompt,
-                citations: [],
-                artifacts: [],
-                searchHits: [],
-                status: 'complete',
-                activity: null
-              },
-              tempAssistantMessage
-            ]
-            return
-          }
-
-          if (!activeSessionId) {
+            activeSessionId = session.id
+            options?.onSession?.(session.id)
+            sessions.upsertSession(slug, session)
             return
           }
 
@@ -204,16 +254,7 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
             if (assistantIndex >= 0) {
               return messages[assistantIndex]
             }
-            const created: ChatMessage = {
-              id: `stream-${activeSessionId}`,
-              role: 'assistant',
-              content: '',
-              citations: [],
-              artifacts: [],
-              searchHits: [],
-              status: 'thinking',
-              activity: context.streamingStatus
-            }
+            const created = createStreamingAssistantMessage(activeSessionId, context.streamingStatus)
             context.messagesBySession[activeSessionId] = [...messages, created]
             tempAssistantMessage = created
             return created
@@ -317,6 +358,7 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
               ...finalMessages
             ]
             activeSessionId = finalSession.id
+            localMessagesSessionId = finalSession.id
           }
         }
       )

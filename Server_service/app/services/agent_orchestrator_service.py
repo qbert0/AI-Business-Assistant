@@ -292,10 +292,6 @@ class AgentOrchestratorService:
                         message="Chưa tìm thấy tài liệu phù hợp, đang thử một bộ truy vấn khác.",
                         payload={"attempt": attempt_index + 1, "remaining_retries": total_attempts - attempt_index - 1},
                     )
-            else:
-                yield self.retriever.start_event()
-                state = self._run_step(self.retriever, state, run.id)
-                yield self.retriever.finish_event(state)
 
             yield self.answerer.start_event()
             state = self._run_step(self.answerer, state, run.id)

@@ -87,7 +87,7 @@ class AnswerAgent(BaseAgent):
         return self._extract_answer_text(response_text)
 
     def run(self, state: AgentWorkflowState) -> AgentWorkflowState:
-        if state.organization_id and not state.contexts:
+        if state.organization_id and state.needs_document_search and not state.contexts:
             state.metadata["answerer_failure_reason"] = "no_retrieved_context"
             state.draft_answer = ""
             return state

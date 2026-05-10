@@ -55,7 +55,7 @@
           />
           <button class="btn-primary" type="button" :disabled="isStreaming || !prompt.trim()" @click="handleAsk">{{ isStreaming ? 'Dang tra loi...' : text.workspace.send }}</button>
         </div>
-        <p v-if="streamingStatus" class="text-sm opacity-70">{{ streamingStatus }}</p>
+        <p class="chat-disclaimer">{{ UI_MESSAGES.chatDisclaimer }}</p>
       </div>
     </section>
   </main>
@@ -67,18 +67,18 @@ import { useChatbot } from '@/composables/chat/useChatbot'
 import { useOrganization } from '@/composables/organizations/useOrganization'
 import { useAppLocale } from '@/composables/system/useAppLocale'
 import ChatSessionSidebar from '@/components/shared/chat/ChatSessionSidebar.vue'
+import { UI_MESSAGES } from '@/constants/messages'
 import type { ChatSession, OrganizationSummary } from '@/types/organization'
 
 const { text } = useAppLocale()
 const { organizations } = useOrganization()
-const { getMessages, getSessions, getSuggestions, askQuestion, loadContext, loadMessages, getStreamingStatus, getIsStreaming } = useChatbot()
+const { getMessages, getSessions, getSuggestions, askQuestion, loadContext, loadMessages, getIsStreaming } = useChatbot()
 
 const selectedSlug = ref('personal')
 const selectedSessionId = ref<string | null>(null)
 const messages = computed(() => getMessages(selectedSlug.value, selectedSessionId.value))
 const sessions = computed(() => getSessions(selectedSlug.value))
 const suggestions = computed(() => getSuggestions(selectedSlug.value))
-const streamingStatus = computed(() => getStreamingStatus(selectedSlug.value))
 const isStreaming = computed(() => getIsStreaming(selectedSlug.value))
 const prompt = ref('')
 
@@ -100,7 +100,16 @@ const handleAsk = async () => {
 
   prompt.value = ''
   try {
-    selectedSessionId.value = await askQuestion(selectedSlug.value, currentPrompt, selectedSessionId.value)
+    selectedSessionId.value = await askQuestion(
+      selectedSlug.value,
+      currentPrompt,
+      selectedSessionId.value,
+      {
+        onSession: (sessionId: string) => {
+          selectedSessionId.value = sessionId
+        }
+      }
+    )
   } catch (error) {
     prompt.value = currentPrompt
     throw error

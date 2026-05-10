@@ -38,11 +38,11 @@
             :placeholder="UI_MESSAGES.chatPlaceholder"
             @keydown.enter.exact.prevent="handleAsk"
           />
-          <p v-if="streamingStatus" class="text-sm opacity-70">{{ streamingStatus }}</p>
           <div class="flex flex-wrap gap-2.5">
             <button class="btn-primary" :disabled="isStreaming || !prompt.trim()" @click="handleAsk">{{ isStreaming ? 'Dang tra loi...' : text.chatPage.send }}</button>
             <button class="btn-secondary" @click="fillSuggestion">{{ text.chatPage.useSuggestion }}</button>
           </div>
+          <p class="chat-disclaimer">{{ UI_MESSAGES.chatDisclaimer }}</p>
         </div>
       </section>
 
@@ -87,14 +87,13 @@ const { text } = useAppLocale()
 
 const route = useRoute()
 const { loadOrganizations, getOrganizationBySlug } = useOrganization()
-const { getMessages, getSessions, getSuggestions, askQuestion, submitFeedback, loadContext, loadMessages, getStreamingStatus, getIsStreaming } = useChatbot()
+const { getMessages, getSessions, getSuggestions, askQuestion, submitFeedback, loadContext, loadMessages, getIsStreaming } = useChatbot()
 
 const slug = computed(() => (route.params.slug ?? route.params.id) as string)
 const organization = computed(() => getOrganizationBySlug(slug.value))
 const messages = computed(() => getMessages(slug.value, selectedSessionId.value))
 const sessions = computed(() => getSessions(slug.value))
 const suggestions = computed(() => getSuggestions(slug.value))
-const streamingStatus = computed(() => getStreamingStatus(slug.value))
 const isStreaming = computed(() => getIsStreaming(slug.value))
 const latestAssistantMessage = computed(() => [...messages.value].reverse().find((message) => message.role === 'assistant') ?? null)
 
@@ -121,7 +120,16 @@ const handleAsk = async () => {
 
   prompt.value = ''
   try {
-    selectedSessionId.value = await askQuestion(slug.value, currentPrompt, selectedSessionId.value)
+    selectedSessionId.value = await askQuestion(
+      slug.value,
+      currentPrompt,
+      selectedSessionId.value,
+      {
+        onSession: (sessionId: string) => {
+          selectedSessionId.value = sessionId
+        }
+      }
+    )
   } catch (error) {
     prompt.value = currentPrompt
     throw error
@@ -148,6 +156,10 @@ const handleFeedback = async (rating: 'positive' | 'negative') => {
 
 onMounted(() => {
   primeWorkspace()
+})
+
+watch(selectedSessionId, (sessionId: string | null) => {
+  loadMessages(slug.value, sessionId)
 })
 
 /*

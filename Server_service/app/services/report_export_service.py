@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from datetime import datetime, timezone
 
 from app.agents.base import AgentWorkflowState
@@ -18,11 +19,12 @@ class ReportExportService:
         return self._clean_title(state.report_title_hint or state.question)
 
     def _slugify_file_name(self, title: str) -> str:
-        ascii_title = (
-            title.lower()
-            .replace("đ", "d")
-            .replace(" ", "-")
+        ascii_title = unicodedata.normalize(
+            "NFKD",
+            title.lower().replace("đ", "d"),
         )
+        ascii_title = "".join(char for char in ascii_title if not unicodedata.combining(char))
+        ascii_title = ascii_title.encode("ascii", "ignore").decode("ascii")
         ascii_title = re.sub(r"[^a-z0-9._-]+", "-", ascii_title)
         ascii_title = re.sub(r"-{2,}", "-", ascii_title).strip("-._")
         return ascii_title or "bao-cao"

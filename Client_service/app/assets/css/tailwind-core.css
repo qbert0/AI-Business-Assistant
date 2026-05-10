@@ -1022,6 +1022,10 @@
     @apply min-h-[48px] flex-1 resize-none bg-transparent px-2 py-2 text-body text-near outline-none placeholder:text-stone;
   }
 
+  .chat-disclaimer {
+    @apply mx-auto mt-5 max-w-[900px] text-center text-sm font-semibold leading-relaxed text-olive;
+  }
+
   .landing-page {
     @apply bg-black;
   }
@@ -1262,6 +1266,8 @@
 
   .chat-chart {
     @apply overflow-hidden rounded-[16px] border border-cream bg-white shadow-ring;
+    margin-inline: auto;
+    width: min(100%, 880px);
   }
 
   .chat-chart__header {
