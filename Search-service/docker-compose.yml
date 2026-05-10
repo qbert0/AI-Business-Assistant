@@ -10,10 +10,16 @@ services:
       bootstrap.memory_lock: ${ELASTICSEARCH_MEMORY_LOCK:-true}
       xpack.security.enabled: ${ELASTICSEARCH_SECURITY_ENABLED:-false}
       xpack.security.enrollment.enabled: ${ELASTICSEARCH_ENROLLMENT_ENABLED:-false}
+      cluster.routing.allocation.disk.watermark.low: ${ELASTICSEARCH_DISK_WATERMARK_LOW:-95%}
+      cluster.routing.allocation.disk.watermark.high: ${ELASTICSEARCH_DISK_WATERMARK_HIGH:-97%}
+      cluster.routing.allocation.disk.watermark.flood_stage: ${ELASTICSEARCH_DISK_WATERMARK_FLOOD_STAGE:-99%}
       ES_JAVA_OPTS: "${ELASTICSEARCH_JAVA_OPTS:--Xms1g -Xmx1g}"
     expose:
       - "9200"
       - "9300"
+    ports:
+      - "${ELASTICSEARCH_HTTP_PORT:-9200}:9200"
+      - "${ELASTICSEARCH_TRANSPORT_PORT:-9300}:9300"
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
     ulimits:
@@ -24,6 +30,7 @@ services:
         soft: 65536
         hard: 65536
     networks:
+      - default
       - search_backend
     healthcheck:
       test:

@@ -850,6 +850,10 @@ class GraphitiService:
         return cls._build_document_group_id(document_id)
 
     @staticmethod
+    def _build_document_source_marker(document_id: str) -> str:
+        return f"document_id={str(document_id).strip()}"
+
+    @staticmethod
     def _coerce_optional_text(value: Any) -> str | None:
         if value is None:
             return None
@@ -1138,13 +1142,115 @@ class GraphitiService:
             "episode_count": int(episode_record["count"]) if episode_record else 0,
         }
 
+    async def get_document_scoped_graph(self, document_ids: list[str], *, limit: int = 160) -> dict[str, Any]:
+        await self.ensure_schema()
+        graphiti = self._require_graphiti()
+        driver = graphiti.driver
+
+        safe_document_ids = [str(document_id).strip() for document_id in document_ids if str(document_id).strip()]
+        if not safe_document_ids:
+            return {
+                "nodes": [],
+                "edges": [],
+                "episodes": [],
+                "counts": {
+                    "nodes": 0,
+                    "edges": 0,
+                    "episodes": 0,
+                },
+            }
+
+        document_markers = [self._build_document_source_marker(document_id) for document_id in safe_document_ids]
+
+        async with driver.session() as session:
+            episodes_result = await session.run(
+                """
+                MATCH (e:Episodic)
+                WHERE any(marker IN $document_markers WHERE coalesce(e.source_description, '') CONTAINS marker)
+                RETURN e.uuid AS id,
+                       coalesce(e.name, e.uuid) AS label,
+                       coalesce(e.source_description, '') AS source_description,
+                       e.group_id AS group_id
+                LIMIT $limit
+                """,
+                {"document_markers": document_markers, "limit": limit},
+            )
+            episodes = [record.data() async for record in episodes_result]
+
+            nodes_result = await session.run(
+                """
+                MATCH (e:Episodic)-[:MENTIONS]->(n)
+                WHERE any(marker IN $document_markers WHERE coalesce(e.source_description, '') CONTAINS marker)
+                  AND NOT n:Episodic
+                RETURN DISTINCT n.uuid AS id,
+                                coalesce(n.name, n.uuid) AS label,
+                                coalesce(n.summary, '') AS summary,
+                                labels(n) AS labels,
+                                n.group_id AS group_id
+                LIMIT $limit
+                """,
+                {"document_markers": document_markers, "limit": limit},
+            )
+            nodes = [record.data() async for record in nodes_result]
+
+            node_ids = [str(node.get("id")) for node in nodes if node.get("id")]
+            episode_group_ids = list(
+                {
+                    str(episode.get("group_id")).strip()
+                    for episode in episodes
+                    if episode.get("group_id")
+                }
+            )
+
+            if not node_ids:
+                edges: list[dict[str, Any]] = []
+            else:
+                edges_result = await session.run(
+                    """
+                    MATCH (a)-[r]->(b)
+                    WHERE a.uuid IN $node_ids
+                      AND b.uuid IN $node_ids
+                      AND NOT a:Episodic
+                      AND NOT b:Episodic
+                      AND (
+                        size($group_ids) = 0
+                        OR coalesce(a.group_id, '') IN $group_ids
+                        OR coalesce(b.group_id, '') IN $group_ids
+                        OR coalesce(r.group_id, '') IN $group_ids
+                      )
+                    RETURN DISTINCT coalesce(r.uuid, elementId(r)) AS id,
+                                    a.uuid AS source,
+                                    b.uuid AS target,
+                                    type(r) AS type,
+                                    coalesce(r.fact, r.name, '') AS label,
+                                    coalesce(r.group_id, a.group_id, b.group_id, '') AS group_id
+                    LIMIT $limit
+                    """,
+                    {
+                        "node_ids": node_ids,
+                        "group_ids": episode_group_ids,
+                        "limit": limit * 2,
+                    },
+                )
+                edges = [record.data() async for record in edges_result]
+
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "episodes": episodes,
+            "counts": {
+                "nodes": len(nodes),
+                "edges": len(edges),
+                "episodes": len(episodes),
+            },
+        }
+
     async def get_document_graph(self, document_id: str, *, limit: int = 80) -> dict[str, Any]:
-        group_id = self._build_safe_group_id(document_id)
-        graph = await self.get_groups_graph([group_id], limit=limit)
+        graph = await self.get_document_scoped_graph([document_id], limit=limit)
 
         return {
             "document_id": document_id,
-            "group_id": group_id,
+            "group_id": self._build_document_group_id(document_id),
             **graph,
         }
 
@@ -1155,13 +1261,13 @@ class GraphitiService:
         scope_id: str = "documents",
         limit: int = 160,
     ) -> dict[str, Any]:
-        group_ids = [self._build_safe_group_id(document_id) for document_id in document_ids if document_id]
-        graph = await self.get_groups_graph(group_ids, limit=limit)
+        safe_document_ids = [str(document_id).strip() for document_id in document_ids if str(document_id).strip()]
+        graph = await self.get_document_scoped_graph(safe_document_ids, limit=limit)
 
         return {
             "document_id": scope_id,
-            "group_id": ",".join(group_ids),
-            "document_ids": document_ids,
+            "group_id": ",".join(self._build_document_group_id(document_id) for document_id in safe_document_ids),
+            "document_ids": safe_document_ids,
             **graph,
         }
 
