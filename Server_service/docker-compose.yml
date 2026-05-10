@@ -5,12 +5,13 @@ services:
       dockerfile: Dockerfile
     container_name: ${SERVER_SERVICE_CONTAINER_NAME:-server_app}
     ports:
-      - "${SERVER_SERVICE_PORT:-8000}:8000"
+      - "${SERVER_SERVICE_PORT:-8004}:8000"
     environment:
       DATABASE_URL: ${DATABASE_URL:-mysql+pymysql://precisioncast:precisioncast123@mariadb:3306/precisioncast}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-local-dev-secret}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      STORAGE_PUBLIC_ENDPOINT: ${STORAGE_PUBLIC_ENDPOINT:-http://localhost:8000}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
       MINIO_BUCKET: ${MINIO_BUCKET:-business-documents}

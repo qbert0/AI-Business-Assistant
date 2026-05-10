@@ -5,13 +5,32 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app import messages, models
+from app.config import MINIO_BUCKET
+from app.constants.documents import (
+    DOCUMENT_STATUS_INDEXED,
+    DOCUMENT_STATUS_INDEXING,
+    DOCUMENT_STATUS_PROCESSING,
+    DOCUMENT_STATUS_UPLOADED,
+    PIPELINE_STAGE_CHUNKING,
+    PIPELINE_STAGE_INDEXING,
+    PIPELINE_STAGE_INGEST,
+    PIPELINE_STAGE_PARSING,
+    PIPELINE_STAGE_UPLOAD,
+)
 from app.entities import database as db_entities
 from app.entities.document import DocumentPipelineEntity, DocumentPreviewEntity, DocumentSearchResultEntity
 from app.repositories import documents_repository
 from app.repositories.common import parse_json_dict, parse_json_list
 from app.services.document_preview import build_preview_payload, extract_document_text
 from app.services.search_service import index_document, query_documents
-from app.services.storage import get_file_from_minio, upload_file_to_minio
+from app.services.storage import (
+    build_object_key,
+    get_file_from_minio,
+    get_object_metadata,
+    get_presigned_upload_url,
+    get_presigned_url,
+    upload_file_to_minio,
+)
 
 
 class DocumentsService:
@@ -55,15 +74,25 @@ class DocumentsService:
         actor_user_id: str,
         content_text: str | None,
     ) -> None:
-        document.status = "completed"
+        document.status = DOCUMENT_STATUS_INDEXING
         document.chunk_count = "1"
         index_document(document, content_text=content_text)
         documents_repository.create_pipeline_event(
             organization_id=document.organization_id,
             document_id=document.id,
             actor_user_id=actor_user_id,
-            stage="indexing",
-            status="completed",
+            stage=PIPELINE_STAGE_INDEXING,
+            status=DOCUMENT_STATUS_INDEXING,
+            message=messages.DOCUMENT_RAG_INDEXING,
+            db=self.db,
+        )
+        document.status = DOCUMENT_STATUS_INDEXED
+        documents_repository.create_pipeline_event(
+            organization_id=document.organization_id,
+            document_id=document.id,
+            actor_user_id=actor_user_id,
+            stage=PIPELINE_STAGE_INDEXING,
+            status=DOCUMENT_STATUS_INDEXED,
             message=messages.DOCUMENT_INDEXED,
             db=self.db,
         )
@@ -80,13 +109,14 @@ class DocumentsService:
             vector_index=f"org-{org_id}-documents",
             db=self.db,
         )
+        document.status = DOCUMENT_STATUS_UPLOADED
         documents_repository.create_pipeline_event(
             organization_id=org_id,
             document_id=document.id,
             actor_user_id=payload.uploaded_by_user_id,
-            stage="ingest",
-            status="processing",
-            message="Tai lieu da duoc ghi nhan, dang index vao Search-service.",
+            stage=PIPELINE_STAGE_INGEST,
+            status=DOCUMENT_STATUS_UPLOADED,
+            message=messages.DOCUMENT_INGEST_ACCEPTED,
             db=self.db,
         )
         self._mark_document_indexed(document, actor_user_id=payload.uploaded_by_user_id, content_text=None)
@@ -123,16 +153,112 @@ class DocumentsService:
             vector_index=f"org-{org_id}-documents",
             db=self.db,
         )
+        document.status = DOCUMENT_STATUS_UPLOADED
         documents_repository.create_pipeline_event(
             organization_id=org_id,
             document_id=document.id,
             actor_user_id=acting_user_id,
-            stage="upload",
-            status="processing",
-            message="File da duoc luu trong MinIO va metadata da duoc ghi vao database.",
+            stage=PIPELINE_STAGE_UPLOAD,
+            status=DOCUMENT_STATUS_UPLOADED,
+            message=messages.DOCUMENT_UPLOADED,
+            db=self.db,
+        )
+        document.status = DOCUMENT_STATUS_PROCESSING
+        documents_repository.create_pipeline_event(
+            organization_id=org_id,
+            document_id=document.id,
+            actor_user_id=acting_user_id,
+            stage=PIPELINE_STAGE_PARSING,
+            status=DOCUMENT_STATUS_PROCESSING,
+            message=messages.DOCUMENT_PARSED,
+            db=self.db,
+        )
+        documents_repository.create_pipeline_event(
+            organization_id=org_id,
+            document_id=document.id,
+            actor_user_id=acting_user_id,
+            stage=PIPELINE_STAGE_CHUNKING,
+            status=DOCUMENT_STATUS_PROCESSING,
+            message=messages.DOCUMENT_CHUNKED,
             db=self.db,
         )
         self._mark_document_indexed(document, actor_user_id=acting_user_id, content_text=extracted_text)
+        documents_repository.save_document(self.db)
+        return documents_repository.refresh_document(document, self.db)
+
+    def create_presigned_upload(
+        self,
+        org_id: str,
+        *,
+        acting_user_id: str,
+        file_name: str,
+        content_type: str | None,
+        expires: int,
+    ) -> dict[str, str | int | None]:
+        self._ensure_org_exists(org_id)
+        if not documents_repository.get_user(acting_user_id, self.db):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.USER_NOT_FOUND)
+        self._require_permission(org_id, acting_user_id, "upload_documents")
+
+        object_key = build_object_key(org_id, file_name)
+        upload_url = get_presigned_upload_url(
+            MINIO_BUCKET,
+            object_key,
+            expires,
+            content_type=content_type,
+        )
+        return {
+            "bucket": MINIO_BUCKET,
+            "object_key": object_key,
+            "upload_url": upload_url,
+            "source_url": f"s3://{MINIO_BUCKET}/{object_key}",
+            "expires_in": expires,
+            "content_type": content_type,
+        }
+
+    def complete_presigned_upload(
+        self,
+        org_id: str,
+        payload: models.DocumentPresignedUploadCompleteRequest,
+    ) -> db_entities.Document:
+        self._ensure_org_exists(org_id)
+        uploader = documents_repository.get_user(payload.acting_user_id, self.db)
+        if not uploader:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=messages.USER_NOT_FOUND)
+        self._require_permission(org_id, payload.acting_user_id, "upload_documents")
+
+        object_metadata = get_object_metadata(payload.bucket, payload.object_key)
+        source_url = f"s3://{payload.bucket}/{payload.object_key}"
+        metadata = {
+            **payload.metadata,
+            "uploaded_by_email": uploader.email,
+            "content_type": payload.content_type or object_metadata.content_type,
+            "storage_provider": "minio",
+            "bucket": payload.bucket,
+            "object_key": payload.object_key,
+            "size_bytes": object_metadata.size,
+            "etag": object_metadata.etag,
+            "last_modified": object_metadata.last_modified.isoformat() if object_metadata.last_modified else None,
+        }
+        document = documents_repository.create_document(
+            org_id=org_id,
+            uploaded_by_user_id=payload.acting_user_id,
+            file_name=payload.file_name,
+            source_url=source_url,
+            metadata_json=json.dumps(metadata),
+            vector_index=f"org-{org_id}-documents",
+            db=self.db,
+        )
+        document.status = DOCUMENT_STATUS_UPLOADED
+        documents_repository.create_pipeline_event(
+            organization_id=org_id,
+            document_id=document.id,
+            actor_user_id=payload.acting_user_id,
+            stage=PIPELINE_STAGE_UPLOAD,
+            status=DOCUMENT_STATUS_UPLOADED,
+            message=messages.DOCUMENT_REGISTERED,
+            db=self.db,
+        )
         documents_repository.save_document(self.db)
         return documents_repository.refresh_document(document, self.db)
 
@@ -207,6 +333,27 @@ class DocumentsService:
             "Cache-Control": "private, max-age=60",
         }
         return StreamingResponse(minio_response["Body"], media_type=content_type, headers=headers)
+
+    def get_document_download_url(
+        self,
+        document_id: str,
+        acting_user_id: str,
+        *,
+        expires: int,
+    ) -> dict[str, str | int]:
+        document = self._get_document_or_404(document_id)
+        self._require_permission(document.organization_id, acting_user_id, "read_documents")
+        metadata = parse_json_dict(document.metadata_json)
+        bucket = metadata.get("bucket")
+        object_key = metadata.get("object_key")
+        if not bucket or not object_key:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=messages.DOCUMENT_STORAGE_METADATA_INVALID)
+        return {
+            "document_id": document.id,
+            "file_name": document.file_name,
+            "download_url": get_presigned_url(bucket, object_key, expires),
+            "expires_in": expires,
+        }
 
     def get_document_preview(self, document_id: str, acting_user_id: str) -> DocumentPreviewEntity:
         document = self._get_document_or_404(document_id)

@@ -1,24 +1,86 @@
 import type { KnowledgeDocument, PipelineStep } from '@/types/organization'
 
 import { useApiFetch } from '@/composables/api/core/useApiFetch'
+import { getClientAuthToken } from '@/utils/auth-token'
+
+const decodeJwtSubject = (token: string | null): string => {
+  if (!token) {
+    return ''
+  }
+
+  const payload = token.split('.')[1]
+  if (!payload) {
+    return ''
+  }
+
+  try {
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
+    const decoded = import.meta.client ? atob(padded) : ''
+    const parsed = JSON.parse(decoded) as { sub?: string }
+    return parsed.sub || ''
+  } catch {
+    return ''
+  }
+}
 
 export const useApiDocuments = () => {
   const apiFetch = useApiFetch()
+  const config = useRuntimeConfig()
+  const backendBaseUrl = (config.public.backendApiBaseUrl || 'http://localhost:8000').replace(/\/$/, '')
 
   const list = (slug: string) => apiFetch<{ documents: KnowledgeDocument[] }>(`/api/documents/${slug}`)
 
-  const upload = (slug: string, file: string | File) => {
-    const body = typeof file === 'string'
-      ? { title: file }
-      : (() => {
-          const formData = new FormData()
-          formData.append('file', file)
-          return formData
-        })()
+  const upload = async (slug: string, file: string | File) => {
+    if (typeof file === 'string') {
+      return apiFetch<{ document: KnowledgeDocument }>(`/api/documents/${slug}`, {
+        method: 'POST',
+        body: { title: file }
+      })
+    }
 
-    return apiFetch<{ document: KnowledgeDocument }>(`/api/documents/${slug}`, {
+    const contentType = file.type || 'application/octet-stream'
+    const presignedUpload = await apiFetch<{
+      bucket: string
+      object_key: string
+      upload_url: string
+      source_url: string
+      expires_in: number
+      content_type?: string | null
+    }>(`/api/documents/${slug}/presign`, {
       method: 'POST',
-      body
+      body: {
+        fileName: file.name,
+        contentType,
+        expires: 3600
+      }
+    })
+
+    const uploadResponse = await fetch(presignedUpload.upload_url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': contentType
+      },
+      body: file
+    })
+
+    if (!uploadResponse.ok) {
+      const responseText = await uploadResponse.text().catch(() => '')
+      throw new Error(`Storage upload failed: ${uploadResponse.status} ${responseText || uploadResponse.statusText}`)
+    }
+
+    return apiFetch<{ document: KnowledgeDocument }>(`/api/documents/${slug}/complete`, {
+      method: 'POST',
+      body: {
+        fileName: file.name,
+        bucket: presignedUpload.bucket,
+        objectKey: presignedUpload.object_key,
+        sourceUrl: presignedUpload.source_url,
+        contentType,
+        metadata: {
+          source: 'client-presigned-upload'
+        }
+      }
     })
   }
 
@@ -30,10 +92,30 @@ export const useApiDocuments = () => {
       `/api/documents/${slug}/${documentId}/preview`
     )
 
+  const downloadUrl = (slug: string, documentId: string) =>
+    (() => {
+      const token = getClientAuthToken()
+      const actingUserId = decodeJwtSubject(token)
+
+      return $fetch<{ download_url: string, expires_in: number }>(
+        `${backendBaseUrl}/documents/${documentId}/download-url`,
+        {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          query: {
+            acting_user_id: actingUserId,
+            expires: 3600
+          }
+        }
+      )
+    })()
+
   return {
     list,
     upload,
     pipeline,
-    preview
+    preview,
+    downloadUrl
   }
 }

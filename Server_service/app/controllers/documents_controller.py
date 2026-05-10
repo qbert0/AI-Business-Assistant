@@ -2,6 +2,14 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app import models
+from app.constants.documents import (
+    DOCUMENT_STATUS_FAILED,
+    DOCUMENT_STATUS_INDEXED,
+    DOCUMENT_STATUS_INDEXING,
+    DOCUMENT_STATUS_PROCESSING,
+    DOCUMENT_STATUS_PROCESSED,
+    DOCUMENT_STATUS_UPLOADED,
+)
 from app.database import get_db
 from app.dtos import document_dto
 from app.services import DocumentsService
@@ -38,11 +46,57 @@ def upload_document_file(
     return document_dto.to_document_model(document)
 
 
+@router.post(
+    "/organizations/{org_id}/documents/presign-upload",
+    response_model=models.DocumentPresignedUploadRead,
+    tags=["Documents"],
+    summary="Tao presigned upload URL thong qua MinIO + api-gateway /storage",
+)
+def create_presigned_upload(
+    org_id: str,
+    payload: models.DocumentPresignedUploadRequest,
+    db: Session = Depends(get_db),
+) -> models.DocumentPresignedUploadRead:
+    return models.DocumentPresignedUploadRead.model_validate(
+        DocumentsService(db).create_presigned_upload(
+            org_id,
+            acting_user_id=payload.acting_user_id,
+            file_name=payload.file_name,
+            content_type=payload.content_type,
+            expires=payload.expires,
+        )
+    )
+
+
+@router.post(
+    "/organizations/{org_id}/documents/complete-upload",
+    response_model=models.DocumentRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Documents"],
+    summary="Ghi metadata tai lieu vao DB sau khi client upload bang presigned URL",
+)
+def complete_presigned_upload(
+    org_id: str,
+    payload: models.DocumentPresignedUploadCompleteRequest,
+    db: Session = Depends(get_db),
+) -> models.DocumentRead:
+    document = DocumentsService(db).complete_presigned_upload(org_id, payload)
+    return document_dto.to_document_model(document)
+
+
 @router.get("/organizations/{org_id}/documents", response_model=list[models.DocumentRead], tags=["Documents"], summary="Lay danh sach tai lieu cua to chuc")
 def list_documents(
     org_id: str,
     acting_user_id: str = Query(..., description="Can quyen read_documents."),
-    status_filter: str | None = Query(None, alias="status", description="processing/completed/failed"),
+    status_filter: str | None = Query(
+        None,
+        alias="status",
+        description=(
+            f"{DOCUMENT_STATUS_UPLOADED}/{DOCUMENT_STATUS_PROCESSING}/"
+            f"{DOCUMENT_STATUS_PROCESSED}/{DOCUMENT_STATUS_INDEXING}/"
+            f"{DOCUMENT_STATUS_INDEXED}/{DOCUMENT_STATUS_FAILED}"
+        ),
+    ),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -96,6 +150,27 @@ def get_document_content(
     db: Session = Depends(get_db),
 ):
     return DocumentsService(db).get_document_content(document_id, acting_user_id)
+
+
+@router.get(
+    "/documents/{document_id}/download-url",
+    response_model=models.DocumentPresignedDownloadRead,
+    tags=["Documents"],
+    summary="Lay presigned URL tai file thong qua api-gateway /storage",
+)
+def get_document_download_url(
+    document_id: str,
+    acting_user_id: str = Query(..., description="Can quyen read_documents trong to chuc cua tai lieu."),
+    expires: int = Query(3600, ge=60, le=86400),
+    db: Session = Depends(get_db),
+) -> models.DocumentPresignedDownloadRead:
+    return models.DocumentPresignedDownloadRead.model_validate(
+        DocumentsService(db).get_document_download_url(
+            document_id,
+            acting_user_id,
+            expires=expires,
+        )
+    )
 
 
 @router.get("/documents/{document_id}/preview", response_model=models.DocumentPreviewRead, tags=["Documents"], summary="Lay noi dung preview cua tai lieu")

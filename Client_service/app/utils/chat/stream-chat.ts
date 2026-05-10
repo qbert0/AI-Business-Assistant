@@ -5,7 +5,7 @@ type StreamEventHandler = (event: Record<string, any>) => void
 
 const getBackendBaseUrl = () => {
   const config = useRuntimeConfig()
-  return (config.public.backendApiBaseUrl || 'http://localhost:8000').replace(/\/$/, '')
+  return (config.public.backendApiBaseUrl || '/api').replace(/\/$/, '')
 }
 
 export const streamChatAnswer = async (

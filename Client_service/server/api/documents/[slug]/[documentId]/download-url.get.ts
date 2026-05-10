@@ -24,10 +24,10 @@ export default defineEventHandler(async (event) => {
     }
   })
 
-  const downloadInfo = await backendFetch<{ download_url: string }>(
-    event,
-    `/documents/${documentId}/download-url?acting_user_id=${encodeURIComponent(me.id)}&expires=3600`
-  )
-
-  return sendRedirect(event, downloadInfo.download_url, 302)
+  return backendFetch<{
+    document_id: string
+    file_name: string
+    download_url: string
+    expires_in: number
+  }>(event, `/documents/${documentId}/download-url?acting_user_id=${encodeURIComponent(me.id)}&expires=3600`)
 })

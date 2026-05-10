@@ -5,11 +5,22 @@ const uploadSchema = z.object({
   title: z.string().min(2).max(160)
 })
 
-const createUploadFormData = (fileName: string, data: Uint8Array, contentType?: string, actingUserId?: string) => {
-  const formData = new FormData()
-  formData.append('acting_user_id', actingUserId || '')
-  formData.append('file', new Blob([data], { type: contentType || 'application/octet-stream' }), fileName)
-  return formData
+const uploadToPresignedUrl = async (uploadUrl: string, data: Uint8Array, contentType?: string) => {
+  const response = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': contentType || 'application/octet-stream'
+    },
+    body: data
+  })
+
+  if (!response.ok) {
+    const responseText = await response.text().catch(() => '')
+    throw createError({
+      statusCode: 502,
+      statusMessage: `Storage upload failed: ${response.status} ${responseText || response.statusText}`
+    })
+  }
 }
 
 export default defineEventHandler(async (event) => {
@@ -25,9 +36,36 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: 'File is required' })
     }
 
-    const document = await backendFetch<any>(event, `/organizations/${orgId}/documents/upload`, {
+    const presignedUpload = await backendFetch<any>(event, `/organizations/${orgId}/documents/presign-upload`, {
       method: 'POST',
-      body: createUploadFormData(filePart.filename, filePart.data, filePart.type, user.id)
+      body: {
+        acting_user_id: user.id,
+        file_name: filePart.filename,
+        content_type: filePart.type || 'application/octet-stream',
+        expires: 3600
+      }
+    })
+
+    await uploadToPresignedUrl(
+      presignedUpload.upload_url,
+      filePart.data,
+      filePart.type || 'application/octet-stream'
+    )
+
+    const document = await backendFetch<any>(event, `/organizations/${orgId}/documents/complete-upload`, {
+      method: 'POST',
+      body: {
+        acting_user_id: user.id,
+        file_name: filePart.filename,
+        bucket: presignedUpload.bucket,
+        object_key: presignedUpload.object_key,
+        source_url: presignedUpload.source_url,
+        content_type: filePart.type || 'application/octet-stream',
+        metadata: {
+          uploaded_by_email: user.email,
+          source: 'client-presigned-upload'
+        }
+      }
     })
 
     return { document: mapDocument(document) }

@@ -10,6 +10,7 @@ MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
 MINIO_BUCKET = os.getenv("MINIO_BUCKET", "business-documents")
 MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
+STORAGE_PUBLIC_ENDPOINT = os.getenv("STORAGE_PUBLIC_ENDPOINT", "").rstrip("/")
 
 SEARCH_SERVICE_URL = os.getenv("SEARCH_SERVICE_URL", "http://search-service:8000").rstrip("/")
 SEARCH_SERVICE_TIMEOUT = int(os.getenv("SEARCH_SERVICE_TIMEOUT", "10"))

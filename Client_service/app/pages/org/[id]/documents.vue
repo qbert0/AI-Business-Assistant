@@ -49,7 +49,13 @@
           :key="document.id"
           :class="['document-tab', selectedDocumentId === document.id && 'active']"
         >
-          <button class="document-tab-select" type="button" @click="selectDocumentInStore(slug.value, document)">
+          <button
+            class="document-tab-select"
+            type="button"
+            @pointerdown.prevent="selectOpenDocument(document)"
+            @mousedown.prevent="selectOpenDocument(document)"
+            @click="selectOpenDocument(document)"
+          >
             <Icon :name="getDocumentIcon(document.title)" />
             <span>{{ document.title }}</span>
           </button>
@@ -281,6 +287,10 @@ const toggleFolder = (folderId: string) => {
 
 const openDocument = (document: KnowledgeDocument) => openDocumentInStore(slug.value, document)
 
+const selectOpenDocument = (document: KnowledgeDocument) => {
+  selectDocumentInStore(slug.value, document)
+}
+
 const closeDocument = (documentId: string) => {
   closeDocumentInStore(slug.value, documentId)
 }
@@ -369,7 +379,7 @@ const isImageDocument = (document: KnowledgeDocument) =>
   ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'].some((extension) => document.title.toLowerCase().endsWith(extension))
 
 const getDocumentContentUrl = (document: KnowledgeDocument) =>
-  `/api/documents/${encodeURIComponent(slug.value)}/${encodeURIComponent(document.id)}/content`
+  getPreview(slug.value, document.id)?.url || ''
 
 onMounted(async () => {
   await loadOrganizations()

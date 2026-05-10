@@ -4,6 +4,7 @@ interface DocumentPreviewPayload {
   kind: string
   content?: string | null
   message?: string | null
+  url?: string | null
 }
 
 interface DocumentViewerState {
@@ -81,7 +82,7 @@ export const useDocumentViewerStore = defineStore('document-viewer', () => {
     const isPdf = lowerTitle.endsWith('.pdf')
     const isImage = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'].some((extension) => lowerTitle.endsWith(extension))
 
-    if (isPdf || isImage || state.previewsByDocumentId[document.id]) {
+    if (state.previewsByDocumentId[document.id]) {
       return
     }
 
@@ -89,7 +90,12 @@ export const useDocumentViewerStore = defineStore('document-viewer', () => {
     error.value = null
 
     try {
-      const preview = await api.preview(slug, document.id)
+      const preview = isPdf || isImage
+        ? await api.downloadUrl(slug, document.id).then((response) => ({
+            kind: isPdf ? 'pdf' : 'image',
+            url: response.download_url
+          }))
+        : await api.preview(slug, document.id)
       state.previewsByDocumentId = {
         ...state.previewsByDocumentId,
         [document.id]: preview
