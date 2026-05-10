@@ -1,16 +1,16 @@
 <template>
-  <div v-if="organization" class="space-y-6">
-    <section class="surface-card space-y-3">
+  <div v-if="organization" class="org-content-page">
+    <section class="surface-card org-hero-card space-y-3">
       <p class="eyebrow">{{ text.common.settings }}</p>
       <h1 class="page-title">{{ text.organizationSettings.titlePrefix }} {{ organization.name }}</h1>
       <p class="muted-copy">{{ text.organizationSettings.description }}</p>
     </section>
 
-    <section class="grid gap-3 lg:grid-cols-2">
+    <section class="org-card-grid-2">
       <article class="surface-card space-y-3">
         <h2 class="panel-title">{{ text.organizationSettings.identityTitle }}</h2>
         <input v-model="organizationName" class="app-input" />
-        <div class="flex gap-2">
+        <div class="settings-card-actions">
           <button class="btn-primary">{{ text.common.openPage }}</button>
           <button class="btn-secondary">{{ text.common.cancel }}</button>
         </div>
@@ -46,7 +46,8 @@
 
 <script setup lang="ts">
 definePageMeta({
-  layout: 'org'
+  layout: 'org',
+  orgFullBleed: true
 })
 
 const { text } = useAppLocale()

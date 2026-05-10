@@ -1,5 +1,5 @@
 <template>
-  <main class="space-y-4">
+  <main class="org-content-page">
     <AppPanel v-if="organization">
       <template #header-left>
         <div>
@@ -54,7 +54,8 @@ import { APP_ROUTES } from '@/constants/navigation'
 import type { OrganizationSummary } from '@/types/organization'
 
 definePageMeta({
-  layout: 'org'
+  layout: 'org',
+  orgFullBleed: true
 })
 
 const route = useRoute()

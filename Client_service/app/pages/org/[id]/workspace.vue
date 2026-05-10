@@ -76,7 +76,8 @@ import ChatSessionSidebar from '@/components/shared/chat/ChatSessionSidebar.vue'
 import { UI_MESSAGES } from '@/constants/messages'
 
 definePageMeta({
-  layout: 'org'
+  layout: 'org',
+  orgFullBleed: true
 })
 
 const { text } = useAppLocale()

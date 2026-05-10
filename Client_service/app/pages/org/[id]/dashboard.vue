@@ -1,7 +1,7 @@
 ﻿<template>
-  <div v-if="organization" class="space-y-6">
-    <section class="two-column-layout">
-      <div class="surface-card space-y-3">
+  <div v-if="organization" class="org-dashboard-page">
+    <section class="org-dashboard-hero">
+      <div class="surface-card org-dashboard-hero-primary space-y-3">
         <p class="eyebrow">{{ organization.industry }}</p>
         <h1 class="page-title">{{ organization.name }}</h1>
         <p class="muted-copy">{{ organization.description }}</p>
@@ -13,15 +13,15 @@
         </div>
       </div>
 
-      <StatsCard :title="text.organizationDetail.statsTitle" :items="stats" />
+      <StatsCard class="org-dashboard-stats" :title="text.organizationDetail.statsTitle" :items="stats" />
     </section>
 
-    <section class="grid gap-3 xl:grid-cols-3">
+    <section class="org-dashboard-shortcuts">
       <ActionCard v-for="item in shortcuts" :key="item.title" :item="item" />
     </section>
 
-    <section class="grid gap-3 lg:grid-cols-2">
-      <div class="surface-card space-y-3">
+    <section class="org-dashboard-insights">
+      <div class="surface-card org-dashboard-panel space-y-3">
         <div class="section-heading">
           <div>
             <p class="section-kicker">{{ text.organizationDetail.popularEyebrow }}</p>
@@ -39,7 +39,7 @@
         </div>
       </div>
 
-      <div class="surface-card space-y-3">
+      <div class="surface-card org-dashboard-panel space-y-3">
         <div class="section-heading">
           <div>
             <p class="section-kicker">{{ text.organizationDetail.suggestionsEyebrow }}</p>
@@ -62,7 +62,8 @@ import { getOrganizationRoute } from '@/constants/navigation'
 import type { ActionCardItem, StatItem } from '@/types/dashboard'
 
 definePageMeta({
-  layout: 'org'
+  layout: 'org',
+  orgFullBleed: true
 })
 
 const { text } = useAppLocale()
@@ -114,4 +115,3 @@ onMounted(async () => {
   await loadContext(slug.value)
 })
 </script>
-
