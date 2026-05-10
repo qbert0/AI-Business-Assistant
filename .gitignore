@@ -163,3 +163,8 @@ tests/mobifone_exploitation/folder_test
 
 skills
 config.yml
+
+benchmark/results/
+benchmark/golden_reports/
+benchmark/generated_reports/
+benchmark/dataset/reports/

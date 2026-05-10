@@ -1,0 +1,17 @@
+llm_config:
+  stream_log: false
+
+worker:
+  concurrent: 33
+  queue_name: file-preprocess
+  group_name: file-preprocess
+  consumer_name: null
+  batch_size: 20
+  block_ms: 5000
+  max_pending_retry: 100
+
+redis:
+  host: redis
+  port: 6379
+  db: 0
+  password: null

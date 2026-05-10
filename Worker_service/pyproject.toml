@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "worker-service"
+version = "0.1.0"
+description = "Worker service for AI Business Assistant."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "docling>=2.0.0",
+    "fastapi>=0.110.0,<1.0.0",
+    "uvicorn[standard]>=0.29.0,<1.0.0",
+    "loguru>=0.7.0,<1.0.0",
+    "pydantic>=2.6.0,<3.0.0",
+    "PyYAML>=6.0,<7.0",
+    "redis>=5.0.0,<6.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0,<9.0.0",
+    "pytest-asyncio>=0.23.0,<1.0.0",
+]
+
+[project.scripts]
+worker-service = "main:cli"
+publish-test-task = "publish_test_task:cli"
+
+[tool.setuptools]
+py-modules = ["main", "publish_test_task"]
+
+[tool.setuptools.packages.find]
+include = ["conn*", "deepdoc*", "utils*", "worker*"]
