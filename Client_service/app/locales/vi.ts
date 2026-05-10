@@ -456,8 +456,8 @@
   },
   workspace: {
     eyebrow: 'Khung chat chính',
-    title: 'Chat tư vấn theo tổ chức',
-    description: 'Chọn tổ chức ở sidebar để chỉ xem lịch sử chat và tài liệu tri thức của tổ chức đó.',
+    title: 'Trợ lý hướng dẫn hệ thống',
+    description: 'Khung chat cá nhân dùng để giải thích cách sử dụng hệ thống, quyền truy cập và gợi ý nên vào workspace nào cho đúng tác vụ.',
     create: 'Tạo công ty mới',
     manageOrganizations: 'Quản lý tổ chức',
     request: 'Gửi yêu cầu tham gia',
@@ -469,8 +469,8 @@
     switchOrganization: 'Đổi tổ chức',
     chatTitlePrefix: 'Chat với',
     noChatSelectedTitle: 'Bắt đầu bằng một câu hỏi',
-    noChatSelectedDescription: 'Bạn có thể hỏi về thu nhập, phúc lợi, quy trình nội bộ hoặc nội dung trong tài liệu đã được index.',
-    inputPlaceholder: 'Nhập câu hỏi cho tổ chức đang chọn...',
+    noChatSelectedDescription: 'Bạn có thể hỏi nên vào workspace nào, cần quyền gì để thao tác, hoặc bắt đầu từ đâu để upload tài liệu và chat theo tri thức nội bộ.',
+    inputPlaceholder: 'Nhập câu hỏi về cách dùng hệ thống...',
     send: 'Gửi'
   },
   requests: {
@@ -484,6 +484,5 @@
     currentTitle: 'Danh sách yêu cầu đã gửi'
   }
 } as const
-
 
 

@@ -97,6 +97,7 @@ class AgentWorkflowState:
     question: str
     history: list[dict[str, Any]] = field(default_factory=list)
     feedback_contexts: list[dict[str, Any]] = field(default_factory=list)
+    assistant_mode: str = "organization_rag"
     plan_summary: str = ""
     retrieval_queries: list[str] = field(default_factory=list)
     needs_document_search: bool = False

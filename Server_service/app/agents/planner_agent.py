@@ -40,12 +40,16 @@ class PlannerAgent(BaseAgent):
     def run(self, state: AgentWorkflowState) -> AgentWorkflowState:
         heuristic_report_request = self._detect_report_request(state.question)
         if not state.organization_id:
-            state.plan_summary = "Answer directly from the user's question and the available chat history."
+            state.plan_summary = (
+                "Act as a personal workspace guide for the product. "
+                "Use the provided system guidance, the user's available workspace access, and the chat history. "
+                "If the question requires internal company documents, policies, or indexed organization knowledge, "
+                "redirect the user to the relevant organization workspace instead of answering as if document retrieval had happened."
+            )
             state.retrieval_queries = [state.question]
             state.needs_document_search = False
-            state.wants_report_output = heuristic_report_request
-            if state.wants_report_output and not state.report_title_hint:
-                state.report_title_hint = self._default_report_title(state.question)
+            state.wants_report_output = False
+            state.report_title_hint = ""
             return state
 
         feedback_guidance = format_feedback_guidance(state.feedback_contexts)

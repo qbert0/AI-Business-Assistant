@@ -64,6 +64,7 @@ def summarize_state(state: AgentWorkflowState) -> dict[str, Any]:
         "session_id": state.session_id,
         "user_id": state.user_id,
         "question": state.question,
+        "assistant_mode": state.assistant_mode,
         "feedback_context_count": len(state.feedback_contexts),
         "feedback_contexts": list(state.feedback_contexts),
         "plan_summary": state.plan_summary,

@@ -163,6 +163,16 @@ class SynthesizerAgent(BaseAgent):
             return state
 
         feedback_guidance = format_feedback_guidance(state.feedback_contexts)
+        personal_mode_guidance = (
+            "\n\nPersonal guide mode:\n"
+            "- This answer belongs to the personal workspace, which is meant to guide the user in using the product.\n"
+            "- Keep the final answer actionable and practical.\n"
+            "- Prefer one short paragraph or one flat step list when that is clearer.\n"
+            "- Do not add charts, tables, report formatting, or PDF/report language unless the user is explicitly asking how those features work.\n"
+            "- If the candidate answer tells the user to switch to an organization workspace for document-grounded help, preserve that guidance.\n"
+            if state.assistant_mode == "personal_system_guide"
+            else ""
+        )
         report_mode_guidance = (
             "\n\nReport mode:\n"
             "- The user explicitly wants a report or PDF artifact.\n"
@@ -231,6 +241,7 @@ class SynthesizerAgent(BaseAgent):
                         "- Do not output both a markdown table and a chart in the same answer unless the user explicitly asks for both.\n"
                         "- Chart JSON schema:\n"
                         "  `{\"type\":\"bar|line|pie\",\"title\":\"...\",\"xLabel\":\"...\",\"yLabel\":\"...\",\"categories\":[\"...\"],\"series\":[{\"name\":\"...\",\"data\":[1,2,3]}],\"format\":\"number|currency_vnd|percent\",\"note\":\"...\"}`\n"
+                        + personal_mode_guidance
                         + report_mode_guidance
                         + (f"\n\n{feedback_guidance}\nUse this feedback to improve clarity, completeness, and tone, but do not introduce any new factual claims." if feedback_guidance else "")
                         + "\n"
@@ -274,6 +285,13 @@ class SynthesizerAgent(BaseAgent):
             )
             response_text = (((inference or {}).get("response") or {}).get("response_text") or "").strip()
             synthesized_answer = self._trim_visual_repetition(self._extract_answer_text(response_text))
+            if state.assistant_mode == "personal_system_guide" and (
+                self._contains_chart_block(synthesized_answer)
+                or self._contains_ascii_chart(synthesized_answer)
+                or self._contains_markdown_table(synthesized_answer)
+            ):
+                state.answer = candidate
+                return state
             if self._should_keep_candidate(
                 candidate=candidate,
                 synthesized=synthesized_answer,
