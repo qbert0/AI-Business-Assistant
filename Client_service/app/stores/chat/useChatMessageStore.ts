@@ -2,8 +2,6 @@ import { useAuthStore } from '@/stores/auth/useAuthStore'
 import { useChatSessionStore } from '@/stores/chat/useChatSessionStore'
 import { streamChatAnswer } from '@/utils/chat-stream'
 import { useApiChat } from '@/composables/api/chat/useApiChat'
-import { useAuthStore } from '@/stores/auth/useAuthStore'
-import { useChatSessionStore } from '@/stores/chat/useChatSessionStore'
 import type { ChatMessage, ChatSearchHit, ChatSession } from '@/types/organization'
 
 interface StreamSessionPayload {
@@ -21,6 +19,9 @@ interface StreamCitationPayload {
 }
 
 interface StreamSearchHitPayload extends StreamCitationPayload {
+  document_name?: string | null
+  chunk_id?: string | null
+  hit_type?: string | null
   score?: number | null
 }
 
@@ -235,7 +236,10 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
             assistantMessage.searchHits = event.hits?.map((item): ChatSearchHit => ({
               documentId: item.document_id,
               fileName: item.file_name,
+              documentName: item.document_name ?? item.file_name,
               sourceUrl: item.source_url,
+              chunkId: item.chunk_id ?? null,
+              hitType: item.hit_type ?? null,
               score: item.score ?? null
             })) ?? []
             return
@@ -295,7 +299,10 @@ export const useChatMessageStore = defineStore('chat-messages', () => {
                 searchHits: (response.search_hits || []).map((item) => ({
                   documentId: item.document_id,
                   fileName: item.file_name,
+                  documentName: item.document_name ?? item.file_name,
                   sourceUrl: item.source_url,
+                  chunkId: item.chunk_id ?? null,
+                  hitType: item.hit_type ?? null,
                   score: item.score ?? null
                 })),
                 status: 'complete',

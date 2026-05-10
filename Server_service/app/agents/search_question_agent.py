@@ -10,7 +10,7 @@ from app.services.model_service import create_inference
 class SearchQuestionAgent(BaseAgent):
     name = "questioner"
     stage = "questioning"
-    start_message = "Đang xây dựng lại truy vấn tìm kiếm để tìm tài liệu phù hợp."
+    start_message = "Đang xây dựng lại truy vấn tìm kiếm để tìm facts và nodes phù hợp."
 
     def _previous_attempts_summary(self, state: AgentWorkflowState) -> str:
         if not state.search_attempts:
@@ -21,6 +21,8 @@ class SearchQuestionAgent(BaseAgent):
                 "attempt": item.get("attempt"),
                 "retrieval_queries": item.get("retrieval_queries"),
                 "hit_count": item.get("hit_count"),
+                "fact_hit_count": item.get("fact_hit_count"),
+                "node_hit_count": item.get("node_hit_count"),
             }
             for item in state.search_attempts[-3:]
         ]
@@ -45,7 +47,7 @@ class SearchQuestionAgent(BaseAgent):
                     "external_contexts": [],
                     "system_prompt": (
                         "You are the search question agent for an internal business assistant. "
-                        "Your job is to propose retrieval queries that help the retriever find relevant internal documents. "
+                        "Your job is to propose retrieval queries that help the retriever find relevant facts, nodes, and grounded evidence in the internal knowledge graph. "
                         "Return ONLY one valid JSON object with no markdown, "
                         'using this schema: {"retrieval_queries":["..."]}. '
                         f"retrieval_queries must contain at most {AGENT_SETTINGS.retrieval.max_queries_per_attempt} alternative retrieval queries, "

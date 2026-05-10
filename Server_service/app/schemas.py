@@ -215,7 +215,10 @@ class DocumentSearchRequest(BaseModel):
 class DocumentSearchHit(BaseModel):
     document_id: str
     file_name: str
+    document_name: str | None = None
     source_url: str
+    chunk_id: str | None = None
+    hit_type: str | None = None
     score: float | None = None
     document: dict[str, Any] = Field(default_factory=dict)
 

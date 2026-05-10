@@ -26,6 +26,8 @@ WORKER_QUEUE_NAME = os.getenv("WORKER_QUEUE_NAME", "file-preprocess")
 
 SEARCH_SERVICE_URL = os.getenv("SEARCH_SERVICE_URL", "http://search-service:8000").rstrip("/")
 SEARCH_SERVICE_TIMEOUT = int(os.getenv("SEARCH_SERVICE_TIMEOUT", "10"))
+RAG_SERVICE_URL = os.getenv("RAG_SERVICE_URL", "http://rag-service:8000").rstrip("/")
+RAG_SEARCH_TIMEOUT = int(os.getenv("RAG_SEARCH_TIMEOUT", "10"))
 MODEL_SERVICE_URL = os.getenv("MODEL_SERVICE_URL", "http://model_service:8888").rstrip("/")
 MODEL_SERVICE_TIMEOUT = int(os.getenv("MODEL_SERVICE_TIMEOUT", "90"))
 

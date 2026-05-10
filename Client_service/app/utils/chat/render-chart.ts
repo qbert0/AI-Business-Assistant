@@ -65,6 +65,269 @@ const toChartColor = (value: unknown, index: number) => {
   return CHART_COLORS[index % CHART_COLORS.length] || '#1769e0'
 }
 
+const parseMermaidCategoryList = (value: string) =>
+  value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+
+const parseMermaidNumericValue = (value: string) => {
+  const normalized = value.replace(/_/g, '').replace(/,/g, '').trim()
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const normalizeMermaidLines = (rawSpec: string) => {
+  const lines = rawSpec
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  return lines.filter((line) => !line.startsWith('%%{') && line !== '%%')
+}
+
+const parseMermaidBarSpec = (rawSpec: string): RawChartSpec | null => {
+  const meaningfulLines = normalizeMermaidLines(rawSpec)
+  if (!meaningfulLines.length || meaningfulLines[0]?.toLowerCase() !== 'bar') {
+    return null
+  }
+
+  let title = 'Bieu do du lieu'
+  let xLabel = ''
+  let yLabel = ''
+  let categories: string[] = []
+  const fallbackCategories: string[] = []
+  const values: number[] = []
+
+  for (const line of meaningfulLines.slice(1)) {
+    const lowerLine = line.toLowerCase()
+    if (lowerLine.startsWith('title ')) {
+      title = line.slice(6).trim() || title
+      continue
+    }
+    if (lowerLine.startsWith('x-axis ')) {
+      categories = parseMermaidCategoryList(line.slice(7))
+      continue
+    }
+    if (lowerLine.startsWith('y-axis ')) {
+      yLabel = line.slice(7).trim()
+      continue
+    }
+
+    const seriesMatch = line.match(/^(.+?)\s+(-?\d+(?:[.,]\d+)?)$/)
+    if (!seriesMatch) {
+      continue
+    }
+
+    const category = seriesMatch[1]?.trim()
+    const value = parseMermaidNumericValue(seriesMatch[2] || '')
+    if (!category || value === null) {
+      continue
+    }
+
+    fallbackCategories.push(category)
+    values.push(value)
+  }
+
+  const finalCategories = categories.length === values.length ? categories : fallbackCategories
+  if (!finalCategories.length || finalCategories.length !== values.length) {
+    return null
+  }
+
+  return {
+    type: 'bar',
+    title,
+    xLabel,
+    yLabel,
+    categories: finalCategories,
+    series: [
+      {
+        name: yLabel || 'Gia tri',
+        data: values,
+        color: CHART_COLORS[0]
+      }
+    ],
+    format: /vnđ|vnd|dong|đ/i.test(yLabel) ? 'currency_vnd' : 'number'
+  }
+}
+
+const parseMermaidPieLabel = (rawLabel: string) => {
+  const trimmed = rawLabel.trim()
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    return trimmed.slice(1, -1).trim()
+  }
+  return trimmed
+}
+
+const parseMermaidPieSpec = (rawSpec: string): RawChartSpec | null => {
+  const meaningfulLines = normalizeMermaidLines(rawSpec)
+  if (!meaningfulLines.length || meaningfulLines[0]?.toLowerCase() !== 'pie') {
+    return null
+  }
+
+  let title = 'Bieu do tron'
+  const categories: string[] = []
+  const values: number[] = []
+
+  for (const line of meaningfulLines.slice(1)) {
+    const lowerLine = line.toLowerCase()
+    if (lowerLine === 'showdata') {
+      continue
+    }
+    if (lowerLine.startsWith('title ')) {
+      title = line.slice(6).trim() || title
+      continue
+    }
+
+    const sliceMatch = line.match(/^(.+?)\s*:\s*(-?\d+(?:[.,]\d+)?)$/)
+    if (!sliceMatch) {
+      continue
+    }
+
+    const label = parseMermaidPieLabel(sliceMatch[1] || '')
+    const value = parseMermaidNumericValue(sliceMatch[2] || '')
+    if (!label || value === null) {
+      continue
+    }
+
+    categories.push(label)
+    values.push(value)
+  }
+
+  if (!categories.length || categories.length !== values.length) {
+    return null
+  }
+
+  return {
+    type: 'pie',
+    title,
+    categories,
+    series: [
+      {
+        name: title,
+        data: values,
+        color: CHART_COLORS[0]
+      }
+    ],
+    format: 'number'
+  }
+}
+
+const parseMermaidAxisCategories = (rawValue: string) => {
+  const bracketMatch = rawValue.match(/^\[(.*)\]$/)
+  if (bracketMatch) {
+    return parseMermaidCategoryList(bracketMatch[1] || '')
+  }
+
+  return parseMermaidCategoryList(rawValue)
+}
+
+const parseMermaidSeriesData = (rawValue: string) => {
+  const bracketMatch = rawValue.match(/^\[(.*)\]$/)
+  if (!bracketMatch) {
+    return []
+  }
+
+  return bracketMatch[1]
+    .split(',')
+    .map((item) => parseMermaidNumericValue(item))
+    .filter((item): item is number => item !== null)
+}
+
+const parseMermaidXyChartSpec = (rawSpec: string): RawChartSpec | null => {
+  const meaningfulLines = normalizeMermaidLines(rawSpec)
+  if (!meaningfulLines.length) {
+    return null
+  }
+
+  const firstLine = meaningfulLines[0]?.toLowerCase()
+  if (firstLine !== 'xychart' && firstLine !== 'xychart-beta') {
+    return null
+  }
+
+  let title = 'Bieu do du lieu'
+  let xLabel = ''
+  let yLabel = ''
+  let categories: string[] = []
+  let minY: number | null = null
+  let maxY: number | null = null
+  const series: Array<{ name: string, data: number[], color?: string }> = []
+
+  for (const line of meaningfulLines.slice(1)) {
+    const lowerLine = line.toLowerCase()
+    if (lowerLine.startsWith('title ')) {
+      title = line.slice(6).trim() || title
+      continue
+    }
+    if (lowerLine.startsWith('x-axis ')) {
+      categories = parseMermaidAxisCategories(line.slice(7).trim())
+      continue
+    }
+    if (lowerLine.startsWith('y-axis ')) {
+      const axisBody = line.slice(7).trim()
+      const rangeMatch = axisBody.match(/^(.*?)\s+(-?\d+(?:[.,]\d+)?)\s*-->\s*(-?\d+(?:[.,]\d+)?)$/)
+      if (rangeMatch) {
+        yLabel = rangeMatch[1]?.trim()
+        minY = parseMermaidNumericValue(rangeMatch[2] || '')
+        maxY = parseMermaidNumericValue(rangeMatch[3] || '')
+      } else {
+        yLabel = axisBody
+      }
+      continue
+    }
+
+    const seriesMatch = line.match(/^(bar|line)\s+(?:\"([^\"]+)\"|'([^']+)'|([^\[]+?))?\s*\[(.*)\]$/i)
+    if (!seriesMatch) {
+      continue
+    }
+
+    const seriesType = (seriesMatch[1] || '').toLowerCase()
+    const seriesName = (seriesMatch[2] || seriesMatch[3] || seriesMatch[4] || seriesType).trim()
+    const data = parseMermaidSeriesData(`[${seriesMatch[5] || ''}]`)
+    if (!data.length) {
+      continue
+    }
+
+    series.push({
+      name: seriesName,
+      data,
+      color: seriesType === 'line' ? CHART_COLORS[1] : CHART_COLORS[0]
+    })
+  }
+
+  if (!series.length) {
+    return null
+  }
+
+  const longestSeriesLength = Math.max(...series.map((item) => item.data.length))
+  const finalCategories = categories.length === longestSeriesLength
+    ? categories
+    : Array.from({ length: longestSeriesLength }, (_item, index) => `Muc ${index + 1}`)
+
+  const chartType: ChartKind = series.some((item) => item.color === CHART_COLORS[1]) ? 'line' : 'bar'
+  const note = (minY !== null && maxY !== null) ? `Khoang truc Y de xuat: ${minY} -> ${maxY}` : ''
+
+  if (!finalCategories.length) {
+    return null
+  }
+
+  return {
+    type: chartType,
+    title,
+    xLabel,
+    yLabel,
+    categories: finalCategories,
+    series: series.map((item) => ({
+      name: item.name,
+      data: item.data.slice(0, finalCategories.length),
+      color: item.color || CHART_COLORS[0]
+    })),
+    format: /vnđ|vnd|dong|đ/i.test(yLabel) ? 'currency_vnd' : 'number',
+    note
+  }
+}
+
 const formatFullValue = (value: number, format: ChartFormat) => {
   if (format === 'percent') {
     return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value)}%`
@@ -437,7 +700,12 @@ const renderPieChart = (spec: ChartSpec) => {
 
 export const renderChartSpecToHtml = (rawSpec: string) => {
   try {
-    const parsed = JSON.parse(rawSpec) as RawChartSpec
+    const parsed = (
+      parseMermaidBarSpec(rawSpec)
+      || parseMermaidPieSpec(rawSpec)
+      || parseMermaidXyChartSpec(rawSpec)
+      || JSON.parse(rawSpec)
+    ) as RawChartSpec
     const spec = normalizeChartSpec(parsed)
     if (!spec) {
       return null

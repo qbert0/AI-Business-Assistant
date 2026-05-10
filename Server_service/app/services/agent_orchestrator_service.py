@@ -147,24 +147,24 @@ class AgentOrchestratorService:
 
             if not state.contexts:
                 return (
-                    "Mình đã tìm thấy tài liệu liên quan, nhưng hiện chưa trích xuất được đủ nội dung văn bản để tạo câu trả lời trực tiếp. "
+                    "Mình đã tìm thấy ngữ cảnh liên quan, nhưng hiện chưa trích xuất được đủ nội dung để tạo câu trả lời trực tiếp. "
                     f"Các tài liệu đã tìm thấy gồm: {file_names}. Bạn có thể mở các nguồn này để đối chiếu, hoặc mình có thể giúp kiểm tra lại pipeline trích xuất nội dung."
                 ), citations
 
             if answerer_failure_reason in {"model_inference_http_error", "empty_model_output"}:
                 return (
-                    "Mình đã tìm thấy tài liệu liên quan và đã lấy được ngữ cảnh cần thiết, nhưng bước tổng hợp câu trả lời từ mô hình chưa thành công. "
+                    "Mình đã tìm thấy ngữ cảnh liên quan và đã lấy được dữ kiện cần thiết, nhưng bước tổng hợp câu trả lời từ mô hình chưa thành công. "
                     f"Các tài liệu đã tìm thấy gồm: {file_names}. Bạn có thể thử hỏi lại, hoặc mình có thể giúp kiểm tra cấu hình Model Service và policy `chat_multi_agent`."
                 ), citations
 
             answer = (
-                "Mình đã tìm thấy các tài liệu liên quan nhất cho câu hỏi của bạn. "
+                "Mình đã tìm thấy các nguồn và dữ kiện liên quan nhất cho câu hỏi của bạn. "
                 f"Các tài liệu đã tìm thấy gồm: {file_names}. "
                 "Bạn có thể mở các nguồn này để đối chiếu nội dung gốc."
             )
             return answer, citations
         if state.organization_id:
-            return "Chưa tìm thấy tài liệu phù hợp trong Elasticsearch cho câu hỏi này.", []
+            return "Chưa tìm thấy dữ kiện phù hợp trong kho tri thức nội bộ cho câu hỏi này.", []
         return (
             "Workspace cá nhân hiện hoạt động như trợ lý hướng dẫn sử dụng hệ thống. "
             "Mình có thể giúp bạn chọn workspace phù hợp, giải thích quyền truy cập, hoặc chỉ đường tới khu vực cần thao tác. "

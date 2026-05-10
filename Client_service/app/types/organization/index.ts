@@ -99,7 +99,10 @@ export interface ChatCitation {
 export interface ChatSearchHit {
   documentId: string
   fileName: string
+  documentName?: string | null
   sourceUrl: string
+  chunkId?: string | null
+  hitType?: string | null
   score?: number | null
 }
 

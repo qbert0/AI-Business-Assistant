@@ -27,7 +27,11 @@ from graphiti_core.cross_encoder.client import CrossEncoderClient
 from graphiti_core.embedder.client import EmbedderClient
 from graphiti_core.llm_client.client import LLMClient
 from graphiti_core.llm_client.config import LLMConfig
-from graphiti_core.search.search_config_recipes import NODE_HYBRID_SEARCH_RRF
+from graphiti_core.search.search_config_recipes import (
+    EDGE_HYBRID_SEARCH_NODE_DISTANCE,
+    EDGE_HYBRID_SEARCH_RRF,
+    NODE_HYBRID_SEARCH_RRF,
+)
 from graphiti_core.utils.bulk_utils import RawEpisode
 
 class StructuredOutputFormatError(ValueError):
@@ -565,6 +569,9 @@ class GraphitiModelServiceCrossEncoder(CrossEncoderClient):  # type: ignore[misc
 
 
 class GraphitiService:
+    SEARCH_CONTENT_PREVIEW_LIMIT = 4000
+    SEARCH_SNIPPET_LIMIT = 1600
+
     def __init__(self) -> None:
         self.model_service_client = ModelServiceClient()
         self.graphiti: Optional[Graphiti] = None
@@ -680,11 +687,11 @@ class GraphitiService:
         if not chunks:
             raise ValueError("chunks must not be empty")
 
-        effective_group_id = self._build_safe_group_id(document_id)
+        metadata = metadata or {}
+        effective_group_id = self._build_group_id(document_id=document_id, metadata=metadata)
         effective_source_description = source_description or (
             f"Document {document_name} ingested from {source}"
         )
-        metadata = metadata or {}
 
         raw_episodes: list[RawEpisode] = []
         prepared_chunks: list[dict[str, Any]] = []
@@ -825,11 +832,226 @@ class GraphitiService:
         return " | ".join(description_parts)
 
     @staticmethod
-    def _build_safe_group_id(document_id: str) -> str:
-        normalized = re.sub(r"[^A-Za-z0-9_-]+", "-", str(document_id)).strip("-")
+    def _sanitize_group_token(value: Any, fallback: str) -> str:
+        normalized = re.sub(r"[^A-Za-z0-9_-]+", "-", str(value or "")).strip("-")
         if not normalized:
-            normalized = "unknown-document"
-        return f"document-{normalized}"
+            normalized = fallback
+        return normalized
+
+    @classmethod
+    def _build_document_group_id(cls, document_id: str) -> str:
+        return f"document-{cls._sanitize_group_token(document_id, 'unknown-document')}"
+
+    @classmethod
+    def _build_group_id(cls, *, document_id: str, metadata: dict[str, Any]) -> str:
+        organization_id = str(metadata.get("organization_id") or "").strip()
+        if organization_id:
+            return f"org-{cls._sanitize_group_token(organization_id, 'unknown-organization')}"
+        return cls._build_document_group_id(document_id)
+
+    @staticmethod
+    def _coerce_optional_text(value: Any) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    @classmethod
+    def _parse_source_description(cls, source_description: str | None) -> dict[str, str]:
+        parsed: dict[str, str] = {}
+        if not source_description:
+            return parsed
+
+        parts = [part.strip() for part in str(source_description).split("|") if part.strip()]
+        for part in parts:
+            if part.startswith("metadata="):
+                metadata_text = part[len("metadata="):].strip()
+                for item in metadata_text.split(","):
+                    if "=" not in item:
+                        continue
+                    key, value = item.split("=", 1)
+                    key = key.strip()
+                    value = value.strip()
+                    if key and value:
+                        parsed[key] = value
+                continue
+
+            if "=" not in part:
+                continue
+            key, value = part.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+            if key and value:
+                parsed[key] = value
+
+        return parsed
+
+    @staticmethod
+    def _parse_episode_name(episode_name: str | None) -> tuple[str | None, str | None]:
+        if not episode_name:
+            return None, None
+        if "::" not in episode_name:
+            return episode_name, None
+        document_name, chunk_id = episode_name.rsplit("::", 1)
+        return document_name or None, chunk_id or None
+
+    async def _get_episode_record_for_node(self, *, node_uuid: str, group_id: str | None) -> dict[str, Any] | None:
+        graphiti = self._require_graphiti()
+        group_filter = "WHERE episode.group_id = $group_id" if group_id else ""
+        query = f"""
+            MATCH (episode:Episodic)-[:MENTIONS]->(:Entity {{uuid: $node_uuid}})
+            {group_filter}
+            RETURN
+                episode.uuid AS uuid,
+                episode.name AS name,
+                episode.group_id AS group_id,
+                episode.source_description AS source_description,
+                episode.content AS content,
+                episode.created_at AS created_at,
+                episode.valid_at AS valid_at
+            ORDER BY episode.valid_at DESC, episode.created_at DESC
+            LIMIT 1
+        """
+        records, _, _ = await graphiti.driver.execute_query(
+            query,
+            node_uuid=node_uuid,
+            group_id=group_id,
+            routing_="r",
+        )
+        if not records:
+            return None
+        return dict(records[0])
+
+    async def _get_episode_records_by_uuids(self, episode_uuids: list[str]) -> list[dict[str, Any]]:
+        if not episode_uuids:
+            return []
+        graphiti = self._require_graphiti()
+        records, _, _ = await graphiti.driver.execute_query(
+            """
+            MATCH (episode:Episodic)
+            WHERE episode.uuid IN $episode_uuids
+            RETURN
+                episode.uuid AS uuid,
+                episode.name AS name,
+                episode.group_id AS group_id,
+                episode.source_description AS source_description,
+                episode.content AS content,
+                episode.created_at AS created_at,
+                episode.valid_at AS valid_at
+            ORDER BY episode.valid_at DESC, episode.created_at DESC
+            """,
+            episode_uuids=episode_uuids,
+            routing_="r",
+        )
+        return [dict(record) for record in records]
+
+    def _build_episode_provenance(self, episode_record: dict[str, Any] | None) -> dict[str, Any]:
+        if not episode_record:
+            return {}
+
+        source_description = self._coerce_optional_text(episode_record.get("source_description")) or ""
+        parsed_description = self._parse_source_description(source_description)
+        fallback_document_name, fallback_chunk_id = self._parse_episode_name(
+            self._coerce_optional_text(episode_record.get("name"))
+        )
+        content = self._coerce_optional_text(episode_record.get("content")) or ""
+        document_name = (
+            parsed_description.get("document_name")
+            or fallback_document_name
+            or "Graph episode"
+        )
+        chunk_id = parsed_description.get("chunk_id") or fallback_chunk_id
+        document_id = (
+            parsed_description.get("document_id")
+            or self._coerce_optional_text(episode_record.get("uuid"))
+            or document_name
+        )
+        snippet = content[: self.SEARCH_SNIPPET_LIMIT]
+
+        return {
+            "episode_uuid": self._coerce_optional_text(episode_record.get("uuid")),
+            "episode_name": self._coerce_optional_text(episode_record.get("name")),
+            "group_id": self._coerce_optional_text(episode_record.get("group_id")),
+            "document_id": document_id,
+            "document_name": document_name,
+            "file_name": document_name,
+            "source_url": parsed_description.get("source_url") or "",
+            "chunk_id": chunk_id,
+            "organization_id": parsed_description.get("organization_id"),
+            "content_text": content[: self.SEARCH_CONTENT_PREVIEW_LIMIT],
+            "snippet": snippet,
+        }
+
+    def _build_node_hit(
+        self,
+        *,
+        node,
+        score: float | None,
+        provenance: dict[str, Any],
+    ) -> dict[str, Any]:
+        summary = (getattr(node, "summary", None) or "").strip()
+        content_text = provenance.get("content_text") or summary
+        snippet = provenance.get("snippet") or content_text[: self.SEARCH_SNIPPET_LIMIT]
+        document_name = provenance.get("document_name") or node.name
+        document_id = provenance.get("document_id") or node.uuid
+        source_url = provenance.get("source_url") or ""
+        chunk_id = provenance.get("chunk_id")
+
+        return {
+            "uuid": node.uuid,
+            "name": node.name,
+            "summary": summary[:500],
+            "labels": list(node.labels) if node.labels else [],
+            "created_at": node.created_at,
+            "score": score,
+            "hit_type": "node",
+            "group_id": provenance.get("group_id") or getattr(node, "group_id", None),
+            "episode_uuid": provenance.get("episode_uuid"),
+            "episode_name": provenance.get("episode_name"),
+            "document_id": document_id,
+            "document_name": document_name,
+            "file_name": document_name,
+            "source_url": source_url,
+            "chunk_id": chunk_id,
+            "content_text": content_text,
+            "snippet": snippet,
+        }
+
+    def _build_fact_hit(
+        self,
+        *,
+        edge,
+        score: float | None,
+        provenance: dict[str, Any],
+    ) -> dict[str, Any]:
+        document_name = provenance.get("document_name") or getattr(edge, "name", None) or "Graph fact"
+        document_id = provenance.get("document_id") or edge.uuid
+        source_url = provenance.get("source_url") or ""
+        chunk_id = provenance.get("chunk_id")
+        content_text = provenance.get("content_text") or getattr(edge, "fact", None) or ""
+        snippet = provenance.get("snippet") or content_text[: self.SEARCH_SNIPPET_LIMIT]
+
+        return {
+            "uuid": edge.uuid,
+            "name": getattr(edge, "name", None),
+            "fact": getattr(edge, "fact", None),
+            "valid_at": getattr(edge, "valid_at", None),
+            "invalid_at": getattr(edge, "invalid_at", None),
+            "source_node_uuid": getattr(edge, "source_node_uuid", None),
+            "target_node_uuid": getattr(edge, "target_node_uuid", None),
+            "score": score,
+            "hit_type": "fact",
+            "group_id": provenance.get("group_id") or getattr(edge, "group_id", None),
+            "episode_uuid": provenance.get("episode_uuid"),
+            "episode_name": provenance.get("episode_name"),
+            "document_id": document_id,
+            "document_name": document_name,
+            "file_name": document_name,
+            "source_url": source_url,
+            "chunk_id": chunk_id,
+            "content_text": content_text,
+            "snippet": snippet,
+        }
 
     async def search_nodes(
         self,
@@ -845,23 +1067,20 @@ class GraphitiService:
         search_config.limit = limit
         group_ids = [group_id] if group_id else None
 
-        results = await graphiti._search(  # type: ignore[attr-defined]
+        results = await graphiti.search_(  # type: ignore[attr-defined]
             query=query,
             config=search_config,
             group_ids=group_ids,
         )
 
+        node_scores = list(getattr(results, "node_reranker_scores", []) or [])
         nodes = []
-        for node in results.nodes:
-            nodes.append(
-                {
-                    "uuid": node.uuid,
-                    "name": node.name,
-                    "summary": (node.summary or "")[:500],
-                    "labels": list(node.labels) if node.labels else [],
-                    "created_at": node.created_at,
-                }
+        for index, node in enumerate(getattr(results, "nodes", []) or []):
+            score = node_scores[index] if index < len(node_scores) else None
+            provenance = self._build_episode_provenance(
+                await self._get_episode_record_for_node(node_uuid=node.uuid, group_id=group_id)
             )
+            nodes.append(self._build_node_hit(node=node, score=score, provenance=provenance))
         return nodes
 
     async def search_facts(
@@ -876,26 +1095,26 @@ class GraphitiService:
         graphiti = self._require_graphiti()
         group_ids = [group_id] if group_id else None
 
-        results = await graphiti.search(
+        search_config = (
+            EDGE_HYBRID_SEARCH_NODE_DISTANCE if center_node_uuid is not None else EDGE_HYBRID_SEARCH_RRF
+        )
+        search_config = search_config.model_copy(deep=True)
+        search_config.limit = limit
+
+        results = await graphiti.search_(
             query=query,
-            center_node_uuid=center_node_uuid,
+            config=search_config,
             group_ids=group_ids,
-            num_results=limit,
+            center_node_uuid=center_node_uuid,
         )
 
+        edge_scores = list(getattr(results, "edge_reranker_scores", []) or [])
         facts = []
-        for result in results:
-            facts.append(
-                {
-                    "uuid": result.uuid,
-                    "name": getattr(result, "name", None),
-                    "fact": getattr(result, "fact", None),
-                    "valid_at": getattr(result, "valid_at", None),
-                    "invalid_at": getattr(result, "invalid_at", None),
-                    "source_node_uuid": getattr(result, "source_node_uuid", None),
-                    "target_node_uuid": getattr(result, "target_node_uuid", None),
-                }
-            )
+        for index, edge in enumerate(getattr(results, "edges", []) or []):
+            score = edge_scores[index] if index < len(edge_scores) else None
+            episode_records = await self._get_episode_records_by_uuids(list(getattr(edge, "episodes", []) or []))
+            provenance = self._build_episode_provenance(episode_records[0] if episode_records else None)
+            facts.append(self._build_fact_hit(edge=edge, score=score, provenance=provenance))
         return facts
 
     async def get_graph_stats(self) -> dict[str, int]:

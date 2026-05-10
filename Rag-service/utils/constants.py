@@ -37,7 +37,7 @@ NEO4J_URI = NEO4J_CONFIG.get("uri", "bolt://neo4j:7687")
 NEO4J_USERNAME = NEO4J_CONFIG.get("username", "neo4j")
 NEO4J_PASSWORD = NEO4J_CONFIG.get("password", "pleaseletmein")
 
-MODEL_SERVICE_URL = MODEL_SERVICE_CONFIG.get("url", "http://model-service:8888")
+MODEL_SERVICE_URL = MODEL_SERVICE_CONFIG.get("url", "http://model_service:8888")
 MODEL_SERVICE_ORGANIZATION_ID = MODEL_SERVICE_CONFIG.get("organization_id", "rag-service")
 MODEL_SERVICE_LLM_MODEL_ID = MODEL_SERVICE_CONFIG.get("llm_model_id")
 MODEL_SERVICE_EMBEDDING_MODEL_ID = MODEL_SERVICE_CONFIG.get("embedding_model_id")

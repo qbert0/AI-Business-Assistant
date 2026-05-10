@@ -190,7 +190,7 @@ class ChatService:
                 "title": "Vai tro cua workspace ca nhan",
                 "content": (
                     "Workspace ca nhan la tro ly huong dan su dung he thong. "
-                    "No khong truy xuat Elasticsearch, khong doc tai lieu noi bo, va khong duoc khang dinh noi dung chinh sach/doanh thu/quy trinh cua to chuc nhu the retrieval chat. "
+                    "No khong truy xuat knowledge graph cua to chuc, khong doc tai lieu noi bo, va khong duoc khang dinh noi dung chinh sach/doanh thu/quy trinh cua to chuc nhu the retrieval chat. "
                     "Dung no de giai thich tinh nang, role, permission, luong thao tac, va chi nguoi dung den dung workspace."
                 ),
                 "source": "system://personal-workspace-role",

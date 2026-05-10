@@ -44,7 +44,7 @@ class PlannerAgent(BaseAgent):
                 "Act as a personal workspace guide for the product. "
                 "Use the provided system guidance, the user's available workspace access, and the chat history. "
                 "If the question requires internal company documents, policies, or indexed organization knowledge, "
-                "redirect the user to the relevant organization workspace instead of answering as if document retrieval had happened."
+                "redirect the user to the relevant organization workspace instead of answering as if grounded retrieval had happened."
             )
             state.retrieval_queries = [state.question]
             state.needs_document_search = False
@@ -72,7 +72,7 @@ class PlannerAgent(BaseAgent):
                         f"retrieval_queries must contain at most {AGENT_SETTINGS.retrieval.max_queries_per_attempt} short retrieval queries, "
                         "all written in the same language as the user's question. "
                         "Each query should represent a different useful phrasing or retrieval angle for the same request. "
-                        "Set needs_document_search to true when internal documents are required to answer reliably. "
+                        "Set needs_document_search to true when grounded retrieval from the organization's knowledge graph is required to answer reliably. "
                         "Set wants_report_output to true when the user explicitly asks to create, export, or receive a report or PDF. "
                         "When wants_report_output is true, report_title_hint should be a concise Vietnamese title suitable for the final report heading. "
                         + (f"\n\n{feedback_guidance}" if feedback_guidance else "")
@@ -93,8 +93,8 @@ class PlannerAgent(BaseAgent):
             state.wants_report_output = coerce_bool(payload.get("wants_report_output"), heuristic_report_request)
             state.report_title_hint = clean_text(payload.get("report_title_hint"))
             # For organization chat, retrieval remains mandatory. The planner can
-            # shape the strategy, but it should not short-circuit the document
-            # search loop entirely.
+            # shape the strategy, but it should not short-circuit the grounded
+            # retrieval loop entirely.
             state.needs_document_search = True
         except HTTPException:
             state.plan_summary = ""
@@ -102,7 +102,7 @@ class PlannerAgent(BaseAgent):
             state.wants_report_output = heuristic_report_request
 
         if not state.plan_summary:
-            state.plan_summary = "Retrieve the most relevant internal documents, then synthesize a concise grounded answer."
+            state.plan_summary = "Retrieve the most relevant internal facts and graph-grounded evidence, then synthesize a concise grounded answer."
         if not state.retrieval_queries:
             state.retrieval_queries = [state.question]
         if heuristic_report_request:
@@ -114,7 +114,7 @@ class PlannerAgent(BaseAgent):
 
     def finish_message(self, state: AgentWorkflowState) -> str:
         if state.needs_document_search:
-            return "Đã xác định kế hoạch và bộ truy vấn cho bước tìm tài liệu."
+            return "Đã xác định kế hoạch và bộ truy vấn cho bước truy xuất tri thức."
         return "Đã xác định kế hoạch trả lời trực tiếp từ hội thoại hiện có."
 
     def build_payload(self, state: AgentWorkflowState) -> dict[str, object]:
