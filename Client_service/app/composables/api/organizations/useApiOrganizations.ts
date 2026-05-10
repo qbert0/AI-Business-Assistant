@@ -1,6 +1,8 @@
 import type { OrganizationPermission } from '@/constants/rbac'
 import type { CompanyForm, JoinRequest, OrganizationMember, OrganizationSummary } from '@/types/organization'
 
+import { useApiFetch } from '@/composables/api/core/useApiFetch'
+
 export const useApiOrganizations = () => {
   const apiFetch = useApiFetch()
 

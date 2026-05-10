@@ -3,6 +3,7 @@ import json
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.constants.documents import DOCUMENT_INDEXED_STATUSES
 from app.constants.permissions import ADMIN_PERMISSIONS
 from app.entities import database as db_entities
 from app.entities.api import OrganizationDashboardEntity
@@ -97,7 +98,7 @@ def build_dashboard(org: db_entities.Organization, db: Session) -> OrganizationD
         employee_count=db.query(db_entities.OrganizationMember).filter(db_entities.OrganizationMember.organization_id == org_id).count(),
         document_count=document_count,
         indexed_document_count=db.query(db_entities.Document)
-        .filter(db_entities.Document.organization_id == org_id, db_entities.Document.status == "completed")
+        .filter(db_entities.Document.organization_id == org_id, db_entities.Document.status.in_(DOCUMENT_INDEXED_STATUSES))
         .count(),
         chat_session_count=db.query(db_entities.ChatSession).filter(db_entities.ChatSession.organization_id == org_id).count(),
         suggested_questions=suggested_questions or [

@@ -1,5 +1,7 @@
 ﻿<script setup lang="ts">
 import { APP_ROUTES } from '@/constants/navigation'
+import { useAuth } from '@/composables/auth/useAuth'
+import { useAppLocale } from '@/composables/system/useAppLocale'
 import { loginSchema } from '@/schemas/auth'
 import { AUTH_REDIRECT_QUERY, getAuthRedirectTarget } from '@/utils/auth-redirect'
 

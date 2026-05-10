@@ -58,6 +58,9 @@
 </template>
 
 <script setup lang="ts">
+import { useChatbot } from '@/composables/chat/useChatbot'
+import { useOrganization } from '@/composables/organizations/useOrganization'
+import { useAppLocale } from '@/composables/system/useAppLocale'
 definePageMeta({
   layout: 'org',
   orgFullBleed: true

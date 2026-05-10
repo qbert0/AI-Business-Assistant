@@ -1,0 +1,12 @@
+services:
+  api-gateway:
+    image: nginx:1.27-alpine
+    container_name: ${API_GATEWAY_CONTAINER_NAME:-api_gateway}
+    ports:
+      - "${API_GATEWAY_PORT:-8000}:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./server.conf:/etc/nginx/conf.d/server.conf:ro
+    depends_on:
+      - server_service
+    restart: unless-stopped

@@ -1,6 +1,9 @@
+import json
+
 from sqlalchemy.orm import Session
 
 from app.entities import database as db_entities
+from app.repositories.common import parse_json_dict
 
 
 def get_organization(org_id: str, db: Session) -> db_entities.Organization | None:
@@ -108,6 +111,20 @@ def update_document_status_fields(
         document.embedding_model = embedding_model
     if vector_index is not None:
         document.vector_index = vector_index
+    return document
+
+
+def merge_document_metadata(document: db_entities.Document, metadata_patch: dict) -> db_entities.Document:
+    def deep_merge(base: dict, patch: dict) -> dict:
+        for key, value in patch.items():
+            if isinstance(value, dict) and isinstance(base.get(key), dict):
+                base[key] = deep_merge(base[key], value)
+            else:
+                base[key] = value
+        return base
+
+    metadata = parse_json_dict(document.metadata_json)
+    document.metadata_json = json.dumps(deep_merge(metadata, metadata_patch))
     return document
 
 

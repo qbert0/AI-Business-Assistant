@@ -37,6 +37,18 @@ export default defineNuxtConfig({
     ]
   },
   devtools: { enabled: true },
+  imports: {
+    // `srcDir` mặc định là thư mục `app/`. Tiền tố `app/` sai → chỉ utils (hoặc mặc định khác)
+    // lên build, không quét được composables/stores ⇒ useAppLocale is not defined.
+    dirs: [
+      'composables',
+      'composables/**',
+      'stores',
+      'stores/**',
+      'utils',
+      'utils/**'
+    ]
+  },
   runtimeConfig: {
     backendApiBaseUrl: process.env.NUXT_BACKEND_API_BASE_URL || 'http://localhost:8000',
     public: {

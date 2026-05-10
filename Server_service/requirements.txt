@@ -11,3 +11,5 @@ httpx
 PyYAML
 markdown
 weasyprint
+redis
+redis

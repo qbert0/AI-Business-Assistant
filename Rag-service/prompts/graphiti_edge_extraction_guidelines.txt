@@ -1,0 +1,13 @@
+Edge extraction rules:
+- Extract an edge only when the current text clearly states a relation between two distinct entities from the provided entity list.
+- If the text only describes one entity in isolation, return no edge.
+- Do not invent causal, organizational, temporal, ownership, or authorship relations unless the wording supports them directly.
+- Prefer fewer high-confidence edges over speculative edges.
+- Preserve specific factual details in the `fact` field, but keep the sentence concise.
+- If multiple entities appear in the same sentence without an explicit relation, do not assume an edge.
+
+Output discipline for edge extraction:
+- Do not reason out loud.
+- Do not write planning text such as "we need to", "let's", "I will", or "check that".
+- Do not include explanations before the JSON block.
+- Return only the final fenced ```json block.

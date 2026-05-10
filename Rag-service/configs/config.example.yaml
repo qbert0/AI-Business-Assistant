@@ -1,0 +1,39 @@
+llm_config:
+  stream_log: false
+  response_log: true
+  response_log_max_chars: 12000
+
+app:
+  host: 0.0.0.0
+  port: 8000
+
+neo4j:
+  uri: bolt://neo4j:7687
+  username: neo4j
+  password: pleaseletmein
+
+model_service:
+  url: http://model_service:8888
+  organization_id: rag-service
+  llm_model_id: null
+  embedding_model_id: null
+  reranker_model_id: null
+  inference_use_case: graphiti_extraction
+  embedding_use_case: embeddings
+
+redis:
+  host: redis
+  port: 6379
+  db: 0
+  password: null
+
+ingest_queue:
+  queue_name: rag-ingest
+  group_name: rag-ingest
+  consumer_name: null
+  concurrent: 1
+  batch_size: 1
+  block_ms: 5000
+
+server_service:
+  url: http://server_service:8000

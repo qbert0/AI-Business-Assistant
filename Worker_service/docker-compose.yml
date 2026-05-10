@@ -1,0 +1,37 @@
+services:
+  redis:
+    image: ${WORKER_REDIS_IMAGE:-redis:7-alpine}
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "${WORKER_REDIS_APPENDONLY:-yes}"]
+    expose:
+      - "6379"
+    ports:
+      - "${WORKER_REDIS_PORT:-6379}:6379"
+    volumes:
+      - worker_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${WORKER_SERVICE_CONTAINER_NAME:-worker_service_app}
+    restart: unless-stopped
+    working_dir: /app
+    command: ["python", "main.py"]
+    environment:
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - .:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+      server_service:
+        condition: service_started
+
+volumes:
+  worker_redis_data:

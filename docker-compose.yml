@@ -5,3 +5,10 @@ include:
   - ./Client_service/docker-compose.yml
   - ./Plugin-service/docker-compose.yml
   - ./Model_service/docker-compose.yml
+  - ./Rag-service/docker-compose.yml
+  - ./Worker_service/docker-compose.yml
+  - ./api-gateway/docker-compose.yml
+
+networks:
+  default:
+    name: ${COMPOSE_PROJECT_NAME:-ai-business-assistant}_default

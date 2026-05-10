@@ -76,6 +76,9 @@
 </template>
 
 <script setup lang="ts">
+import { useAuth } from '@/composables/auth/useAuth'
+import { useOrganization } from '@/composables/organizations/useOrganization'
+import { useAppLocale } from '@/composables/system/useAppLocale'
 import { APP_ROUTES } from '@/constants/navigation'
 import type { OrganizationSummary } from '@/types/organization'
 

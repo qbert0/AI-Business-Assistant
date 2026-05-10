@@ -205,6 +205,8 @@
 </template>
 
 <script setup lang="ts">
+import { useOrganization } from '@/composables/organizations/useOrganization'
+import { useAppLocale } from '@/composables/system/useAppLocale'
 import EmployeeModal from '@/components/form/organization/EmployeeModal.vue'
 import {
   DEFAULT_ORGANIZATION_ROLES,

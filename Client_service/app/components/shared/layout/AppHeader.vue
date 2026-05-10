@@ -127,7 +127,7 @@ import type { AppLocale } from '@/locales'
 import type { OrganizationSummary } from '@/types/organization'
 import { createInitials, getAvatarToneClass } from '@/utils/avatar'
 
-const { text, locale, supportedLocales, setLocale, hydrateLocale } = useAppLocale()
+const { text, locale, supportedLocales, setLocale } = useAppLocale()
 
 const route = useRoute()
 const router = useRouter()
@@ -204,11 +204,6 @@ const handleLogout = async () => {
 const handleLocaleChange = () => {
   setLocale(selectedLocale.value)
 }
-
-onMounted(() => {
-  hydrateLocale()
-  selectedLocale.value = locale.value
-})
 
 watch(locale, (value: AppLocale) => {
   selectedLocale.value = value

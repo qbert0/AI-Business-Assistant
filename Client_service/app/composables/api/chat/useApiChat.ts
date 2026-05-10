@@ -1,5 +1,7 @@
 import type { ChatMessage, ChatSession, PopularQuestion, SuggestionQuestion } from '@/types/organization'
 
+import { useApiFetch } from '@/composables/api/core/useApiFetch'
+
 export const useApiChat = () => {
   const apiFetch = useApiFetch()
 

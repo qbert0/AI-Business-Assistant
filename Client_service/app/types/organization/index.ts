@@ -49,7 +49,19 @@ export interface KnowledgeDocument {
   embeddingModel: string
   vectorIndex: string
   sourceStorage: string
-  status: 'uploaded' | 'chunked' | 'embedded' | 'indexed'
+  status: 'uploaded' | 'processing' | 'chunked' | 'embedded' | 'indexing' | 'indexed' | 'failed' | 'cancelled'
+  analysis?: {
+    state?: string
+    locked?: boolean
+    cancel_requested?: boolean
+    stage?: string
+    message?: string
+    error?: string
+    progress?: {
+      parse?: number
+      graph?: number
+    }
+  }
 }
 
 export interface OrganizationDocumentTreeNode {

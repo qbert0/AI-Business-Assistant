@@ -83,6 +83,7 @@
 </template>
 
 <script setup lang="ts">
+import { useAppLocale } from '@/composables/system/useAppLocale'
 import { getDefaultPermissionsByRole, type OrganizationPermission, type OrganizationRoleDefinition } from '@/constants/rbac'
 
 interface SearchUser {

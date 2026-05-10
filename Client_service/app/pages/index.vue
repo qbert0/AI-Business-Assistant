@@ -51,6 +51,7 @@
 
 <script setup lang="ts">
 import { APP_ROUTES } from '@/constants/navigation'
+import { useAppLocale } from '@/composables/system/useAppLocale'
 
 const { text } = useAppLocale()
 </script>

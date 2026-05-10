@@ -99,6 +99,17 @@ const prompt = ref('')
 const feedbackComment = ref('')
 const selectedSessionId = ref<string | null>(null)
 
+const primeWorkspace = async () => {
+  try {
+    await loadOrganizations()
+    await loadContext(slug.value)
+    selectedSessionId.value = getSessions(slug.value)[0]?.id ?? null
+    await loadMessages(slug.value, selectedSessionId.value)
+  } catch {
+    selectedSessionId.value = null
+  }
+}
+
 const handleAsk = async () => {
   const currentPrompt = prompt.value.trim()
   if (!currentPrompt || isStreaming.value) {
@@ -132,11 +143,8 @@ const handleFeedback = async (rating: 'positive' | 'negative') => {
   feedbackComment.value = ''
 }
 
-onMounted(async () => {
-  await loadOrganizations()
-  await loadContext(slug.value)
-  selectedSessionId.value = sessions.value[0]?.id ?? null
-  await loadMessages(slug.value, selectedSessionId.value)
+onMounted(() => {
+  primeWorkspace()
 })
 
 /*

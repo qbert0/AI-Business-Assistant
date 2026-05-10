@@ -79,6 +79,10 @@
 </template>
 
 <script setup lang="ts">
+import { useChatbot } from '@/composables/chat/useChatbot'
+import { useOrganization } from '@/composables/organizations/useOrganization'
+import { useAppLocale } from '@/composables/system/useAppLocale'
+import { useUiState } from '@/composables/system/useUiState'
 import { getAppNavigation, getContextChatRoute } from '@/constants/navigation'
 import type { ChatSession, OrganizationSummary } from '@/types/organization'
 import { includesSearchTerm } from '@/utils/search'

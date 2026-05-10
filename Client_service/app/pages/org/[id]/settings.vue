@@ -92,7 +92,6 @@
 
 <script setup lang="ts">
 import type { OrganizationSettingsData } from '@/types/organization'
-
 definePageMeta({
   layout: 'org',
   orgFullBleed: true
