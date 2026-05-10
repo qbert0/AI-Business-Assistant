@@ -33,6 +33,16 @@ class InferenceRepository:
     MAX_STORED_TEXT_LENGTH = 4000
     MAX_STORED_ITEMS = 50
 
+    @staticmethod
+    def _as_bool(value, default: bool = False) -> bool:
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+        return bool(value)
+
     def __init__(self, db: Session, settings: Settings) -> None:
         self.db = db
         self.settings = settings
@@ -107,10 +117,12 @@ class InferenceRepository:
     ) -> LLMResult:
         model_parameters = parse_json_dict(model.parameters_json)
         timeout_seconds = int(model_parameters.get("timeout") or self.settings.default_provider_timeout_seconds)
+        stream_response = self._as_bool(model_parameters.get("stream"), default=True)
         client = build_llm_client(
             model,
             decrypt_secret(model.api_key_encrypted, self.settings),
             timeout_seconds,
+            stream_response,
         )
         messages = [message.dict() for message in context.messages]
         return client.chat(messages=messages, temperature=temperature, max_tokens=max_tokens, metadata=metadata)
@@ -230,7 +242,7 @@ class InferenceRepository:
         resolved_max_tokens = (
             payload.max_tokens
             if payload.max_tokens is not None
-            else int(model_parameters.get("max_tokens") or 1200)
+            else int(model_parameters.get("max_tokens") or 4096)
         )
         resolved_system_prompt = payload.system_prompt
 
@@ -259,6 +271,7 @@ class InferenceRepository:
         )
         self.db.add(request_record)
         self.db.flush()
+        self.db.commit()
 
         started_at = datetime.now(timezone.utc)
         try:

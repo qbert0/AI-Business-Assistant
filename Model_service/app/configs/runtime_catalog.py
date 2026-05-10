@@ -73,6 +73,7 @@ def _build_llm_entry(key: str, raw: dict[str, Any], default_name: str | None) ->
             "temperature": raw.get("temperature"),
             "max_tokens": raw.get("max_token"),
             "timeout": raw.get("timeout"),
+            "stream": raw.get("stream", True),
             "reasoning_effort": raw.get("reasoning_effort"),
             "config_key": key,
             "config_managed": True,
