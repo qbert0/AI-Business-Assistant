@@ -40,6 +40,7 @@ class AgentOrchestratorService:
             "session_id": state.session_id,
             "user_id": state.user_id,
             "question": state.question,
+            "assistant_mode": state.assistant_mode,
         }
 
     def _build_completion_metadata(self, state: AgentWorkflowState) -> dict:
@@ -124,6 +125,8 @@ class AgentOrchestratorService:
         question: str,
         history: list[dict],
         feedback_contexts: list[dict],
+        assistant_mode: str,
+        initial_contexts: list[dict],
     ) -> AgentWorkflowState:
         return AgentWorkflowState(
             organization_id=org_id,
@@ -132,6 +135,8 @@ class AgentOrchestratorService:
             question=question,
             history=history,
             feedback_contexts=feedback_contexts,
+            assistant_mode=assistant_mode,
+            contexts=list(initial_contexts),
         )
 
     def _fallback_answer(self, state: AgentWorkflowState) -> tuple[str, list[CitationEntity]]:
@@ -161,8 +166,9 @@ class AgentOrchestratorService:
         if state.organization_id:
             return "Chưa tìm thấy tài liệu phù hợp trong Elasticsearch cho câu hỏi này.", []
         return (
-            "Workspace cá nhân hiện chưa gắn kho tài liệu nội bộ. "
-            "Bạn có thể tạo tổ chức hoặc chọn workspace tổ chức để hỏi đáp theo tài liệu."
+            "Workspace cá nhân hiện hoạt động như trợ lý hướng dẫn sử dụng hệ thống. "
+            "Mình có thể giúp bạn chọn workspace phù hợp, giải thích quyền truy cập, hoặc chỉ đường tới khu vực cần thao tác. "
+            "Nếu bạn cần hỏi theo tài liệu nội bộ, hãy chuyển sang workspace tổ chức tương ứng."
         ), []
 
     def _apply_fallback(self, state: AgentWorkflowState) -> AgentWorkflowState:
@@ -195,6 +201,8 @@ class AgentOrchestratorService:
         question: str,
         history: list[dict],
         feedback_contexts: list[dict],
+        assistant_mode: str = "organization_rag",
+        initial_contexts: list[dict] | None = None,
     ) -> AgentWorkflowState:
         self._step_order = 0
         state = self._build_state(
@@ -204,6 +212,8 @@ class AgentOrchestratorService:
             question=question,
             history=history,
             feedback_contexts=feedback_contexts,
+            assistant_mode=assistant_mode,
+            initial_contexts=initial_contexts or [],
         )
         run = self._create_run(state)
         try:
@@ -240,6 +250,8 @@ class AgentOrchestratorService:
         question: str,
         history: list[dict],
         feedback_contexts: list[dict],
+        assistant_mode: str = "organization_rag",
+        initial_contexts: list[dict] | None = None,
     ) -> Generator[AgentWorkflowEvent, None, AgentWorkflowState]:
         self._step_order = 0
         state = self._build_state(
@@ -249,6 +261,8 @@ class AgentOrchestratorService:
             question=question,
             history=history,
             feedback_contexts=feedback_contexts,
+            assistant_mode=assistant_mode,
+            initial_contexts=initial_contexts or [],
         )
         run = self._create_run(state)
         try:

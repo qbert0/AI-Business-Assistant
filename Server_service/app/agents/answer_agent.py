@@ -31,13 +31,25 @@ class AnswerAgent(BaseAgent):
 
     def _run_inference(self, state: AgentWorkflowState, contexts: list[dict]) -> str:
         feedback_guidance = format_feedback_guidance(state.feedback_contexts)
-        answering_mode_prompt = (
-            "The user is asking for a report-style response. "
-            "Draft a fuller markdown-ready report body with clear sections, meaningful synthesis, and all important grounded figures that support the requested report. "
-            "Do not be terse. Prefer completeness over brevity, while staying grounded in the trusted context. "
-            if state.wants_report_output
-            else "Answer directly and keep the response concise. "
-        )
+        if state.assistant_mode == "personal_system_guide":
+            answering_mode_prompt = (
+                "This is personal workspace mode. "
+                "Act as a product guide that helps the user understand how to use the system, which workspace to open, and what their current access allows. "
+                "Use the trusted context for product-specific and access-specific claims. "
+                "You may also use the visible chat history when the user asks to summarize or continue an earlier personal conversation. "
+                "Do not pretend that personal workspace searched Elasticsearch or internal company documents. "
+                "If the user asks about internal policies, procedures, reports, or organization-specific facts, explain that they should switch to the relevant organization workspace for document-grounded answers. "
+                "Prefer short, actionable guidance with concrete next steps and page labels when helpful. "
+                "Do not generate report artifacts, citations, or PDF-style output in personal workspace mode. "
+            )
+        elif state.wants_report_output:
+            answering_mode_prompt = (
+                "The user is asking for a report-style response. "
+                "Draft a fuller markdown-ready report body with clear sections, meaningful synthesis, and all important grounded figures that support the requested report. "
+                "Do not be terse. Prefer completeness over brevity, while staying grounded in the trusted context. "
+            )
+        else:
+            answering_mode_prompt = "Answer directly and keep the response concise. "
         inference = create_inference(
             {
                 "conversation_id": state.session_id,

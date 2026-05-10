@@ -328,16 +328,15 @@ export const EN_MESSAGES: typeof VI_MESSAGES = {
   workspace: {
     ...VI_MESSAGES.workspace,
     eyebrow: 'Main chat',
-    title: 'Organization advisory chat',
-    description: 'Switch organization in the sidebar to show only that organization’s chat history and knowledge base.',
+    title: 'System guidance assistant',
+    description: 'The personal chat helps users understand the product, their access, and which workspace they should open for each task.',
     create: 'Create organization',
     manageOrganizations: 'Manage organizations',
     switchOrganization: 'Switch organization',
     chatTitlePrefix: 'Chat with',
     noChatSelectedTitle: 'Start with a question',
-    noChatSelectedDescription: 'Ask about compensation, benefits, internal processes, or indexed documents.',
-    inputPlaceholder: 'Type a question for the selected organization...',
+    noChatSelectedDescription: 'Ask which workspace to use, what permission is needed, or where to go to upload documents and chat over internal knowledge.',
+    inputPlaceholder: 'Ask how to use the system...',
     send: 'Send'
   }
 } as const
-
