@@ -20,6 +20,9 @@ model_service:
   reranker_model_id: null
   inference_use_case: graphiti_extraction
   embedding_use_case: embeddings
+  timeout_seconds: 180
+  max_retries: 1
+  retry_backoff_seconds: 2
 
 redis:
   host: redis

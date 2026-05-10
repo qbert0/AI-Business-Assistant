@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     database_url: str = "mysql+pymysql://model_service:model_service123@localhost:3307/model_service"
     model_service_secret_key: str = "change-this-model-service-secret"
     model_service_cors_origins: str = "*"
-    default_inference_timeout_seconds: int = 60
-    default_provider_timeout_seconds: int = 45
+    default_inference_timeout_seconds: int = 180
+    default_provider_timeout_seconds: int = 180
 
     if SettingsConfigDict is not None:
         model_config = SettingsConfigDict(case_sensitive=False)

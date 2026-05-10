@@ -105,10 +105,12 @@ class InferenceRepository:
         max_tokens: int,
         metadata: dict,
     ) -> LLMResult:
+        model_parameters = parse_json_dict(model.parameters_json)
+        timeout_seconds = int(model_parameters.get("timeout") or self.settings.default_provider_timeout_seconds)
         client = build_llm_client(
             model,
             decrypt_secret(model.api_key_encrypted, self.settings),
-            self.settings.default_provider_timeout_seconds,
+            timeout_seconds,
         )
         messages = [message.dict() for message in context.messages]
         return client.chat(messages=messages, temperature=temperature, max_tokens=max_tokens, metadata=metadata)
